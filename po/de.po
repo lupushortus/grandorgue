@@ -330,7 +330,7 @@ msgid "&Panel"
 msgstr "Anzeige"
 
 msgid "&Panic\tEscape"
-msgstr "Panik\tAbbruch"
+msgstr "&Panik\tP"
 
 msgid "&Parameter-No:"
 msgstr "&Parameter-Nr:"
@@ -2378,7 +2378,7 @@ msgid "Packages"
 msgstr "Pakete"
 
 msgid "Panic"
-msgstr "Panik"
+msgstr "Panik\tP"
 
 msgid "Parent default"
 msgstr "von übergeordnetem Element"
