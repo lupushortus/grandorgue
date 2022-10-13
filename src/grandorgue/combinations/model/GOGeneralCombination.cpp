@@ -5,20 +5,21 @@
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
 
-#include "GOFrameGeneral.h"
+#include "GOGeneralCombination.h"
 
 #include <wx/intl.h>
 #include <wx/log.h>
 
-#include "GODefinitionFile.h"
-#include "GODivisional.h"
-#include "GOGeneral.h"
-#include "GOManual.h"
-#include "GOSetter.h"
+#include "combinations/GOSetter.h"
+#include "combinations/control/GODivisionalButtonControl.h"
+#include "combinations/control/GOGeneralButtonControl.h"
 #include "config/GOConfigReader.h"
 #include "config/GOConfigWriter.h"
 
-GOFrameGeneral::GOFrameGeneral(
+#include "GODefinitionFile.h"
+#include "GOManual.h"
+
+GOGeneralCombination::GOGeneralCombination(
   GOCombinationDefinition &general_template,
   GODefinitionFile *organfile,
   bool is_setter)
@@ -26,7 +27,7 @@ GOFrameGeneral::GOFrameGeneral(
     m_organfile(organfile),
     m_IsSetter(is_setter) {}
 
-void GOFrameGeneral::Load(GOConfigReader &cfg, wxString group) {
+void GOGeneralCombination::Load(GOConfigReader &cfg, wxString group) {
   m_organfile->RegisterSaveableObject(this);
   m_group = group;
 
@@ -199,7 +200,7 @@ void GOFrameGeneral::Load(GOConfigReader &cfg, wxString group) {
   }
 }
 
-void GOFrameGeneral::LoadCombination(GOConfigReader &cfg) {
+void GOGeneralCombination::LoadCombination(GOConfigReader &cfg) {
   GOSettingType type = CMBSetting;
   if (!m_IsSetter)
     if (
@@ -380,26 +381,31 @@ void GOFrameGeneral::LoadCombination(GOConfigReader &cfg) {
   }
 }
 
-void GOFrameGeneral::Push(ExtraElementsSet const *extraSet) {
+void GOGeneralCombination::Push(
+  ExtraElementsSet const *extraSet, bool isFromCrescendo) {
   bool used = GOCombination::PushLocal(extraSet);
 
-  for (unsigned k = 0; k < m_organfile->GetGeneralCount(); k++) {
-    GOGeneral *general = m_organfile->GetGeneral(k);
-    general->Display(&general->GetGeneral() == this && used);
-  }
+  if (!isFromCrescendo || !extraSet) { // Crescendo in add mode: not to switch
+                                       // off combination
+                                       // buttons
+    for (unsigned k = 0; k < m_organfile->GetGeneralCount(); k++) {
+      GOGeneralButtonControl *general = m_organfile->GetGeneral(k);
+      general->Display(&general->GetGeneral() == this);
+    }
 
-  for (unsigned j = m_organfile->GetFirstManualIndex();
-       j <= m_organfile->GetManualAndPedalCount();
-       j++) {
-    for (unsigned k = 0; k < m_organfile->GetManual(j)->GetDivisionalCount();
-         k++)
-      m_organfile->GetManual(j)->GetDivisional(k)->Display(false);
+    for (unsigned j = m_organfile->GetFirstManualIndex();
+         j <= m_organfile->GetManualAndPedalCount();
+         j++) {
+      for (unsigned k = 0; k < m_organfile->GetManual(j)->GetDivisionalCount();
+           k++)
+        m_organfile->GetManual(j)->GetDivisional(k)->Display(false);
+    }
   }
 
   m_organfile->GetSetter()->ResetDisplay();
 }
 
-void GOFrameGeneral::Save(GOConfigWriter &cfg) {
+void GOGeneralCombination::Save(GOConfigWriter &cfg) {
   UpdateState();
   const std::vector<GOCombinationDefinition::CombinationSlot> &elements
     = m_Template.GetCombinationElements();

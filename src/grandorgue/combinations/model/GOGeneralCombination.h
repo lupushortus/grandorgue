@@ -5,8 +5,8 @@
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
 
-#ifndef GOFRAMEGENERAL_H
-#define GOFRAMEGENERAL_H
+#ifndef GOGENERALCOMBINATION_H
+#define GOGENERALCOMBINATION_H
 
 #include <wx/string.h>
 
@@ -17,7 +17,7 @@ class GOConfigReader;
 class GOConfigWriter;
 class GODefinitionFile;
 
-class GOFrameGeneral : public GOCombination, private GOSaveableObject {
+class GOGeneralCombination : public GOCombination, private GOSaveableObject {
 private:
   GODefinitionFile *m_organfile;
   bool m_IsSetter;
@@ -26,7 +26,7 @@ private:
   void LoadCombination(GOConfigReader &cfg);
 
 public:
-  GOFrameGeneral(
+  GOGeneralCombination(
     GOCombinationDefinition &general_template,
     GODefinitionFile *organfile,
     bool is_setter);
@@ -36,8 +36,11 @@ public:
    * Activate this combination
    * If extraSet is passed then not to disable stops that are present in
    * extraSet
+   * If isFromCrescendo and extraSet is passed then does not depress other
+   * buttons
    */
-  void Push(ExtraElementsSet const *extraSet = nullptr);
+  void Push(
+    ExtraElementsSet const *extraSet = nullptr, bool isFromCrescendo = false);
 };
 
-#endif /* GOFRAMEGENERAL_H */
+#endif /* GOGENERALCOMBINATION_H */

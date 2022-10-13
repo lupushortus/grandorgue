@@ -7,11 +7,12 @@
 
 #include "GOCombination.h"
 
+#include "combinations/GOSetter.h"
+
 #include "GOCombinationDefinition.h"
 #include "GOCombinationElement.h"
 #include "GODefinitionFile.h"
 #include "GODrawStop.h"
-#include "GOSetter.h"
 
 GOCombination::GOCombination(
   GOCombinationDefinition &combination_template, GODefinitionFile *organfile)
@@ -48,6 +49,18 @@ void GOCombination::GetExtraSetState(
   for (unsigned i = 0; i < elements.size(); i++) {
     if (m_State[i] == 0 && elements[i].control->GetCombinationState())
       extraSet.insert(i);
+  }
+}
+
+void GOCombination::GetEnabledElements(
+  GOCombination::ExtraElementsSet &enabledElements) {
+  const std::vector<GOCombinationDefinition::CombinationSlot> &elements
+    = m_Template.GetCombinationElements();
+
+  enabledElements.clear();
+  for (unsigned i = 0; i < elements.size(); i++) {
+    if (m_State[i] > 0)
+      enabledElements.insert(i);
   }
 }
 
