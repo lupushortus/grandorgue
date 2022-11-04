@@ -1,3 +1,9 @@
+# 3.9.0 (2022-11-03)
+- Fixed playing multitrack midi files with changes of tempo https://github.com/GrandOrgue/grandorgue/discussions/1225
+- Fixed displaying audio ports on OSx https://github.com/GrandOrgue/grandorgue/issues/1216
+- Added divisional combination banks https://github.com/GrandOrgue/grandorgue/issues/708
+- Renamed audio ports: Pa to PortAudio and Rt to RtAudio https://github.com/GrandOrgue/grandorgue/issues/1216
+- Fixed size of the Organ Selection Dialog https://github.com/GrandOrgue/grandorgue/issues/1215
 - Fixed generals buttons behaviour with the crescendo in add mode https://github.com/GrandOrgue/grandorgue/issues/1209
 - Fixed an empty stop set to a general combination https://github.com/GrandOrgue/grandorgue/issues/1212
 # 3.8.0 (2022-09-15)
