@@ -1,3 +1,23 @@
+# 3.9.4 (2022-12-12)
+- Fixed starting 3.9.3 on Windows https://github.com/GrandOrgue/grandorgue/issues/1311
+# 3.9.3 (2022-12-09)
+- Fixed an old version number in the gnome application metadata https://github.com/GrandOrgue/grandorgue/issues/1304
+- Fixed switching off generals when using crescendo in not override mode https://github.com/GrandOrgue/grandorgue/issues/1299
+- Fixed error messages of GrandOrguePerf https://github.com/GrandOrgue/grandorgue/issues/1280
+- Fixed exit from GrandOrgue with an unhandled exception occurred on loading an organ
+- Fixed displaying output volume indicators on OSx https://github.com/GrandOrgue/grandorgue/issues/1255
+- Fixed sending midi-off events from generals and another pushbuttons https://github.com/GrandOrgue/grandorgue/issues/1291
+- Fixed crashing on exit in some cases
+# 3.9.2 (2022-11-29)
+- Fixed sending incorrect midi values from an enclosure https://github.com/GrandOrgue/grandorgue/issues/1267
+- Fixed not sending midi events from pushbuttons, including GC https://github.com/GrandOrgue/grandorgue/issues/1220
+- Fixed sending a midi event from an enclosure when it's value is not changed https://github.com/GrandOrgue/grandorgue/issues/1206
+- Fixed processing enclosures with high value is less than low value https://github.com/GrandOrgue/grandorgue/issues/1266
+# 3.9.1 (2022-11-14)
+- Fixed crash on loading an organ without a pedal https://github.com/GrandOrgue/grandorgue/issues/1249
+- Fixed SYSEX Hauptwerk max. length in MIDI event editor https://github.com/GrandOrgue/grandorgue/issues/1207
+- Fixed enclosure value calculation https://github.com/GrandOrgue/grandorgue/issues/1203
+- Fixed controlling stops with a touchscreen on Raspberry Pi https://github.com/GrandOrgue/grandorgue/issues/1208
 # 3.9.0 (2022-11-03)
 - Fixed playing multitrack midi files with changes of tempo https://github.com/GrandOrgue/grandorgue/discussions/1225
 - Fixed displaying audio ports on OSx https://github.com/GrandOrgue/grandorgue/issues/1216

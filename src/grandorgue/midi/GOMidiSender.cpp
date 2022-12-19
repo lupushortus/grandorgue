@@ -9,14 +9,17 @@
 
 #include <wx/intl.h>
 
-#include "GODefinitionFile.h"
+#include "GOOrganController.h"
 #include "config/GOConfigReader.h"
 #include "config/GOConfigWriter.h"
 #include "midi/GOMidiEvent.h"
 #include "midi/GOMidiMap.h"
 
-GOMidiSender::GOMidiSender(GODefinitionFile *organfile, GOMidiSenderType type)
-  : GOMidiSenderData(type), m_organfile(organfile), m_ElementID(-1) {}
+GOMidiSender::GOMidiSender(
+  GOOrganController *organController, GOMidiSenderType type)
+  : GOMidiSenderEventPatternList(type),
+    m_OrganController(organController),
+    m_ElementID(-1) {}
 
 GOMidiSender::~GOMidiSender() {}
 
@@ -62,12 +65,13 @@ void GOMidiSender::Load(GOConfigReader &cfg, wxString group, GOMidiMap &map) {
       wxString::Format(wxT("MIDISendDevice%03d"), i + 1),
       false));
 
-    const GOMidiSendMessageType eventType = (GOMidiSendMessageType)cfg.ReadEnum(
-      CMBSetting,
-      group,
-      wxString::Format(wxT("MIDISendEventType%03d"), i + 1),
-      m_MidiTypes,
-      sizeof(m_MidiTypes) / sizeof(m_MidiTypes[0]));
+    const GOMidiSenderMessageType eventType
+      = (GOMidiSenderMessageType)cfg.ReadEnum(
+        CMBSetting,
+        group,
+        wxString::Format(wxT("MIDISendEventType%03d"), i + 1),
+        m_MidiTypes,
+        sizeof(m_MidiTypes) / sizeof(m_MidiTypes[0]));
 
     m_events[i].type = eventType;
     if (HasChannel(eventType))
@@ -175,7 +179,7 @@ void GOMidiSender::Save(GOConfigWriter &cfg, wxString group, GOMidiMap &map) {
   }
 }
 
-bool GOMidiSender::HasChannel(GOMidiSendMessageType type) {
+bool GOMidiSender::HasChannel(GOMidiSenderMessageType type) {
   if (
     type == MIDI_S_NOTE || type == MIDI_S_NOTE_NO_VELOCITY
     || type == MIDI_S_CTRL || type == MIDI_S_RPN || type == MIDI_S_NRPN
@@ -191,7 +195,7 @@ bool GOMidiSender::HasChannel(GOMidiSendMessageType type) {
   return false;
 }
 
-bool GOMidiSender::HasKey(GOMidiSendMessageType type) {
+bool GOMidiSender::HasKey(GOMidiSenderMessageType type) {
   if (m_type == MIDI_SEND_MANUAL)
     return false;
 
@@ -211,7 +215,7 @@ bool GOMidiSender::HasKey(GOMidiSendMessageType type) {
   return false;
 }
 
-bool GOMidiSender::HasLowValue(GOMidiSendMessageType type) {
+bool GOMidiSender::HasLowValue(GOMidiSenderMessageType type) {
   if (
     type == MIDI_S_NOTE_OFF || type == MIDI_S_CTRL_OFF || type == MIDI_S_RPN_OFF
     || type == MIDI_S_NRPN_OFF || type == MIDI_S_PGM_RANGE
@@ -224,7 +228,7 @@ bool GOMidiSender::HasLowValue(GOMidiSendMessageType type) {
   return false;
 }
 
-bool GOMidiSender::HasHighValue(GOMidiSendMessageType type) {
+bool GOMidiSender::HasHighValue(GOMidiSenderMessageType type) {
   if (
     type == MIDI_S_NOTE_ON || type == MIDI_S_CTRL_ON || type == MIDI_S_RPN_ON
     || type == MIDI_S_NRPN_ON || type == MIDI_S_PGM_RANGE
@@ -235,7 +239,7 @@ bool GOMidiSender::HasHighValue(GOMidiSendMessageType type) {
   return false;
 }
 
-bool GOMidiSender::HasStart(GOMidiSendMessageType type) {
+bool GOMidiSender::HasStart(GOMidiSenderMessageType type) {
   if (
     type == MIDI_S_HW_NAME_STRING || type == MIDI_S_HW_NAME_LCD
     || type == MIDI_S_HW_STRING || type == MIDI_S_HW_LCD)
@@ -243,7 +247,7 @@ bool GOMidiSender::HasStart(GOMidiSendMessageType type) {
   return false;
 }
 
-bool GOMidiSender::HasLength(GOMidiSendMessageType type) {
+bool GOMidiSender::HasLength(GOMidiSenderMessageType type) {
   if (
     type == MIDI_S_HW_NAME_STRING || type == MIDI_S_HW_NAME_LCD
     || type == MIDI_S_HW_STRING || type == MIDI_S_HW_LCD)
@@ -251,7 +255,7 @@ bool GOMidiSender::HasLength(GOMidiSendMessageType type) {
   return false;
 }
 
-unsigned GOMidiSender::KeyLimit(GOMidiSendMessageType type) {
+unsigned GOMidiSender::KeyLimit(GOMidiSenderMessageType type) {
   if (type == MIDI_S_PGM_ON || type == MIDI_S_PGM_OFF)
     return 0x200000;
 
@@ -265,7 +269,7 @@ unsigned GOMidiSender::KeyLimit(GOMidiSendMessageType type) {
   return 0x7f;
 }
 
-unsigned GOMidiSender::LowValueLimit(GOMidiSendMessageType type) {
+unsigned GOMidiSender::LowValueLimit(GOMidiSenderMessageType type) {
   if (type == MIDI_S_PGM_RANGE)
     return 0x200000;
   if (type == MIDI_S_RPN_RANGE || type == MIDI_S_NRPN_RANGE)
@@ -275,7 +279,7 @@ unsigned GOMidiSender::LowValueLimit(GOMidiSendMessageType type) {
   return 0x7f;
 }
 
-unsigned GOMidiSender::HighValueLimit(GOMidiSendMessageType type) {
+unsigned GOMidiSender::HighValueLimit(GOMidiSenderMessageType type) {
   if (type == MIDI_S_PGM_RANGE)
     return 0x200000;
   if (type == MIDI_S_RPN_RANGE || type == MIDI_S_NRPN_RANGE)
@@ -283,7 +287,7 @@ unsigned GOMidiSender::HighValueLimit(GOMidiSendMessageType type) {
   return 0x7f;
 }
 
-unsigned GOMidiSender::StartLimit(GOMidiSendMessageType type) {
+unsigned GOMidiSender::StartLimit(GOMidiSenderMessageType type) {
   if (type == MIDI_S_HW_NAME_STRING || type == MIDI_S_HW_STRING)
     return 15;
   if (type == MIDI_S_HW_NAME_LCD || type == MIDI_S_HW_LCD)
@@ -291,11 +295,11 @@ unsigned GOMidiSender::StartLimit(GOMidiSendMessageType type) {
   return 0x00;
 }
 
-unsigned GOMidiSender::LengthLimit(GOMidiSendMessageType type) {
+unsigned GOMidiSender::LengthLimit(GOMidiSenderMessageType type) {
   if (type == MIDI_S_HW_NAME_STRING || type == MIDI_S_HW_STRING)
-    return 15;
+    return 16;
   if (type == MIDI_S_HW_NAME_LCD || type == MIDI_S_HW_LCD)
-    return 31;
+    return 32;
   return 0x00;
 }
 
@@ -305,7 +309,7 @@ void GOMidiSender::SetDisplay(bool state) {
     e.SetMidiType(MIDI_NRPN);
     e.SetDevice(m_ElementID);
     e.SetValue(state ? 0x7F : 0x00);
-    m_organfile->SendMidiRecorderMessage(e);
+    m_OrganController->SendMidiRecorderMessage(e);
   }
 
   for (unsigned i = 0; i < m_events.size(); i++) {
@@ -316,7 +320,7 @@ void GOMidiSender::SetDisplay(bool state) {
       e.SetChannel(m_events[i].channel);
       e.SetKey(m_events[i].key);
       e.SetValue(state ? m_events[i].high_value : m_events[i].low_value);
-      m_organfile->SendMidiMessage(e);
+      m_OrganController->SendMidiMessage(e);
     }
     if (m_events[i].type == MIDI_S_CTRL) {
       GOMidiEvent e;
@@ -325,7 +329,7 @@ void GOMidiSender::SetDisplay(bool state) {
       e.SetChannel(m_events[i].channel);
       e.SetKey(m_events[i].key);
       e.SetValue(state ? m_events[i].high_value : m_events[i].low_value);
-      m_organfile->SendMidiMessage(e);
+      m_OrganController->SendMidiMessage(e);
     }
     if (m_events[i].type == MIDI_S_RPN) {
       GOMidiEvent e;
@@ -334,7 +338,7 @@ void GOMidiSender::SetDisplay(bool state) {
       e.SetChannel(m_events[i].channel);
       e.SetKey(m_events[i].key);
       e.SetValue(state ? m_events[i].high_value : m_events[i].low_value);
-      m_organfile->SendMidiMessage(e);
+      m_OrganController->SendMidiMessage(e);
     }
     if (m_events[i].type == MIDI_S_NRPN) {
       GOMidiEvent e;
@@ -343,7 +347,7 @@ void GOMidiSender::SetDisplay(bool state) {
       e.SetChannel(m_events[i].channel);
       e.SetKey(m_events[i].key);
       e.SetValue(state ? m_events[i].high_value : m_events[i].low_value);
-      m_organfile->SendMidiMessage(e);
+      m_OrganController->SendMidiMessage(e);
     }
     if (m_events[i].type == MIDI_S_PGM_RANGE) {
       GOMidiEvent e;
@@ -351,7 +355,7 @@ void GOMidiSender::SetDisplay(bool state) {
       e.SetMidiType(MIDI_PGM_CHANGE);
       e.SetChannel(m_events[i].channel);
       e.SetKey(state ? m_events[i].high_value : m_events[i].low_value);
-      m_organfile->SendMidiMessage(e);
+      m_OrganController->SendMidiMessage(e);
     }
     if (m_events[i].type == MIDI_S_RPN_RANGE) {
       GOMidiEvent e;
@@ -360,7 +364,7 @@ void GOMidiSender::SetDisplay(bool state) {
       e.SetChannel(m_events[i].channel);
       e.SetValue(m_events[i].key);
       e.SetKey(state ? m_events[i].high_value : m_events[i].low_value);
-      m_organfile->SendMidiMessage(e);
+      m_OrganController->SendMidiMessage(e);
     }
     if (m_events[i].type == MIDI_S_NRPN_RANGE) {
       GOMidiEvent e;
@@ -369,7 +373,7 @@ void GOMidiSender::SetDisplay(bool state) {
       e.SetChannel(m_events[i].channel);
       e.SetValue(m_events[i].key);
       e.SetKey(state ? m_events[i].high_value : m_events[i].low_value);
-      m_organfile->SendMidiMessage(e);
+      m_OrganController->SendMidiMessage(e);
     }
     if (m_events[i].type == MIDI_S_PGM_ON && state) {
       GOMidiEvent e;
@@ -377,7 +381,7 @@ void GOMidiSender::SetDisplay(bool state) {
       e.SetMidiType(MIDI_PGM_CHANGE);
       e.SetChannel(m_events[i].channel);
       e.SetKey(m_events[i].key);
-      m_organfile->SendMidiMessage(e);
+      m_OrganController->SendMidiMessage(e);
     }
     if (m_events[i].type == MIDI_S_PGM_OFF && !state) {
       GOMidiEvent e;
@@ -385,7 +389,7 @@ void GOMidiSender::SetDisplay(bool state) {
       e.SetMidiType(MIDI_PGM_CHANGE);
       e.SetChannel(m_events[i].channel);
       e.SetKey(m_events[i].key);
-      m_organfile->SendMidiMessage(e);
+      m_OrganController->SendMidiMessage(e);
     }
     if (m_events[i].type == MIDI_S_NOTE_ON && state) {
       GOMidiEvent e;
@@ -394,7 +398,7 @@ void GOMidiSender::SetDisplay(bool state) {
       e.SetChannel(m_events[i].channel);
       e.SetKey(m_events[i].key);
       e.SetValue(m_events[i].high_value);
-      m_organfile->SendMidiMessage(e);
+      m_OrganController->SendMidiMessage(e);
     }
     if (m_events[i].type == MIDI_S_NOTE_OFF && !state) {
       GOMidiEvent e;
@@ -403,7 +407,7 @@ void GOMidiSender::SetDisplay(bool state) {
       e.SetChannel(m_events[i].channel);
       e.SetKey(m_events[i].key);
       e.SetValue(m_events[i].low_value);
-      m_organfile->SendMidiMessage(e);
+      m_OrganController->SendMidiMessage(e);
     }
     if (m_events[i].type == MIDI_S_CTRL_ON && state) {
       GOMidiEvent e;
@@ -412,7 +416,7 @@ void GOMidiSender::SetDisplay(bool state) {
       e.SetChannel(m_events[i].channel);
       e.SetKey(m_events[i].key);
       e.SetValue(m_events[i].high_value);
-      m_organfile->SendMidiMessage(e);
+      m_OrganController->SendMidiMessage(e);
     }
     if (m_events[i].type == MIDI_S_CTRL_OFF && !state) {
       GOMidiEvent e;
@@ -421,7 +425,7 @@ void GOMidiSender::SetDisplay(bool state) {
       e.SetChannel(m_events[i].channel);
       e.SetKey(m_events[i].key);
       e.SetValue(m_events[i].low_value);
-      m_organfile->SendMidiMessage(e);
+      m_OrganController->SendMidiMessage(e);
     }
     if (m_events[i].type == MIDI_S_RPN_ON && state) {
       GOMidiEvent e;
@@ -430,7 +434,7 @@ void GOMidiSender::SetDisplay(bool state) {
       e.SetChannel(m_events[i].channel);
       e.SetKey(m_events[i].key);
       e.SetValue(m_events[i].high_value);
-      m_organfile->SendMidiMessage(e);
+      m_OrganController->SendMidiMessage(e);
     }
     if (m_events[i].type == MIDI_S_RPN_OFF && !state) {
       GOMidiEvent e;
@@ -439,7 +443,7 @@ void GOMidiSender::SetDisplay(bool state) {
       e.SetChannel(m_events[i].channel);
       e.SetKey(m_events[i].key);
       e.SetValue(m_events[i].low_value);
-      m_organfile->SendMidiMessage(e);
+      m_OrganController->SendMidiMessage(e);
     }
     if (m_events[i].type == MIDI_S_NRPN_ON && state) {
       GOMidiEvent e;
@@ -448,7 +452,7 @@ void GOMidiSender::SetDisplay(bool state) {
       e.SetChannel(m_events[i].channel);
       e.SetKey(m_events[i].key);
       e.SetValue(m_events[i].high_value);
-      m_organfile->SendMidiMessage(e);
+      m_OrganController->SendMidiMessage(e);
     }
     if (m_events[i].type == MIDI_S_NRPN_OFF && !state) {
       GOMidiEvent e;
@@ -457,7 +461,7 @@ void GOMidiSender::SetDisplay(bool state) {
       e.SetChannel(m_events[i].channel);
       e.SetKey(m_events[i].key);
       e.SetValue(m_events[i].low_value);
-      m_organfile->SendMidiMessage(e);
+      m_OrganController->SendMidiMessage(e);
     }
     if (m_events[i].type == MIDI_S_HW_LCD) {
       GOMidiEvent e;
@@ -467,7 +471,7 @@ void GOMidiSender::SetDisplay(bool state) {
       e.SetKey(m_events[i].key);
       e.SetValue(m_events[i].start);
       e.SetString(state ? _("ON") : _("OFF"), m_events[i].length);
-      m_organfile->SendMidiMessage(e);
+      m_OrganController->SendMidiMessage(e);
     }
     if (m_events[i].type == MIDI_S_HW_STRING) {
       GOMidiEvent e;
@@ -476,7 +480,7 @@ void GOMidiSender::SetDisplay(bool state) {
       e.SetKey(m_events[i].key);
       e.SetValue(m_events[i].start);
       e.SetString(state ? _("ON") : _("OFF"), m_events[i].length);
-      m_organfile->SendMidiMessage(e);
+      m_OrganController->SendMidiMessage(e);
     }
     if (m_events[i].type == MIDI_S_RODGERS_STOP_CHANGE) {
       GOMidiEvent e;
@@ -485,7 +489,7 @@ void GOMidiSender::SetDisplay(bool state) {
       e.SetChannel(m_events[i].key);
       e.SetKey(m_events[i].low_value);
       e.SetValue(state);
-      m_organfile->SendMidiMessage(e);
+      m_OrganController->SendMidiMessage(e);
     }
   }
 }
@@ -497,7 +501,7 @@ void GOMidiSender::ResetKey() {
     e.SetDevice(m_ElementID);
     e.SetKey(MIDI_CTRL_NOTES_OFF);
     e.SetValue(0);
-    m_organfile->SendMidiRecorderMessage(e);
+    m_OrganController->SendMidiRecorderMessage(e);
   }
 
   for (unsigned i = 0; i < m_events.size(); i++) {
@@ -510,7 +514,7 @@ void GOMidiSender::ResetKey() {
       e.SetChannel(m_events[i].channel);
       e.SetKey(MIDI_CTRL_NOTES_OFF);
       e.SetValue(0);
-      m_organfile->SendMidiMessage(e);
+      m_OrganController->SendMidiMessage(e);
     }
   }
 }
@@ -522,7 +526,7 @@ void GOMidiSender::SetKey(unsigned key, unsigned velocity) {
     e.SetDevice(m_ElementID);
     e.SetKey(key & 0x7F);
     e.SetValue(velocity & 0x7F);
-    m_organfile->SendMidiRecorderMessage(e);
+    m_OrganController->SendMidiRecorderMessage(e);
   }
 
   for (unsigned i = 0; i < m_events.size(); i++) {
@@ -532,10 +536,8 @@ void GOMidiSender::SetKey(unsigned key, unsigned velocity) {
       e.SetMidiType(MIDI_NOTE);
       e.SetChannel(m_events[i].channel);
       e.SetKey(key);
-      e.SetValue(
-        m_events[i].low_value
-        + (velocity * (m_events[i].high_value - m_events[i].low_value)) / 0x7f);
-      m_organfile->SendMidiMessage(e);
+      e.SetValue(m_events[i].ConvertIntValueToDst(velocity));
+      m_OrganController->SendMidiMessage(e);
     }
     if (m_events[i].type == MIDI_S_NOTE_NO_VELOCITY) {
       GOMidiEvent e;
@@ -544,7 +546,7 @@ void GOMidiSender::SetKey(unsigned key, unsigned velocity) {
       e.SetChannel(m_events[i].channel);
       e.SetKey(key);
       e.SetValue(velocity ? m_events[i].high_value : m_events[i].low_value);
-      m_organfile->SendMidiMessage(e);
+      m_OrganController->SendMidiMessage(e);
     }
   }
 }
@@ -555,7 +557,7 @@ void GOMidiSender::SetValue(unsigned value) {
     e.SetMidiType(MIDI_NRPN);
     e.SetDevice(m_ElementID);
     e.SetValue(value & 0x7F);
-    m_organfile->SendMidiRecorderMessage(e);
+    m_OrganController->SendMidiRecorderMessage(e);
   }
 
   for (unsigned i = 0; i < m_events.size(); i++) {
@@ -565,14 +567,8 @@ void GOMidiSender::SetValue(unsigned value) {
       e.SetMidiType(MIDI_CTRL_CHANGE);
       e.SetChannel(m_events[i].channel);
       e.SetKey(m_events[i].key);
-      unsigned val = m_events[i].low_value
-        + ((m_events[i].high_value - m_events[i].low_value) * value) / 0x7f;
-      if (val < 0)
-        val = 0;
-      if (val > 0x7f)
-        val = 0x7f;
-      e.SetValue(val);
-      m_organfile->SendMidiMessage(e);
+      e.SetValue(m_events[i].ConvertIntValueToDst(value));
+      m_OrganController->SendMidiMessage(e);
     }
     if (m_events[i].type == MIDI_S_RPN) {
       GOMidiEvent e;
@@ -580,14 +576,8 @@ void GOMidiSender::SetValue(unsigned value) {
       e.SetMidiType(MIDI_RPN);
       e.SetChannel(m_events[i].channel);
       e.SetKey(m_events[i].key);
-      unsigned val = m_events[i].low_value
-        + ((m_events[i].high_value - m_events[i].low_value) * value) / 0x7f;
-      if (val < 0)
-        val = 0;
-      if (val > 0x7f)
-        val = 0x7f;
-      e.SetValue(val);
-      m_organfile->SendMidiMessage(e);
+      e.SetValue(m_events[i].ConvertIntValueToDst(value));
+      m_OrganController->SendMidiMessage(e);
     }
     if (m_events[i].type == MIDI_S_NRPN) {
       GOMidiEvent e;
@@ -595,28 +585,16 @@ void GOMidiSender::SetValue(unsigned value) {
       e.SetMidiType(MIDI_NRPN);
       e.SetChannel(m_events[i].channel);
       e.SetKey(m_events[i].key);
-      unsigned val = m_events[i].low_value
-        + ((m_events[i].high_value - m_events[i].low_value) * value) / 0x7f;
-      if (val < 0)
-        val = 0;
-      if (val > 0x7f)
-        val = 0x7f;
-      e.SetValue(val);
-      m_organfile->SendMidiMessage(e);
+      e.SetValue(m_events[i].ConvertIntValueToDst(value));
+      m_OrganController->SendMidiMessage(e);
     }
     if (m_events[i].type == MIDI_S_PGM_RANGE) {
       GOMidiEvent e;
       e.SetDevice(m_events[i].deviceId);
       e.SetMidiType(MIDI_PGM_CHANGE);
       e.SetChannel(m_events[i].channel);
-      unsigned val = m_events[i].low_value
-        + ((m_events[i].high_value - m_events[i].low_value) * value) / 0x7f;
-      if (val < 0)
-        val = 0;
-      if (val > 0x7f)
-        val = 0x7f;
-      e.SetKey(val);
-      m_organfile->SendMidiMessage(e);
+      e.SetKey(m_events[i].ConvertIntValueToDst(value));
+      m_OrganController->SendMidiMessage(e);
     }
     if (m_events[i].type == MIDI_S_HW_LCD) {
       GOMidiEvent e;
@@ -627,7 +605,7 @@ void GOMidiSender::SetValue(unsigned value) {
       e.SetValue(m_events[i].start);
       e.SetString(
         wxString::Format(_("%d %%"), value * 100 / 127), m_events[i].length);
-      m_organfile->SendMidiMessage(e);
+      m_OrganController->SendMidiMessage(e);
     }
     if (m_events[i].type == MIDI_S_HW_STRING) {
       GOMidiEvent e;
@@ -637,7 +615,7 @@ void GOMidiSender::SetValue(unsigned value) {
       e.SetValue(m_events[i].start);
       e.SetString(
         wxString::Format(_("%d %%"), value * 100 / 127), m_events[i].length);
-      m_organfile->SendMidiMessage(e);
+      m_OrganController->SendMidiMessage(e);
     }
   }
 }
@@ -652,7 +630,7 @@ void GOMidiSender::SetLabel(const wxString &text) {
       e.SetKey(m_events[i].key);
       e.SetValue(m_events[i].start);
       e.SetString(text, m_events[i].length);
-      m_organfile->SendMidiMessage(e);
+      m_OrganController->SendMidiMessage(e);
     }
     if (m_events[i].type == MIDI_S_HW_STRING) {
       GOMidiEvent e;
@@ -661,7 +639,7 @@ void GOMidiSender::SetLabel(const wxString &text) {
       e.SetKey(m_events[i].key);
       e.SetValue(m_events[i].start);
       e.SetString(text, m_events[i].length);
-      m_organfile->SendMidiMessage(e);
+      m_OrganController->SendMidiMessage(e);
     }
   }
 }
@@ -676,7 +654,7 @@ void GOMidiSender::SetName(const wxString &text) {
       e.SetKey(m_events[i].key);
       e.SetValue(m_events[i].start);
       e.SetString(text, m_events[i].length);
-      m_organfile->SendMidiMessage(e);
+      m_OrganController->SendMidiMessage(e);
     }
     if (m_events[i].type == MIDI_S_HW_NAME_STRING) {
       GOMidiEvent e;
@@ -685,13 +663,13 @@ void GOMidiSender::SetName(const wxString &text) {
       e.SetKey(m_events[i].key);
       e.SetValue(m_events[i].start);
       e.SetString(text, m_events[i].length);
-      m_organfile->SendMidiMessage(e);
+      m_OrganController->SendMidiMessage(e);
     }
   }
 }
 
-void GOMidiSender::Assign(const GOMidiSenderData &data) {
-  *(GOMidiSenderData *)this = data;
-  if (m_organfile)
-    m_organfile->Modified();
+void GOMidiSender::Assign(const GOMidiSenderEventPatternList &data) {
+  *(GOMidiSenderEventPatternList *)this = data;
+  if (m_OrganController)
+    m_OrganController->SetOrganModified();
 }

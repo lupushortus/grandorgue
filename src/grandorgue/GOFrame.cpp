@@ -15,6 +15,7 @@
 #include <wx/image.h>
 #include <wx/menu.h>
 #include <wx/msgdlg.h>
+#include <wx/platinfo.h>
 #include <wx/sizer.h>
 #include <wx/spinctrl.h>
 #include <wx/splash.h>
@@ -42,11 +43,11 @@
 #include "GOApp.h"
 #include "GOAudioGauge.h"
 #include "GOCacheCleaner.h"
-#include "GODefinitionFile.h"
 #include "GODocument.h"
 #include "GOEvent.h"
 #include "GOLogicalRect.h"
 #include "GOOrgan.h"
+#include "GOOrganController.h"
 #include "GOPath.h"
 #include "GOProperties.h"
 #include "Images.h"
@@ -163,9 +164,6 @@ GOFrame::GOFrame(
 
   m_recent_menu = new wxMenu;
 
-  wxToolBar *tb = CreateToolBar(wxNO_BORDER | wxTB_HORIZONTAL | wxTB_FLAT);
-  tb->SetToolBitmapSize(wxSize(16, 16));
-
   wxMenu *preset_menu = new wxMenu;
   for (unsigned i = ID_PRESET_0; i <= ID_PRESET_LAST; i++)
     preset_menu->Append(
@@ -250,21 +248,31 @@ GOFrame::GOFrame(
   wxMenu *help_menu = new wxMenu;
   help_menu->Append(wxID_HELP, _("&Help\tF1"), wxEmptyString, wxITEM_NORMAL);
   help_menu->Append(wxID_ABOUT, _("&About"), wxEmptyString, wxITEM_NORMAL);
+  m_panel_menu = new wxMenu();
 
-  tb->AddTool(
+  wxMenuBar *menu_bar = new wxMenuBar;
+  menu_bar->Append(m_file_menu, _("&File"));
+  menu_bar->Append(m_audio_menu, _("&Audio/Midi"));
+  menu_bar->Append(m_panel_menu, _("&Panel"));
+  menu_bar->Append(help_menu, _("&Help"));
+  SetMenuBar(menu_bar);
+
+  m_ToolBar = CreateToolBar(wxNO_BORDER | wxTB_HORIZONTAL | wxTB_FLAT);
+  m_ToolBar->SetToolBitmapSize(wxSize(16, 16));
+  m_ToolBar->AddTool(
     ID_AUDIO_MEMSET,
     _("&Memory Set\tShift"),
     GetImage_set(),
     _("Memory Set"),
     wxITEM_CHECK);
-  tb->AddTool(
+  m_ToolBar->AddTool(
     ID_MEMORY,
     _("&Memory Level"),
     GetImage_memory(),
     _("Memory Level"),
     wxITEM_NORMAL);
   m_SetterPosition = new wxSpinCtrl(
-    tb,
+    m_ToolBar,
     ID_METER_FRAME_SPIN,
     wxEmptyString,
     wxDefaultPosition,
@@ -272,13 +280,13 @@ GOFrame::GOFrame(
     wxSP_ARROW_KEYS,
     0,
     999);
-  tb->AddControl(m_SetterPosition);
+  m_ToolBar->AddControl(m_SetterPosition);
   m_SetterPosition->SetValue(0);
 
-  tb->AddTool(
+  m_ToolBar->AddTool(
     ID_VOLUME, _("&Volume"), GetImage_volume(), _("Volume"), wxITEM_NORMAL);
   m_Volume = new wxSpinCtrl(
-    tb,
+    m_ToolBar,
     ID_METER_AUDIO_SPIN,
     wxEmptyString,
     wxDefaultPosition,
@@ -286,14 +294,13 @@ GOFrame::GOFrame(
     wxSP_ARROW_KEYS,
     -120,
     20);
-  tb->AddControl(m_Volume);
-
-  m_VolumeControl = new wxControl(tb, wxID_ANY);
+  m_ToolBar->AddControl(m_Volume);
+  m_VolumeControl = new wxControl(m_ToolBar, wxID_ANY);
+  m_VolumeControlTool = m_ToolBar->AddControl(m_VolumeControl);
   AdjustVolumeControlWithSettings();
-  tb->AddControl(m_VolumeControl);
   m_Volume->SetValue(m_config.Volume());
 
-  tb->AddTool(
+  m_ToolBar->AddTool(
     ID_RELEASELENGTH,
     _("&Release tail length"),
     GetImage_reverb(),
@@ -304,19 +311,23 @@ GOFrame::GOFrame(
   for (unsigned i = 1; i <= 60; i++)
     choices.push_back(wxString::Format(_("%d ms"), i * 50));
   m_ReleaseLength = new wxChoice(
-    tb, ID_RELEASELENGTH_SELECT, wxDefaultPosition, wxDefaultSize, choices);
-  tb->AddControl(m_ReleaseLength);
+    m_ToolBar,
+    ID_RELEASELENGTH_SELECT,
+    wxDefaultPosition,
+    wxDefaultSize,
+    choices);
+  m_ToolBar->AddControl(m_ReleaseLength);
   m_Sound.GetEngine().SetReleaseLength(m_config.ReleaseLength());
   UpdateReleaseLength();
 
-  tb->AddTool(
+  m_ToolBar->AddTool(
     ID_TRANSPOSE,
     _("&Transpose"),
     GetImage_transpose(),
     _("Transpose"),
     wxITEM_NORMAL);
   m_Transpose = new wxSpinCtrl(
-    tb,
+    m_ToolBar,
     ID_METER_TRANSPOSE_SPIN,
     wxEmptyString,
     wxDefaultPosition,
@@ -324,17 +335,17 @@ GOFrame::GOFrame(
     wxSP_ARROW_KEYS,
     -11,
     11);
-  tb->AddControl(m_Transpose);
+  m_ToolBar->AddControl(m_Transpose);
   m_Transpose->SetValue(m_config.Transpose());
 
-  tb->AddTool(
+  m_ToolBar->AddTool(
     ID_POLYPHONY,
     _("&Polyphony"),
     GetImage_polyphony(),
     _("Polyphony"),
     wxITEM_NORMAL);
   m_Polyphony = new wxSpinCtrl(
-    tb,
+    m_ToolBar,
     ID_METER_POLY_SPIN,
     wxEmptyString,
     wxDefaultPosition,
@@ -342,27 +353,19 @@ GOFrame::GOFrame(
     wxSP_ARROW_KEYS,
     1,
     MAX_POLYPHONY);
-  tb->AddControl(m_Polyphony);
+  m_ToolBar->AddControl(m_Polyphony);
 
-  m_SamplerUsage = new GOAudioGauge(tb, wxID_ANY, wxDefaultPosition);
-  tb->AddControl(m_SamplerUsage);
+  m_SamplerUsage = new GOAudioGauge(m_ToolBar, wxID_ANY, wxDefaultPosition);
+  m_ToolBar->AddControl(m_SamplerUsage);
   m_Polyphony->SetValue(m_config.PolyphonyLimit());
 
-  tb->AddTool(
+  m_ToolBar->AddTool(
     ID_AUDIO_PANIC,
     _("&Panic\tEscape"),
     GetImage_panic(),
     _("Panic"),
     wxITEM_NORMAL);
 
-  m_panel_menu = new wxMenu();
-
-  wxMenuBar *menu_bar = new wxMenuBar;
-  menu_bar->Append(m_file_menu, _("&File"));
-  menu_bar->Append(m_audio_menu, _("&Audio/Midi"));
-  menu_bar->Append(m_panel_menu, _("&Panel"));
-  menu_bar->Append(help_menu, _("&Help"));
-  SetMenuBar(menu_bar);
   SetAutoLayout(true);
 
   UpdateSize();
@@ -387,6 +390,17 @@ bool GOFrame::AdjustVolumeControlWithSettings() {
   bool rc = false;
 
   if (count != m_VolumeGauge.size()) {
+    const wxPortId portId = wxPlatformInfo::Get().GetPortId();
+    const bool isOsX = portId == wxPORT_COCOA || portId == wxPORT_OSX;
+    int volCtlId = m_VolumeControlTool->GetId();
+    int volCtlPos = m_ToolBar->GetToolPos(volCtlId);
+
+    // OsX doesn't relayout the toolbar correctly after changing the size of
+    // a control so we need to remove it and to reinsert it later
+    // But RemoveTool hangs on windows, so we do it only on OsX
+    if (isOsX)
+      m_ToolBar->RemoveTool(volCtlId);
+
     m_VolumeGauge.clear();
     m_VolumeControl->DestroyChildren();
     wxBoxSizer *sizer = new wxBoxSizer(wxHORIZONTAL);
@@ -405,6 +419,11 @@ bool GOFrame::AdjustVolumeControlWithSettings() {
 
     m_VolumeControl->SetSizer(sizer);
     sizer->Fit(m_VolumeControl);
+
+    // reinsert the control and relayout the toolbar on OsX
+    if (isOsX)
+      m_ToolBar->InsertTool(volCtlPos, m_VolumeControlTool);
+    m_ToolBar->Realize();
     rc = true;
   }
   return rc;
@@ -582,9 +601,9 @@ void GOFrame::OnPanel(wxCommandEvent &event) {
 
 void GOFrame::UpdatePanelMenu() {
   GODocument *doc = GetDocument();
-  GODefinitionFile *organfile = doc ? doc->GetOrganFile() : NULL;
-  unsigned panelcount = (organfile && organfile->GetPanelCount())
-    ? organfile->GetPanelCount()
+  GOOrganController *organController = doc ? doc->GetOrganFile() : NULL;
+  unsigned panelcount = (organController && organController->GetPanelCount())
+    ? organController->GetPanelCount()
     : 0;
   panelcount = std::min(panelcount, (unsigned)(ID_PANEL_LAST - ID_PANEL_FIRST));
 
@@ -593,7 +612,7 @@ void GOFrame::UpdatePanelMenu() {
       m_panel_menu->FindItemByPosition(m_panel_menu->GetMenuItemCount() - 1));
 
   for (unsigned i = 0; i < panelcount; i++) {
-    GOGUIPanel *panel = organfile->GetPanel(i);
+    GOGUIPanel *panel = organController->GetPanel(i);
     wxMenu *menu = NULL;
     if (panel->GetGroupName() == wxEmptyString)
       menu = m_panel_menu;
@@ -648,10 +667,10 @@ void GOFrame::UpdateRecentMenu() {
 
 void GOFrame::UpdateTemperamentMenu() {
   GODocument *doc = GetDocument();
-  GODefinitionFile *organfile = doc ? doc->GetOrganFile() : NULL;
+  GOOrganController *organController = doc ? doc->GetOrganFile() : NULL;
   wxString temperament = wxEmptyString;
-  if (organfile)
-    temperament = organfile->GetTemperament();
+  if (organController)
+    temperament = organController->GetTemperament();
 
   while (m_temperament_menu->GetMenuItemCount() > 0)
     m_temperament_menu->Destroy(m_temperament_menu->FindItemByPosition(
@@ -678,8 +697,8 @@ void GOFrame::UpdateTemperamentMenu() {
       }
     }
     wxMenuItem *e = menu->Append(
-      ID_TEMPERAMENT_0 + i, wxGetTranslation(t.GetTitle()), wxEmptyString, wxITEM_CHECK);
-    e->Enable(organfile);
+      ID_TEMPERAMENT_0 + i, t.GetTitle(), wxEmptyString, wxITEM_CHECK);
+    e->Enable(organController);
     e->Check(t.GetName() == temperament);
   }
 }
@@ -717,7 +736,7 @@ void GOFrame::OnMeters(wxCommandEvent &event) {
 
 void GOFrame::OnUpdateLoaded(wxUpdateUIEvent &event) {
   GODocument *doc = GetDocument();
-  GODefinitionFile *organfile = doc ? doc->GetOrganFile() : NULL;
+  GOOrganController *organController = doc ? doc->GetOrganFile() : NULL;
 
   if (ID_PRESET_0 <= event.GetId() && event.GetId() <= ID_PRESET_LAST) {
     event.Check(m_config.Preset() == (unsigned)(event.GetId() - ID_PRESET_0));
@@ -726,8 +745,8 @@ void GOFrame::OnUpdateLoaded(wxUpdateUIEvent &event) {
 
   if (event.GetId() == ID_AUDIO_MEMSET)
     event.Check(
-      organfile && organfile->GetSetter()
-      && organfile->GetSetter()->IsSetterActive());
+      organController && organController->GetSetter()
+      && organController->GetSetter()->IsSetterActive());
   else if (event.GetId() == ID_ORGAN_EDIT)
     event.Check(doc && doc->WindowExists(GODocument::ORGAN_DIALOG, NULL));
   else if (event.GetId() == ID_MIDI_LIST)
@@ -736,15 +755,15 @@ void GOFrame::OnUpdateLoaded(wxUpdateUIEvent &event) {
     event.Check(m_MidiMonitor);
 
   if (event.GetId() == ID_FILE_CACHE_DELETE)
-    event.Enable(organfile && organfile->CachePresent());
+    event.Enable(organController && organController->CachePresent());
   else if (event.GetId() == ID_FILE_CACHE)
-    event.Enable(organfile && organfile->IsCacheable());
+    event.Enable(organController && organController->IsCacheable());
   else if (event.GetId() == ID_MIDI_MONITOR)
     event.Enable(true);
   else
     event.Enable(
-      organfile
-      && (event.GetId() == ID_FILE_REVERT ? organfile->IsCustomized() : true));
+      organController
+      && (event.GetId() == ID_FILE_REVERT ? organController->IsCustomized() : true));
 }
 
 void GOFrame::OnPreset(wxCommandEvent &event) {

@@ -8,7 +8,7 @@
 #ifndef GOMIDIRECEIVERBASE_H
 #define GOMIDIRECEIVERBASE_H
 
-#include "GOMidiReceiverData.h"
+#include "GOMidiReceiverEventPatternList.h"
 
 class GOConfigReader;
 class GOConfigWriter;
@@ -16,7 +16,7 @@ class GOMidiEvent;
 class GOMidiMap;
 struct IniFileEnumEntry;
 
-class GOMidiReceiverBase : public GOMidiReceiverData {
+class GOMidiReceiverBase : public GOMidiReceiverEventPatternList {
 private:
   typedef struct {
     unsigned device;
@@ -52,18 +52,18 @@ public:
   GOMidiMatchType Match(
     const GOMidiEvent &e, const unsigned midi_map[128], int &key, int &value);
 
-  bool HasDebounce(GOMidiReceiveMessageType type);
-  bool HasChannel(GOMidiReceiveMessageType type);
-  bool HasKey(GOMidiReceiveMessageType type);
-  bool HasLowKey(GOMidiReceiveMessageType type);
-  bool HasHighKey(GOMidiReceiveMessageType type);
-  bool HasLowerLimit(GOMidiReceiveMessageType type);
-  bool HasUpperLimit(GOMidiReceiveMessageType type);
-  unsigned KeyLimit(GOMidiReceiveMessageType type);
-  unsigned LowerValueLimit(GOMidiReceiveMessageType type);
-  unsigned UpperValueLimit(GOMidiReceiveMessageType type);
+  bool HasDebounce(GOMidiReceiverMessageType type);
+  bool HasChannel(GOMidiReceiverMessageType type);
+  bool HasKey(GOMidiReceiverMessageType type);
+  bool HasLowKey(GOMidiReceiverMessageType type);
+  bool HasHighKey(GOMidiReceiverMessageType type);
+  bool HasLowerLimit(GOMidiReceiverMessageType type);
+  bool HasUpperLimit(GOMidiReceiverMessageType type);
+  unsigned KeyLimit(GOMidiReceiverMessageType type);
+  unsigned LowerValueLimit(GOMidiReceiverMessageType type);
+  unsigned UpperValueLimit(GOMidiReceiverMessageType type);
 
-  virtual void Assign(const GOMidiReceiverData &data);
+  virtual void Assign(const GOMidiReceiverEventPatternList &data);
 };
 
 #endif

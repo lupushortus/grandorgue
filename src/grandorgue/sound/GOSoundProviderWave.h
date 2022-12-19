@@ -12,11 +12,12 @@
 
 #include <vector>
 
-#include "GOFilename.h"
+#include "loader/GOLoaderFilename.h"
+
 #include "GOSoundProvider.h"
+#include "GOWaveLoop.h"
 
 class GOWave;
-typedef struct GO_WAVE_LOOP GO_WAVE_LOOP;
 
 typedef enum {
   /* Only the first loop with the earliest endpoint is loaded. This will
@@ -36,12 +37,7 @@ typedef enum {
 } loop_load_type;
 
 typedef struct {
-  int loop_start;
-  int loop_end;
-} loop_load_info;
-
-typedef struct {
-  GOFilename filename;
+  GOLoaderFilename filename;
   int sample_group;
   bool load_release;
   bool percussive;
@@ -51,11 +47,11 @@ typedef struct {
   int attack_start;
   int cue_point;
   int release_end;
-  std::vector<loop_load_info> loops;
+  std::vector<GOWaveLoop> loops;
 } attack_load_info;
 
 typedef struct {
-  GOFilename filename;
+  GOLoaderFilename filename;
   int sample_group;
   int max_playback_time;
   int cue_point;
@@ -66,10 +62,11 @@ class GOSoundProviderWave : public GOSoundProvider {
   unsigned GetBytesPerSample(unsigned bits_per_sample);
 
   void CreateAttack(
+    GOMemoryPool &pool,
     const char *data,
     GOWave &wave,
     int attack_start,
-    std::vector<GO_WAVE_LOOP> loop_list,
+    const std::vector<GOWaveLoop> *pSrcLoops,
     int sample_group,
     unsigned bits_per_sample,
     unsigned channels,
@@ -79,7 +76,9 @@ class GOSoundProviderWave : public GOSoundProvider {
     unsigned min_attack_velocity,
     unsigned loop_crossfade_length,
     unsigned max_released_time);
+
   void CreateRelease(
+    GOMemoryPool &pool,
     const char *data,
     GOWave &wave,
     int sample_group,
@@ -89,9 +88,11 @@ class GOSoundProviderWave : public GOSoundProvider {
     unsigned bits_per_sample,
     unsigned channels,
     bool compress);
+
   void ProcessFile(
-    const GOFilename &filename,
-    std::vector<GO_WAVE_LOOP> loops,
+    GOMemoryPool &pool,
+    const GOLoaderFilename &filename,
+    const std::vector<GOWaveLoop> *loops,
     bool is_attack,
     bool is_release,
     int sample_group,
@@ -108,13 +109,13 @@ class GOSoundProviderWave : public GOSoundProvider {
     bool use_pitch,
     unsigned loop_crossfade_length,
     unsigned max_released_time);
-  void LoadPitch(const GOFilename &filename);
+
+  void LoadPitch(const GOLoaderFilename &filename);
   unsigned GetFaderLength(unsigned MidiKeyNumber);
 
 public:
-  GOSoundProviderWave(GOMemoryPool &pool);
-
   void LoadFromFile(
+    GOMemoryPool &pool,
     std::vector<attack_load_info> attacks,
     std::vector<release_load_info> releases,
     unsigned bits_per_sample,

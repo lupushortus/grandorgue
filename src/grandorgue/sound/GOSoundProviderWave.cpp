@@ -16,9 +16,6 @@
 #include "GOSoundAudioSection.h"
 #include "GOWave.h"
 
-GOSoundProviderWave::GOSoundProviderWave(GOMemoryPool &pool)
-  : GOSoundProvider(pool) {}
-
 void GOSoundProviderWave::SetAmplitude(float fixed_amplitude, float gain) {
   /* Amplitude is the combination of global amplitude volume and the stop
    * volume. 1000000 would correspond to sample playback at normal volume.
@@ -36,10 +33,11 @@ unsigned GOSoundProviderWave::GetBytesPerSample(unsigned bits_per_sample) {
 }
 
 void GOSoundProviderWave::CreateAttack(
+  GOMemoryPool &pool,
   const char *data,
   GOWave &wave,
   int attack_start,
-  std::vector<GO_WAVE_LOOP> loop_list,
+  const std::vector<GOWaveLoop> *pSrcLoops,
   int sample_group,
   unsigned bits_per_sample,
   unsigned channels,
@@ -49,61 +47,67 @@ void GOSoundProviderWave::CreateAttack(
   unsigned min_attack_velocity,
   unsigned loop_crossfade_length,
   unsigned max_released_time) {
-  std::vector<GO_WAVE_LOOP> loops;
+  std::vector<GOWaveLoop> waveLoops;
+  std::vector<GOWaveLoop> loops;
   unsigned attack_pos = attack_start;
-  if (loop_list.size() == 0)
-    for (unsigned i = 0; i < wave.GetNbLoops(); i++)
-      loop_list.push_back(wave.GetLoop(i));
 
-  for (unsigned i = 0; i < loop_list.size(); i++) {
+  if (!pSrcLoops || pSrcLoops->size() == 0) {
+    // loops have not been provided. Read them from wave
+
+    for (unsigned i = 0; i < wave.GetNbLoops(); i++)
+      waveLoops.push_back(wave.GetLoop(i));
+    pSrcLoops = &waveLoops;
+  }
+
+  for (unsigned i = 0; i < pSrcLoops->size(); i++) {
     if (
-      loop_list[i].start_sample >= wave.GetLength()
-      || loop_list[i].start_sample >= loop_list[i].end_sample
-      || loop_list[i].end_sample >= wave.GetLength())
+      (*pSrcLoops)[i].m_StartPosition >= wave.GetLength()
+      || (*pSrcLoops)[i].m_StartPosition >= (*pSrcLoops)[i].m_EndPosition
+      || (*pSrcLoops)[i].m_EndPosition >= wave.GetLength())
       throw(wxString) _("Invalid loop definition");
     if (
       loop_crossfade_length
-      && loop_list[i].start_sample + REMAINING_AFTER_CROSSFADE
+      && (*pSrcLoops)[i].m_StartPosition + REMAINING_AFTER_CROSSFADE
           + loop_crossfade_length
-        >= loop_list[i].end_sample)
+        >= (*pSrcLoops)[i].m_EndPosition)
       throw(wxString) _("Loop too short for a cross fade");
   }
 
-  if ((loop_list.size() > 0) && !percussive) {
+  if ((pSrcLoops->size() > 0) && !percussive) {
     switch (loop_mode) {
     case LOOP_LOAD_ALL:
-      for (unsigned i = 0; i < loop_list.size(); i++)
-        if (attack_pos <= loop_list[i].start_sample)
-          loops.push_back(loop_list[i]);
+      for (unsigned i = 0; i < pSrcLoops->size(); i++)
+        if (attack_pos <= (*pSrcLoops)[i].m_StartPosition)
+          loops.push_back((*pSrcLoops)[i]);
       break;
     case LOOP_LOAD_CONSERVATIVE: {
       unsigned cidx = 0;
-      for (unsigned i = 1; i < loop_list.size(); i++)
-        if (loop_list[i].end_sample < loop_list[i].end_sample)
-          if (attack_pos <= loop_list[i].start_sample)
+      for (unsigned i = 1; i < pSrcLoops->size(); i++)
+        if ((*pSrcLoops)[i].m_EndPosition < (*pSrcLoops)[i].m_EndPosition)
+          if (attack_pos <= (*pSrcLoops)[i].m_StartPosition)
             cidx = i;
-      loops.push_back(loop_list[cidx]);
+      loops.push_back((*pSrcLoops)[cidx]);
     } break;
     default: {
       assert(loop_mode == LOOP_LOAD_LONGEST);
 
       unsigned lidx = 0;
-      for (unsigned int i = 1; i < loop_list.size(); i++) {
-        assert(loop_list[i].end_sample > loop_list[i].start_sample);
+      for (unsigned int i = 1; i < pSrcLoops->size(); i++) {
+        assert((*pSrcLoops)[i].m_EndPosition > (*pSrcLoops)[i].m_StartPosition);
         if (
-          (loop_list[i].end_sample - loop_list[i].start_sample)
-          > (loop_list[lidx].end_sample - loop_list[lidx].start_sample))
-          if (attack_pos <= loop_list[i].start_sample)
+          ((*pSrcLoops)[i].m_EndPosition - (*pSrcLoops)[i].m_StartPosition)
+          > ((*pSrcLoops)[lidx].m_EndPosition - (*pSrcLoops)[lidx].m_StartPosition))
+          if (attack_pos <= (*pSrcLoops)[i].m_StartPosition)
             lidx = i;
       }
-      loops.push_back(loop_list[lidx]);
+      loops.push_back((*pSrcLoops)[lidx]);
     }
     }
     if (loops.size() == 0)
       throw(wxString) _("No loop found");
     for (unsigned i = 0; i < loops.size(); i++) {
-      loops[i].start_sample -= attack_pos;
-      loops[i].end_sample -= attack_pos;
+      loops[i].m_StartPosition -= attack_pos;
+      loops[i].m_EndPosition -= attack_pos;
     }
   }
 
@@ -112,7 +116,7 @@ void GOSoundProviderWave::CreateAttack(
   attack_info.min_attack_velocity = min_attack_velocity;
   attack_info.max_released_time = max_released_time;
   m_AttackInfo.push_back(attack_info);
-  GOAudioSection *section = new GOAudioSection(m_pool);
+  GOAudioSection *section = new GOAudioSection(pool);
   m_Attack.push_back(section);
   section->Setup(
     data + attack_pos * GetBytesPerSample(bits_per_sample) * channels,
@@ -126,6 +130,7 @@ void GOSoundProviderWave::CreateAttack(
 }
 
 void GOSoundProviderWave::CreateRelease(
+  GOMemoryPool &pool,
   const char *data,
   GOWave &wave,
   int sample_group,
@@ -154,7 +159,7 @@ void GOSoundProviderWave::CreateRelease(
   release_info.sample_group = sample_group;
   release_info.max_playback_time = max_playback_time;
   m_ReleaseInfo.push_back(release_info);
-  GOAudioSection *section = new GOAudioSection(m_pool);
+  GOAudioSection *section = new GOAudioSection(pool);
   m_Release.push_back(section);
   section->Setup(
     data + release_offset * GetBytesPerSample(bits_per_sample) * channels,
@@ -167,7 +172,7 @@ void GOSoundProviderWave::CreateRelease(
     0);
 }
 
-void GOSoundProviderWave::LoadPitch(const GOFilename &filename) {
+void GOSoundProviderWave::LoadPitch(const GOLoaderFilename &filename) {
   wxLogDebug(_("Loading file %s"), filename.GetTitle().c_str());
 
   GOWave wave;
@@ -178,8 +183,9 @@ void GOSoundProviderWave::LoadPitch(const GOFilename &filename) {
 }
 
 void GOSoundProviderWave::ProcessFile(
-  const GOFilename &filename,
-  std::vector<GO_WAVE_LOOP> loops,
+  GOMemoryPool &pool,
+  const GOLoaderFilename &filename,
+  const std::vector<GOWaveLoop> *loops,
   bool is_attack,
   bool is_release,
   int sample_group,
@@ -230,6 +236,7 @@ void GOSoundProviderWave::ProcessFile(
 
   if (is_attack)
     CreateAttack(
+      pool,
       data.get(),
       wave,
       attack_start,
@@ -248,6 +255,7 @@ void GOSoundProviderWave::ProcessFile(
     is_release
     && (!is_attack || (wave.GetNbLoops() > 0 && wave.HasReleaseMarker() && !percussive)))
     CreateRelease(
+      pool,
       data.get(),
       wave,
       sample_group,
@@ -273,6 +281,7 @@ unsigned GOSoundProviderWave::GetFaderLength(unsigned MidiKeyNumber) {
 }
 
 void GOSoundProviderWave::LoadFromFile(
+  GOMemoryPool &pool,
   std::vector<attack_load_info> attacks,
   std::vector<release_load_info> releases,
   unsigned bits_per_sample,
@@ -369,16 +378,10 @@ void GOSoundProviderWave::LoadFromFile(
 
   try {
     for (unsigned i = 0; i < attacks.size(); i++) {
-      std::vector<GO_WAVE_LOOP> loops;
-      for (unsigned j = 0; j < attacks[i].loops.size(); j++) {
-        GO_WAVE_LOOP loop;
-        loop.start_sample = attacks[i].loops[j].loop_start;
-        loop.end_sample = attacks[i].loops[j].loop_end;
-        loops.push_back(loop);
-      }
       ProcessFile(
+        pool,
         attacks[i].filename,
-        loops,
+        &attacks[i].loops,
         true,
         attacks[i].load_release,
         attacks[i].sample_group,
@@ -399,10 +402,10 @@ void GOSoundProviderWave::LoadFromFile(
     }
 
     for (unsigned i = 0; i < releases.size(); i++) {
-      std::vector<GO_WAVE_LOOP> loops;
       ProcessFile(
+        pool,
         releases[i].filename,
-        loops,
+        nullptr,
         false,
         true,
         releases[i].sample_group,

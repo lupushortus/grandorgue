@@ -7,20 +7,21 @@
 
 #include "GOSoundEngine.h"
 
-#include "GODefinitionFile.h"
-#include "GOEvent.h"
-#include "GOPipe.h"
-#include "GOReleaseAlignTable.h"
-#include "GOSoundProvider.h"
-#include "GOSoundRecorder.h"
-#include "GOSoundSampler.h"
-#include "GOWindchest.h"
+#include "model/GOPipe.h"
+#include "model/GOWindchest.h"
 #include "sound/scheduler/GOSoundGroupWorkItem.h"
 #include "sound/scheduler/GOSoundOutputWorkItem.h"
 #include "sound/scheduler/GOSoundReleaseWorkItem.h"
 #include "sound/scheduler/GOSoundTouchWorkItem.h"
 #include "sound/scheduler/GOSoundTremulantWorkItem.h"
 #include "sound/scheduler/GOSoundWindchestWorkItem.h"
+
+#include "GOEvent.h"
+#include "GOOrganController.h"
+#include "GOReleaseAlignTable.h"
+#include "GOSoundProvider.h"
+#include "GOSoundRecorder.h"
+#include "GOSoundSampler.h"
 
 GOSoundEngine::GOSoundEngine()
   : m_PolyphonyLimiting(true),
@@ -205,22 +206,22 @@ void GOSoundEngine::ClearSetup() {
 }
 
 void GOSoundEngine::Setup(
-  GODefinitionFile *organ_file, unsigned release_count) {
+  GOOrganController *organController, unsigned release_count) {
   m_Scheduler.Clear();
   if (release_count < 1)
     release_count = 1;
   m_Scheduler.SetRepeatCount(release_count);
   m_Tremulants.clear();
-  for (unsigned i = 0; i < organ_file->GetTremulantCount(); i++)
+  for (unsigned i = 0; i < organController->GetTremulantCount(); i++)
     m_Tremulants.push_back(
       new GOSoundTremulantWorkItem(*this, m_SamplesPerBuffer));
   m_Windchests.clear();
   m_Windchests.push_back(new GOSoundWindchestWorkItem(*this, NULL));
-  for (unsigned i = 0; i < organ_file->GetWindchestGroupCount(); i++)
+  for (unsigned i = 0; i < organController->GetWindchestGroupCount(); i++)
     m_Windchests.push_back(
-      new GOSoundWindchestWorkItem(*this, organ_file->GetWindchest(i)));
+      new GOSoundWindchestWorkItem(*this, organController->GetWindchest(i)));
   m_TouchProcessor = std::unique_ptr<GOSoundTouchWorkItem>(
-    new GOSoundTouchWorkItem(organ_file->GetMemoryPool()));
+    new GOSoundTouchWorkItem(organController->GetMemoryPool()));
   m_HasBeenSetup = true;
   Reset();
 }

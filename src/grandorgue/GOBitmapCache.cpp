@@ -11,11 +11,12 @@
 #include <wx/intl.h>
 #include <wx/mstream.h>
 
+#include "loader/GOLoaderFilename.h"
+
 #include "GOBuffer.h"
-#include "GODefinitionFile.h"
 #include "GOFile.h"
-#include "GOFilename.h"
 #include "GOLog.h"
+#include "GOOrganController.h"
 #include "Images.h"
 
 #define BITMAP_LIST                                                            \
@@ -145,8 +146,11 @@ BITMAP_LIST
   static wxImage A##_r(GetImage_##A().Rotate90());                             \
   RegisterBitmap(new wxImage(A##_r), wxT(GOBitmapPrefix B));
 
-GOBitmapCache::GOBitmapCache(GODefinitionFile *organfile)
-  : m_organfile(organfile), m_Bitmaps(), m_Filenames(), m_Masknames() {
+GOBitmapCache::GOBitmapCache(GOOrganController *organController)
+  : m_OrganController(organController),
+    m_Bitmaps(),
+    m_Filenames(),
+    m_Masknames() {
   BITMAP_LIST;
 }
 
@@ -167,8 +171,8 @@ bool GOBitmapCache::loadFile(wxImage &img, const wxString &filename) {
     log->SetCurrentFileName(filename);
 
   try {
-    GOFilename name;
-    name.Assign(filename, m_organfile);
+    GOLoaderFilename name;
+    name.Assign(m_OrganController->GetFileStore(), filename);
 
     std::unique_ptr<GOFile> file = name.Open();
     GOBuffer<char> data;

@@ -10,22 +10,22 @@
 
 #include <wx/string.h>
 
-#include "midi/GOMidiSenderData.h"
+#include "midi/GOMidiSenderEventPatternList.h"
 
 class GOConfigReader;
 class GOConfigWriter;
 class GOMidiMap;
-class GODefinitionFile;
+class GOOrganController;
 struct IniFileEnumEntry;
 
-class GOMidiSender : public GOMidiSenderData {
+class GOMidiSender : public GOMidiSenderEventPatternList {
 private:
   static const struct IniFileEnumEntry m_MidiTypes[];
-  GODefinitionFile *m_organfile;
+  GOOrganController *m_OrganController;
   int m_ElementID;
 
 public:
-  GOMidiSender(GODefinitionFile *organfile, GOMidiSenderType type);
+  GOMidiSender(GOOrganController *organController, GOMidiSenderType type);
   ~GOMidiSender();
 
   void SetElementID(int id);
@@ -40,19 +40,19 @@ public:
   void SetLabel(const wxString &text);
   void SetName(const wxString &text);
 
-  bool HasChannel(GOMidiSendMessageType type);
-  bool HasKey(GOMidiSendMessageType type);
-  bool HasLowValue(GOMidiSendMessageType type);
-  bool HasHighValue(GOMidiSendMessageType type);
-  bool HasStart(GOMidiSendMessageType type);
-  bool HasLength(GOMidiSendMessageType type);
-  unsigned KeyLimit(GOMidiSendMessageType type);
-  unsigned LowValueLimit(GOMidiSendMessageType type);
-  unsigned HighValueLimit(GOMidiSendMessageType type);
-  unsigned StartLimit(GOMidiSendMessageType type);
-  unsigned LengthLimit(GOMidiSendMessageType type);
+  bool HasChannel(GOMidiSenderMessageType type);
+  bool HasKey(GOMidiSenderMessageType type);
+  bool HasLowValue(GOMidiSenderMessageType type);
+  bool HasHighValue(GOMidiSenderMessageType type);
+  bool HasStart(GOMidiSenderMessageType type);
+  bool HasLength(GOMidiSenderMessageType type);
+  unsigned KeyLimit(GOMidiSenderMessageType type);
+  unsigned LowValueLimit(GOMidiSenderMessageType type);
+  unsigned HighValueLimit(GOMidiSenderMessageType type);
+  unsigned StartLimit(GOMidiSenderMessageType type);
+  unsigned LengthLimit(GOMidiSenderMessageType type);
 
-  void Assign(const GOMidiSenderData &data);
+  void Assign(const GOMidiSenderEventPatternList &data);
 };
 
 #endif

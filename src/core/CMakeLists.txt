@@ -28,9 +28,10 @@ files/GOStdFileName.cpp
 midi/GOMidiEvent.cpp
 midi/GOMidiFileReader.cpp
 midi/GOMidiMap.cpp
+midi/GOMidiEventPattern.cpp
 midi/GOMidiReceiverBase.cpp
-midi/GOMidiReceiverData.cpp
-midi/GOMidiSenderData.cpp
+midi/GOMidiReceiverEventPatternList.cpp
+midi/GOMidiSenderEventPatternList.cpp
 midi/GOMidiWXEvent.cpp
 settings/GOSetting.cpp
 settings/GOSettingBool.cpp
@@ -42,7 +43,6 @@ settings/GOSettingStore.cpp
 settings/GOSettingString.cpp
 threading/GOCondition.cpp
 threading/GOMutex.cpp
-threading/GOWaitQueue.cpp
 threading/GOThread.cpp
 threading/threading_impl.cpp
 temperaments/GOTemperament.cpp

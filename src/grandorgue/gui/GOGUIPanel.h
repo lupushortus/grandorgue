@@ -19,14 +19,13 @@ class GOGUIControl;
 class GOGUIDisplayMetrics;
 class GOGUILayoutEngine;
 class GOGUIMouseState;
-class GOGUIMouseStateTracker;
 class GOGUIPanelWidget;
 class GOConfigReader;
 class GOConfigWriter;
 class GOButtonControl;
 class GODC;
 class GOPanelView;
-class GODefinitionFile;
+class GOOrganController;
 
 #define GOBitmapPrefix "../GO:"
 
@@ -35,8 +34,8 @@ private:
   void ReadSizeInfoFromCfg(GOConfigReader &cfg, bool isOpenByDefault);
 
 protected:
-  GODefinitionFile *m_organfile;
-  GOGUIMouseStateTracker &m_MouseState;
+  GOOrganController *m_OrganController;
+  GOGUIMouseState &m_MouseState;
   ptr_vector<GOGUIControl> m_controls;
   std::vector<GOBitmap> m_WoodImages;
   unsigned m_BackgroundControls;
@@ -60,7 +59,7 @@ protected:
   void SendMousePress(int x, int y, bool right, GOGUIMouseState &state);
 
 public:
-  GOGUIPanel(GODefinitionFile *organfile);
+  GOGUIPanel(GOOrganController *organController);
   virtual ~GOGUIPanel();
   void Init(
     GOConfigReader &cfg,
@@ -73,7 +72,7 @@ public:
 
   void SetView(GOPanelView *view);
 
-  GODefinitionFile *GetOrganFile();
+  GOOrganController *GetOrganFile();
   const wxString &GetGroup() { return m_group; }
   const wxString &GetName();
   const wxString &GetGroupName();

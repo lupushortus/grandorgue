@@ -14,8 +14,8 @@
 #include "control/GOElementCreator.h"
 #include "control/GOLabelControl.h"
 #include "model/GOCombination.h"
+#include "model/GOEnclosure.h"
 
-#include "GOEnclosure.h"
 #include "GOPlaybackStateHandler.h"
 
 #define N_CRESCENDOS 4
@@ -29,7 +29,7 @@ class GOSetter : private GOPlaybackStateHandler,
                  public GOElementCreator,
                  public GOSaveableObject {
 private:
-  GODefinitionFile *m_organfile;
+  GOOrganController *m_OrganController;
   unsigned m_pos;
   unsigned m_bank;
   unsigned m_crescendopos;
@@ -64,7 +64,7 @@ private:
   void PrepareRecording();
 
 public:
-  GOSetter(GODefinitionFile *organfile);
+  GOSetter(GOOrganController *organController);
   virtual ~GOSetter();
 
   void Load(GOConfigReader &cfg);
