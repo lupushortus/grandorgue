@@ -10,8 +10,9 @@
 #include <wx/intl.h>
 #include <wx/log.h>
 
+#include "files/GOOpenedFile.h"
+
 #include "GOBuffer.h"
-#include "GOFile.h"
 #include "GOMemoryPool.h"
 #include "GOSoundAudioSection.h"
 #include "GOWave.h"
@@ -172,19 +173,17 @@ void GOSoundProviderWave::CreateRelease(
     0);
 }
 
-void GOSoundProviderWave::LoadPitch(const GOLoaderFilename &filename) {
-  wxLogDebug(_("Loading file %s"), filename.GetTitle().c_str());
-
+void GOSoundProviderWave::LoadPitch(GOOpenedFile *file) {
   GOWave wave;
-  wave.Open(filename.Open().get());
 
+  wave.Open(file);
   m_MidiKeyNumber = wave.GetMidiNote();
   m_MidiPitchFract = wave.GetPitchFract();
 }
 
 void GOSoundProviderWave::ProcessFile(
   GOMemoryPool &pool,
-  const GOLoaderFilename &filename,
+  GOOpenedFile *file,
   const std::vector<GOWaveLoop> *loops,
   bool is_attack,
   bool is_release,
@@ -202,10 +201,9 @@ void GOSoundProviderWave::ProcessFile(
   bool use_pitch,
   unsigned loop_crossfade_length,
   unsigned max_released_time) {
-  wxLogDebug(_("Loading file %s"), filename.GetTitle().c_str());
-
   GOWave wave;
-  wave.Open(filename.Open().get());
+
+  wave.Open(file);
 
   /* allocate data to work with */
   unsigned totalDataSize = wave.GetLength() * GetBytesPerSample(bits_per_sample)
@@ -281,6 +279,7 @@ unsigned GOSoundProviderWave::GetFaderLength(unsigned MidiKeyNumber) {
 }
 
 void GOSoundProviderWave::LoadFromFile(
+  const GOFileStore &fileStore,
   GOMemoryPool &pool,
   std::vector<attack_load_info> attacks,
   std::vector<release_load_info> releases,
@@ -364,7 +363,7 @@ void GOSoundProviderWave::LoadFromFile(
           attacks[i].sample_group != k || best_idx == -1 || best_idx == (int)i)
           continue;
         if (load_first_attack && i == 0) {
-          LoadPitch(attacks[i].filename);
+          LoadPitch(attacks[i].filename.Open(fileStore).get());
           load_first_attack = false;
         }
         for (unsigned j = i + 1; j < attacks.size(); j++)
@@ -380,7 +379,7 @@ void GOSoundProviderWave::LoadFromFile(
     for (unsigned i = 0; i < attacks.size(); i++) {
       ProcessFile(
         pool,
-        attacks[i].filename,
+        attacks[i].filename.Open(fileStore).get(),
         &attacks[i].loops,
         true,
         attacks[i].load_release,
@@ -404,7 +403,7 @@ void GOSoundProviderWave::LoadFromFile(
     for (unsigned i = 0; i < releases.size(); i++) {
       ProcessFile(
         pool,
-        releases[i].filename,
+        releases[i].filename.Open(fileStore).get(),
         nullptr,
         false,
         true,
@@ -433,10 +432,6 @@ void GOSoundProviderWave::LoadFromFile(
       m_ReleaseCrossfadeLength = release_crossfase_length;
     else
       m_ReleaseCrossfadeLength = GetFaderLength(m_MidiKeyNumber);
-  } catch (wxString error) {
-    wxLogError(_("caught exception: %s\n"), error.c_str());
-    ClearData();
-    throw;
   } catch (...) {
     ClearData();
     throw;

@@ -29,6 +29,7 @@
 #include "control/GOElementCreator.h"
 #include "control/GOPushbuttonControl.h"
 #include "dialogs/GOProgressDialog.h"
+#include "files/GOOpenedFile.h"
 #include "files/GOStdFileName.h"
 #include "gui/GOGUIBankedGeneralsPanel.h"
 #include "gui/GOGUICouplerPanel.h"
@@ -65,7 +66,6 @@
 #include "GODivisionalCoupler.h"
 #include "GODocument.h"
 #include "GOEvent.h"
-#include "GOFile.h"
 #include "GOHash.h"
 #include "GOMetronome.h"
 #include "GOOrgan.h"
@@ -89,7 +89,6 @@ GOOrganController::GOOrganController(GODocument *doc, GOConfig &settings)
     m_MidiPlayer(NULL),
     m_MidiRecorder(NULL),
     m_volume(0),
-    m_IgnorePitch(false),
     m_b_customized(false),
     m_OrganModified(false),
     m_DivisionalsStoreIntermanualCouplers(false),
@@ -203,8 +202,8 @@ void GOOrganController::ReadOrganFile(GOConfigReader &cfg) {
   } else {
     GOLoaderFilename fname;
 
-    fname.Assign(m_FileStore, info_filename);
-    std::unique_ptr<GOFile> file = fname.Open();
+    fname.Assign(info_filename);
+    std::unique_ptr<GOOpenedFile> file = fname.Open(m_FileStore);
     fn = info_filename;
     if (
       file->isValid()
@@ -243,8 +242,6 @@ void GOOrganController::ReadOrganFile(GOConfigReader &cfg) {
   if (m_volume > 20)
     m_volume = 0;
   m_Temperament = cfg.ReadString(CMBSetting, group, wxT("Temperament"), false);
-  m_IgnorePitch
-    = cfg.ReadBoolean(CMBSetting, group, wxT("IgnorePitch"), false, false);
   m_releaseTail = (unsigned)cfg.ReadInteger(
     CMBSetting,
     group,
@@ -361,7 +358,7 @@ wxString GOOrganController::Load(
       return errMsg;
 
     m_odf = organ.GetODFPath();
-    odf_name.Assign(m_FileStore, m_odf);
+    odf_name.Assign(m_odf);
   } else {
     wxString file = organ.GetODFPath();
     m_odf = GONormalizePath(file);
@@ -379,7 +376,7 @@ wxString GOOrganController::Load(
 
   GOConfigFileReader odf_ini_file;
 
-  if (!odf_ini_file.Read(odf_name.Open().get())) {
+  if (!odf_ini_file.Read(odf_name.Open(m_FileStore).get())) {
     errMsg.Printf(_("Unable to read '%s'"), odf_name.GetTitle().c_str());
     return errMsg;
   }
@@ -494,6 +491,8 @@ wxString GOOrganController::Load(
 
     dlg->Reset(objectDistributor.GetNObjects());
 
+    GOCacheObject *obj = nullptr;
+
     /* Load pipes */
     if (wxFileExists(m_CacheFilename)) {
       wxFile cache_file(m_CacheFilename);
@@ -516,29 +515,26 @@ wxString GOOrganController::Load(
         }
       }
 
-      if (cache_ok) {
-        try {
-          while (true) {
-            GOCacheObject *obj = objectDistributor.fetchNext();
+      GOCacheObject *obj = nullptr;
 
-            if (!obj)
-              break;
-            if (!obj->LoadCache(m_pool, reader)) {
-              cache_ok = false;
-              wxLogError(
-                _("Cache load failure: Failed to read %s from cache."),
-                obj->GetLoadTitle().c_str());
-              break;
-            }
-            if (!dlg->Update(objectDistributor.GetPos(), obj->GetLoadTitle()))
-              throw GOLoadAborted(); // Skip the rest of the loading code
+      if (cache_ok) {
+        while ((obj = objectDistributor.FetchNext())) {
+          if (!obj->LoadFromCacheWithoutExc(m_pool, reader)) {
+            wxLogWarning(
+              _("Cache load failure: Failed to read %s from cache: %s"),
+              obj->GetLoadTitle(),
+              obj->GetLoadError());
+            break;
           }
-          if (objectDistributor.IsComplete())
-            m_Cacheable = true;
-        } catch (wxString msg) {
-          cache_ok = false;
-          wxLogError(_("Cache load failure: %s"), msg.c_str());
+          if (!dlg->Update(objectDistributor.GetPos(), obj->GetLoadTitle()))
+            throw GOLoadAborted(); // Skip the rest of the loading code
         }
+        if (!obj)
+          m_Cacheable = true;
+        else
+          // obj points to an object with a load error. We will try to load
+          // it from the file later
+          cache_ok = false;
       }
 
       if (!cache_ok && !m_config.ManageCache()) {
@@ -554,28 +550,48 @@ wxString GOOrganController::Load(
     }
 
     if (!cache_ok) {
+      GOLoadWorker thisWorker(m_FileStore, m_pool, objectDistributor);
       ptr_vector<GOLoadThread> threads;
+
+      // Create and run additional worker threads
       for (unsigned i = 0; i < m_config.LoadConcurrency(); i++)
         threads.push_back(
           new GOLoadThread(m_FileStore, m_pool, objectDistributor));
-
       for (unsigned i = 0; i < threads.size(); i++)
         threads[i]->Run();
 
-      GOCacheObject *obj;
+      // try to load the object that we could not load from cache
+      if (obj)
+        thisWorker.LoadObjectNoExc(obj);
 
-      while ((obj = objectDistributor.fetchNext())) {
-        obj->LoadData(m_FileStore, m_pool);
+      while (thisWorker.LoadNextObject(obj))
+        // show the progress and process possible Cancel
         if (!dlg->Update(objectDistributor.GetPos(), obj->GetLoadTitle()))
           throw GOLoadAborted(); // skip the rest of loading code
-      }
+      // rethrow exception if any occured in thisWorker.LoadNextObject
+      bool wereExceptions = thisWorker.WereExceptions();
 
       for (unsigned i = 0; i < threads.size(); i++)
-        threads[i]->checkResult();
-      if (objectDistributor.IsComplete())
-        m_Cacheable = true;
-      if (m_config.ManageCache() && m_Cacheable)
-        UpdateCache(dlg, m_config.CompressCache());
+        wereExceptions |= threads[i]->CheckExceptions();
+      if (wereExceptions) {
+        for (auto obj : GetCacheObjects()) {
+          if (!obj->IsReady())
+            wxLogError(
+              _("Unable to load %s: %s"),
+              obj->GetLoadTitle(),
+              obj->GetLoadError());
+        }
+        errMsg.Printf(
+          _("There are errors while loading the organ. See Log Messages."));
+      } else {
+        if (objectDistributor.IsComplete())
+          m_Cacheable = true;
+        if (m_config.ManageCache() && m_Cacheable)
+          UpdateCache(dlg, m_config.CompressCache());
+      }
+
+      // Despite a possible exception automatic calling ~GOLoadThread from
+      // ~ptr_vector stops all additional worker threads
     }
   } catch (const GOOutOfMemory &e) {
     GOMessageBox(
@@ -667,7 +683,7 @@ bool GOOrganController::UpdateCache(GOProgressDialog *dlg, bool compress) {
     cache_save_ok = false;
 
   for (unsigned i = 0; cache_save_ok; i++) {
-    GOCacheObject *obj = objectDistributor.fetchNext();
+    GOCacheObject *obj = objectDistributor.FetchNext();
 
     if (!obj)
       break;
@@ -725,7 +741,6 @@ bool GOOrganController::Export(const wxString &cmb) {
   cfg.WriteInteger(wxT("Organ"), wxT("Volume"), m_volume);
 
   cfg.WriteString(wxT("Organ"), wxT("Temperament"), m_Temperament);
-  cfg.WriteBoolean(wxT("Organ"), wxT("IgnorePitch"), m_IgnorePitch);
   cfg.WriteInteger(wxT("Organ"), wxT("ReleaseTail"), (int)m_releaseTail);
 
   GOEventDistributor::Save(cfg);
@@ -778,10 +793,6 @@ GODocument *GOOrganController::GetDocument() { return m_doc; }
 void GOOrganController::SetVolume(int volume) { m_volume = volume; }
 
 int GOOrganController::GetVolume() { return m_volume; }
-
-void GOOrganController::SetIgnorePitch(bool ignore) { m_IgnorePitch = ignore; }
-
-bool GOOrganController::GetIgnorePitch() { return m_IgnorePitch; }
 
 void GOOrganController::SetReleaseTail(unsigned releaseTail) {
   m_releaseTail = releaseTail;

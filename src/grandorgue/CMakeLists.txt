@@ -100,6 +100,7 @@ help/GOHelpRequestor.cpp
 loader/GOFileStore.cpp
 loader/GOLoaderFilename.cpp
 loader/GOLoadThread.cpp
+loader/GOLoadWorker.cpp
 midi/ports/GOMidiInPort.cpp
 midi/ports/GOMidiOutPort.cpp
 midi/ports/GOMidiPort.cpp
@@ -119,6 +120,7 @@ midi/GOMidiRecorder.cpp
 model/pipe-config/GOPipeConfig.cpp
 model/pipe-config/GOPipeConfigNode.cpp
 model/pipe-config/GOPipeConfigTreeNode.cpp
+model/GOCacheObject.cpp
 model/GODummyPipe.cpp
 model/GOEnclosure.cpp
 model/GOEventHandlerList.cpp

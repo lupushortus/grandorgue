@@ -1,3 +1,7 @@
+- Fixed typos and spelling errors in the Help
+- Fixed continuing loading an organ after an exception in one loading thread
+- Fixed size of text fields in the Organ Settings dialog on OsX https://github.com/GrandOrgue/grandorgue/issues/1315
+- Fixed missing the object filename in an error message if some exception occured when loading this object
 # 3.9.4 (2022-12-12)
 - Fixed starting 3.9.3 on Windows https://github.com/GrandOrgue/grandorgue/issues/1311
 # 3.9.3 (2022-12-09)
