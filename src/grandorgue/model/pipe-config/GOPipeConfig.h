@@ -25,10 +25,14 @@ private:
   wxString m_AudioGroup;
   float m_Amplitude;
   float m_DefaultAmplitude;
-  float m_Gain;
   float m_DefaultGain;
-  float m_Tuning;
-  float m_DefaultTuning;
+  // ODF pitch tuning offset for using withot auto-tuning
+  float m_PitchTuning;
+  // ODF pitch tuning offset for using with auto-tuning
+  float m_PitchCorrection;
+  float m_Gain;
+  float m_ManualTuning;
+  float m_AutoTuningCorrection;
   unsigned m_Delay;
   unsigned m_DefaultDelay;
   int m_BitsPerSample;
@@ -38,6 +42,9 @@ private:
   int m_AttackLoad;
   int m_ReleaseLoad;
   int m_IgnorePitch;
+  unsigned m_ReleaseTail; // the max release length in ms
+
+  void ReadTuning(GOConfigReader &cfg, wxString group, wxString prefix);
 
 public:
   GOPipeConfig(GOOrganModel *organModel, GOPipeUpdateCallback *callback);
@@ -56,9 +63,12 @@ public:
   float GetDefaultGain();
   void SetGain(float gain);
 
-  float GetTuning();
-  float GetDefaultTuning();
-  void SetTuning(float cent);
+  float GetPitchTuning() const { return m_PitchTuning; }
+  float GetPitchCorrection() const { return m_PitchCorrection; }
+  float GetManualTuning() const { return m_ManualTuning; }
+  void SetManualTuning(float cent);
+  float GetAutoTuningCorrection() const { return m_AutoTuningCorrection; }
+  void SetAutoTuningCorrection(float cent);
 
   unsigned GetDelay();
   unsigned GetDefaultDelay();
@@ -87,6 +97,9 @@ public:
 
   int IsIgnorePitch() const { return m_IgnorePitch; }
   void SetIgnorePitch(int value);
+
+  unsigned GetReleaseTail() const { return m_ReleaseTail; }
+  void SetReleaseTail(unsigned releaseTail);
 };
 
 #endif

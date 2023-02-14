@@ -1,3 +1,15 @@
+- Changed defaults for the General Setter elements to Piston https://github.com/GrandOrgue/grandorgue/issues/1360
+- Added new fields ManualTuning and AutoTuningCorrection of Organ Settings https://github.com/GrandOrgue/grandorgue/issues/1333
+- Fixed duplicating packaged organs in the organ list https://github.com/GrandOrgue/grandorgue/issues/1367
+- Fixed displaying a popup window when a cache had been created with another GO version https://github.com/GrandOrgue/grandorgue/issues/1363
+- Fixed not saving midi settings of divisional buttons https://github.com/GrandOrgue/grandorgue/issues/1350
+- Added PitchCorrection for organs and windchest. Pipe999PitchCorrection became additive to PitchCorrection of the rank, of the windchest and of the organ https://github.com/GrandOrgue/grandorgue/issues/1351
+- Added full support of '/' as the file sepearator in ODF unless 'Check ODF for HW1-compatibility' is set https://github.com/GrandOrgue/grandorgue/issues/827
+- Added support of ODF comments from ';' at any position to the end of line https://github.com/GrandOrgue/grandorgue/issues/828
+# 3.9.5 (2022-01-23)
+- Fixed saving position when some panel is outside the screen area https://github.com/GrandOrgue/grandorgue/issues/1271
+- Fixed playing release samples for very short notes https://github.com/GrandOrgue/grandorgue/issues/1222
+- Fixed help: the wrong panel positioning on wayland was documented https://github.com/GrandOrgue/grandorgue/issues/1271
 - Fixed typos and spelling errors in the Help
 - Fixed continuing loading an organ after an exception in one loading thread
 - Fixed size of text fields in the Organ Settings dialog on OsX https://github.com/GrandOrgue/grandorgue/issues/1315

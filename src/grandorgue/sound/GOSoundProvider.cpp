@@ -12,9 +12,9 @@
 #include "GOCache.h"
 #include "GOCacheWriter.h"
 #include "GOMemoryPool.h"
-#include "GOReleaseAlignTable.h"
 #include "GOSampleStatistic.h"
 #include "GOSoundAudioSection.h"
+#include "GOSoundReleaseAlignTable.h"
 
 #define DELETE_AND_NULL(x)                                                     \
   do {                                                                         \
@@ -29,6 +29,7 @@ GOSoundProvider::GOSoundProvider()
     m_MidiPitchFract(0),
     m_Tuning(1),
     m_SampleGroup(0),
+    m_ReleaseTail(0),
     m_Attack(),
     m_AttackInfo(),
     m_Release(),

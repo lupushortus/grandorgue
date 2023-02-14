@@ -18,9 +18,9 @@
 
 #include "GOEvent.h"
 #include "GOOrganController.h"
-#include "GOReleaseAlignTable.h"
 #include "GOSoundProvider.h"
 #include "GOSoundRecorder.h"
+#include "GOSoundReleaseAlignTable.h"
 #include "GOSoundSampler.h"
 
 GOSoundEngine::GOSoundEngine()
@@ -29,7 +29,6 @@ GOSoundEngine::GOSoundEngine()
     m_ReleaseAlignmentEnabled(true),
     m_RandomizeSpeaking(true),
     m_Volume(-15),
-    m_ReleaseLength(0),
     m_SamplesPerBuffer(1),
     m_Gain(1),
     m_SampleRate(0),
@@ -113,10 +112,6 @@ unsigned GOSoundEngine::GetSampleRate() { return m_SampleRate; }
 void GOSoundEngine::SetHardPolyphony(unsigned polyphony) {
   m_SamplerPool.SetUsageLimit(polyphony);
   m_PolyphonySoftLimit = (m_SamplerPool.GetUsageLimit() * 3) / 4;
-}
-
-void GOSoundEngine::SetReleaseLength(unsigned reverb) {
-  m_ReleaseLength = reverb;
 }
 
 void GOSoundEngine::SetPolyphonyLimiting(bool limiting) {
@@ -231,7 +226,6 @@ bool GOSoundEngine::ProcessSampler(
   GOSoundSampler *sampler,
   unsigned n_frames,
   float volume) {
-  const unsigned block_time = n_frames;
   float temp[n_frames * 2];
   const bool process_sampler = (sampler->time <= m_CurrentTime);
 
@@ -243,11 +237,6 @@ bool GOSoundEngine::ProcessSampler(
          sampler->drop_counter > 1))
       sampler->fader.StartDecay(
         370, m_SampleRate); /* Approx 0.37s at 44.1kHz */
-
-    if (
-      sampler->stop && sampler->stop <= m_CurrentTime
-      && sampler->stop - sampler->time <= block_time)
-      sampler->pipe = NULL;
 
     /* The decoded sampler frame will contain values containing
      * sampler->pipe_section->sample_bits worth of significant bits.
@@ -557,14 +546,17 @@ void GOSoundEngine::CreateReleaseSampler(GOSoundSampler *handle) {
           }
         }
       }
+
       unsigned cross_fade_len = this_pipe->GetReleaseCrossfadeLength();
+      const unsigned releaseLength = this_pipe->GetReleaseTail();
+
       new_sampler->fader.NewAttacking(
         gain_target, cross_fade_len, m_SampleRate);
 
-      if (m_ReleaseLength > 0) {
-        if (m_ReleaseLength < gain_decay_length || gain_decay_length == 0)
-          gain_decay_length = m_ReleaseLength;
-      }
+      if (
+        releaseLength > 0
+        && (releaseLength < gain_decay_length || gain_decay_length == 0))
+        gain_decay_length = releaseLength;
 
       if (gain_decay_length > 0)
         new_sampler->fader.StartDecay(gain_decay_length, m_SampleRate);

@@ -11,6 +11,7 @@
 #include "GOPipeConfig.h"
 #include "GOSaveableObject.h"
 
+class GOConfig;
 class GOOrganModel;
 class GOSampleStatistic;
 class GOStatisticCallback;
@@ -18,6 +19,7 @@ class GOStatisticCallback;
 class GOPipeConfigNode : private GOSaveableObject {
 private:
   GOOrganModel *m_OrganModel;
+  const GOConfig &m_config;
   GOPipeConfigNode *m_parent;
   GOPipeConfig m_PipeConfig;
   GOStatisticCallback *m_StatisticCallback;
@@ -42,12 +44,15 @@ public:
 
   GOPipeConfig &GetPipeConfig();
 
-  void ModifyTuning(float diff);
+  void ModifyManualTuning(float diff);
+  void ModifyAutoTuningCorrection(float diff);
 
   float GetEffectiveAmplitude();
   float GetEffectiveGain();
-  float GetEffectiveTuning();
-  float GetDefaultTuning();
+  float GetEffectivePitchTuning() const;
+  float GetEffectivePitchCorrection() const;
+  float GetEffectiveManualTuning() const;
+  float GetEffectiveAutoTuningCorection() const;
 
   unsigned GetEffectiveDelay();
   wxString GetEffectiveAudioGroup();
@@ -58,7 +63,8 @@ public:
   unsigned GetEffectiveAttackLoad();
   unsigned GetEffectiveReleaseLoad();
   unsigned GetEffectiveChannels();
-  bool GetEffectiveIgnorePitch();
+  bool GetEffectiveIgnorePitch() const;
+  unsigned GetEffectiveReleaseTail() const;
 
   virtual void AddChild(GOPipeConfigNode *node);
   virtual unsigned GetChildCount();

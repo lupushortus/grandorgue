@@ -42,11 +42,11 @@ private:
   unsigned m_HarmonicNumber;
   unsigned m_LoopCrossfadeLength;
   unsigned m_ReleaseCrossfadeLength;
-  float m_PitchCorrection;
   float m_MinVolume;
   float m_MaxVolume;
   int m_SampleMidiKeyNumber;
   bool m_RetunePipe;
+  bool m_IsTemperamentOriginalBased;
   GOSoundProviderWave m_SoundProvider;
   GOPipeConfigNode m_PipeConfigNode;
 
@@ -67,9 +67,10 @@ private:
 
   void SetTremulant(bool on);
 
-  void UpdateAmplitude();
-  void UpdateTuning();
-  void UpdateAudioGroup();
+  void UpdateAmplitude() override;
+  void UpdateTuning() override;
+  void UpdateAudioGroup() override;
+  void UpdateReleaseTail() override;
 
   void AbortPlayback();
   void PreparePlayback();
@@ -82,7 +83,6 @@ public:
     int sampler_group_id,
     unsigned midi_key_number,
     unsigned harmonic_number,
-    float pitch_correction,
     float min_volume,
     float max_volume,
     bool retune);

@@ -30,6 +30,7 @@
 #include "help/GOHelpRequestor.h"
 #include "midi/GOMidiCallback.h"
 #include "midi/GOMidiListener.h"
+#include "model/GOModificationListener.h"
 #include "threading/GOMutex.h"
 
 #include "GOEvent.h"
@@ -41,6 +42,8 @@ class GOConfig;
 class GODocument;
 class GOMidiEvent;
 class GOOrgan;
+class GOOrganController;
+class GOProgressDialog;
 class GOSound;
 class wxChoice;
 class wxHtmlHelpController;
@@ -51,7 +54,8 @@ class wxToolBarToolBase;
 class GOFrame : public wxFrame,
                 private GOHelpRequestor,
                 public GOResizable,
-                protected GOMidiCallback {
+                protected GOMidiCallback,
+                private GOModificationListener {
 private:
   GOApp &m_App;
   GOMutex m_mutex;
@@ -86,7 +90,8 @@ private:
   int m_AfterSettingsEventId;
   GOOrgan *p_AfterSettingsEventOrgan;
 
-  void UpdateReleaseLength();
+  // Updates ReleseLength in the model, in the config, and in the control
+  void UpdateReleaseLength(unsigned releaseLength);
   void UpdatePanelMenu();
   void UpdateFavoritesMenu();
   void UpdateRecentMenu();
@@ -95,10 +100,16 @@ private:
   void UpdateSize();
   void UpdateVolumeControlWithSettings();
 
-  GODocument *GetDocument();
+  // Returns the current open organ controller or nullptr
+  GOOrganController *GetOrganController() const;
+
+  // Processes the organ model modification event:
+  // updates some controls according the organ model changes
+  void OnIsModifiedChanged(bool modified) override;
+
+  bool LoadOrgan(const GOOrgan &organ, const wxString &cmb = wxEmptyString);
 
   void OnMeters(wxCommandEvent &event);
-
   void OnLoadFile(wxCommandEvent &event);
   void OnLoad(wxCommandEvent &event);
   void OnLoadFavorite(wxCommandEvent &event);

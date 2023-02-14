@@ -45,11 +45,7 @@ bool GODocument::IsModified() const {
   return m_OrganController && m_OrganController->IsOrganModified();
 }
 
-bool GODocument::Load(GOProgressDialog *dlg, const GOOrgan &organ) {
-  return Import(dlg, organ, wxEmptyString);
-}
-
-bool GODocument::Import(
+bool GODocument::LoadOrgan(
   GOProgressDialog *dlg, const GOOrgan &organ, const wxString &cmb) {
   wxBusyCursor busy;
   GOConfig &cfg = m_sound.GetSettings();
@@ -74,11 +70,15 @@ bool GODocument::Import(
     m_sound.GetEngine().SetVolume(m_OrganController->GetVolume());
   }
 
-  const unsigned releaseTail = m_OrganController->GetReleaseTail();
+  // synchronize cfg.ReleaseTail with OrganReleaseTail.
+  unsigned cfgReleaseTail = cfg.ReleaseLength();
+  unsigned organReleaseTail = m_OrganController->GetReleaseTail();
 
-  cfg.ReleaseLength(releaseTail);
-  m_sound.GetEngine().SetReleaseLength(releaseTail);
-  m_sound.GetSettings().Flush();
+  if (organReleaseTail) // organReleaseTail has the priority
+    cfg.ReleaseLength(organReleaseTail);
+  else if (cfgReleaseTail)
+    m_OrganController->SetReleaseTail(cfgReleaseTail);
+  cfg.Flush();
 
   wxCommandEvent event(wxEVT_WINTITLE, 0);
   event.SetString(m_OrganController->GetChurchName());
@@ -142,12 +142,6 @@ void GODocument::SyncState() {
   GODocumentBase::SyncState();
 }
 
-bool GODocument::Revert(GOProgressDialog *dlg) {
-  if (m_OrganController)
-    m_OrganController->DeleteSettings();
-  return Load(dlg, m_OrganController->GetOrganInfo());
-}
-
 bool GODocument::Save() {
   SyncState();
   return m_OrganController->Save();
@@ -176,8 +170,6 @@ void GODocument::CloseOrgan() {
   event.SetString(wxEmptyString);
   wxTheApp->GetTopWindow()->GetEventHandler()->AddPendingEvent(event);
 }
-
-GOOrganController *GODocument::GetOrganFile() { return m_OrganController; }
 
 void GODocument::OnMidiEvent(const GOMidiEvent &event) {
   GOMutexLocker locker(m_lock);
