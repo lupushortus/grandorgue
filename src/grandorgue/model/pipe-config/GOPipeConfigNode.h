@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2022 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -35,6 +35,7 @@ public:
     GOStatisticCallback *statistic);
   virtual ~GOPipeConfigNode();
 
+  GOPipeConfigNode *GetParent() const { return m_parent; }
   void SetParent(GOPipeConfigNode *parent);
   void Init(GOConfigReader &cfg, wxString group, wxString prefix);
   void Load(GOConfigReader &cfg, wxString group, wxString prefix);

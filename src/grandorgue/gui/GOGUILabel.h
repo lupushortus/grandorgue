@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2022 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -10,10 +10,10 @@
 
 #include <wx/colour.h>
 
-#include "GOBitmap.h"
 #include "GOFont.h"
 #include "GOGUIControl.h"
 
+class GOBitmap;
 class GOLabelControl;
 
 class GOGUILabel : public GOGUIControl {
@@ -21,7 +21,7 @@ private:
   int m_DispXpos;
   int m_DispYpos;
   GOLabelControl *m_Label;
-  GOBitmap m_Bitmap;
+  GOBitmap *m_PBackgroundBitmap; // if nullptr then the label is transparent
   unsigned m_FontSize;
   wxString m_FontName;
   GOFont m_Font;
@@ -32,8 +32,17 @@ private:
   unsigned m_TileOffsetX;
   unsigned m_TileOffsetY;
 
+  void DestroyBackgroundBitmap();
+  void InitBackgroundBitmap(
+    unsigned x,
+    unsigned y,
+    wxString imageFileName,
+    unsigned imageNum,
+    const wxString &imageMaskFileneme);
+
 public:
   GOGUILabel(GOGUIPanel *panel, GOLabelControl *label);
+  ~GOGUILabel() override { DestroyBackgroundBitmap(); }
   void Init(
     GOConfigReader &cfg,
     wxString group,

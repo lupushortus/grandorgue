@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2022 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -11,13 +11,13 @@
 #include <wx/log.h>
 
 #include "config/GOConfigReader.h"
+#include "model/GOCoupler.h"
+#include "model/GODrawStop.h"
 #include "model/GOManual.h"
 #include "model/GOStop.h"
 #include "model/GOSwitch.h"
 #include "model/GOTremulant.h"
 
-#include "GOCoupler.h"
-#include "GODrawStop.h"
 #include "GOOrganController.h"
 
 GOPistonControl::GOPistonControl(GOOrganController *organController)

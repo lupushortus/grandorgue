@@ -1,3 +1,12 @@
+- Removed support of old linux distros (with libc6 versions before 2.31) https://github.com/GrandOrgue/grandorgue/discussions/1334
+- Fixed the translation of the desktop icon on Linux https://github.com/GrandOrgue/grandorgue/issues/1429
+- Added support of labels without a background image by specifying DispImageNum=0 https://github.com/GrandOrgue/grandorgue/issues/1386
+- Added capability of overriding wav MIDIPitchFraction with the Pipe999MIDIPitchFraction key https://github.com/GrandOrgue/grandorgue/issues/1378
+# 3.10.1 (2022-02-24)
+- Fixed crash on loading an incorrect organ
+# 3.10.0 (2022-02-17)
+- Added storing the GrandOrgueVersion key in the Organ Settings file https://github.com/GrandOrgue/grandorgue/issues/1375
+- Added capability of redefining ReleaseLength and IgnorePitch on each level of Organ Settings
 - Changed defaults for the General Setter elements to Piston https://github.com/GrandOrgue/grandorgue/issues/1360
 - Added new fields ManualTuning and AutoTuningCorrection of Organ Settings https://github.com/GrandOrgue/grandorgue/issues/1333
 - Fixed duplicating packaged organs in the organ list https://github.com/GrandOrgue/grandorgue/issues/1367

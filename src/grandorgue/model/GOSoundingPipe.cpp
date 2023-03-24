@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2022 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -12,11 +12,12 @@
 
 #include "config/GOConfig.h"
 #include "config/GOConfigReader.h"
+#include "sound/GOSoundEngine.h"
 #include "temperaments/GOTemperament.h"
 
 #include "GOAlloc.h"
 #include "GOHash.h"
-#include "GOOrganController.h"
+#include "GOOrganModel.h"
 #include "GOPath.h"
 #include "GORank.h"
 #include "GOWindchest.h"
@@ -24,7 +25,7 @@
 #include "go_limits.h"
 
 GOSoundingPipe::GOSoundingPipe(
-  GOOrganController *organController,
+  GOOrganModel *pOrganModel,
   GORank *rank,
   bool percussive,
   int sampler_group_id,
@@ -33,8 +34,8 @@ GOSoundingPipe::GOSoundingPipe(
   float min_volume,
   float max_volume,
   bool retune)
-  : GOPipe(organController, rank, midi_key_number),
-    m_OrganController(organController),
+  : GOPipe(pOrganModel, rank, midi_key_number),
+    p_OrganModel(pOrganModel),
     m_Sampler(NULL),
     m_LastStop(0),
     m_Instances(0),
@@ -51,11 +52,14 @@ GOSoundingPipe::GOSoundingPipe(
     m_ReleaseCrossfadeLength(0),
     m_MinVolume(min_volume),
     m_MaxVolume(max_volume),
-    m_SampleMidiKeyNumber(-1),
+    m_OdfMidiKeyNumber(-1),
+    m_OdfMidiPitchFraction(-1.0),
+    m_SampleMidiKeyNumber(0),
+    m_SampleMidiPitchFraction(0.0),
     m_RetunePipe(retune),
     m_IsTemperamentOriginalBased(true),
     m_PipeConfigNode(
-      &rank->GetPipeConfig(), organController, this, &m_SoundProvider) {}
+      &rank->GetPipeConfig(), pOrganModel, this, &m_SoundProvider) {}
 
 void GOSoundingPipe::LoadAttack(
   GOConfigReader &cfg, wxString group, wxString prefix) {
@@ -132,14 +136,15 @@ void GOSoundingPipe::LoadAttack(
 
 void GOSoundingPipe::Init(
   GOConfigReader &cfg, wxString group, wxString prefix, wxString filename) {
-  m_OrganController->RegisterCacheObject(this);
+  p_OrganModel->RegisterCacheObject(this);
   m_Filename = filename;
   m_PipeConfigNode.Init(cfg, group, prefix);
-  m_SampleMidiKeyNumber = -1;
+  m_OdfMidiKeyNumber = -1;
+  m_OdfMidiPitchFraction = -1.0;
   m_LoopCrossfadeLength = 0;
   m_ReleaseCrossfadeLength = 0;
   UpdateAmplitude();
-  m_OrganController->GetWindchest(m_SamplerGroupID - 1)->AddPipe(this);
+  p_OrganModel->GetWindchest(m_SamplerGroupID - 1)->AddPipe(this);
 
   attack_load_info ainfo;
   ainfo.filename.AssignResource(m_Filename);
@@ -161,7 +166,7 @@ void GOSoundingPipe::Init(
 
 void GOSoundingPipe::Load(
   GOConfigReader &cfg, wxString group, wxString prefix) {
-  m_OrganController->RegisterCacheObject(this);
+  p_OrganModel->RegisterCacheObject(this);
   m_Filename = cfg.ReadStringTrim(ODFSetting, group, prefix);
   m_PipeConfigNode.Load(cfg, group, prefix);
   m_HarmonicNumber = cfg.ReadInteger(
@@ -177,13 +182,21 @@ void GOSoundingPipe::Load(
     group,
     prefix + wxT("WindchestGroup"),
     1,
-    m_OrganController->GetWindchestGroupCount(),
+    p_OrganModel->GetWindchestGroupCount(),
     false,
     m_SamplerGroupID);
   m_Percussive = cfg.ReadBoolean(
     ODFSetting, group, prefix + wxT("Percussive"), false, m_Percussive);
-  m_SampleMidiKeyNumber = cfg.ReadInteger(
+  m_OdfMidiKeyNumber = cfg.ReadInteger(
     ODFSetting, group, prefix + wxT("MIDIKeyNumber"), -1, 127, false, -1);
+  m_OdfMidiPitchFraction = cfg.ReadFloat(
+    ODFSetting,
+    group,
+    prefix + wxT("MIDIPitchFraction"),
+    0,
+    100.0,
+    false,
+    -1.0);
   m_LoopCrossfadeLength = cfg.ReadInteger(
     ODFSetting, group, prefix + wxT("LoopCrossfadeLength"), 0, 120, false, 0);
   m_ReleaseCrossfadeLength = cfg.ReadInteger(
@@ -197,7 +210,7 @@ void GOSoundingPipe::Load(
   m_RetunePipe = cfg.ReadBoolean(
     ODFSetting, group, prefix + wxT("AcceptsRetuning"), false, m_RetunePipe);
   UpdateAmplitude();
-  m_OrganController->GetWindchest(m_SamplerGroupID - 1)->AddPipe(this);
+  p_OrganModel->GetWindchest(m_SamplerGroupID - 1)->AddPipe(this);
 
   LoadAttack(cfg, group, prefix);
 
@@ -254,7 +267,6 @@ void GOSoundingPipe::LoadData(
       (loop_load_type)m_PipeConfigNode.GetEffectiveLoopLoad(),
       m_PipeConfigNode.GetEffectiveAttackLoad(),
       m_PipeConfigNode.GetEffectiveReleaseLoad(),
-      m_SampleMidiKeyNumber,
       m_LoopCrossfadeLength,
       m_ReleaseCrossfadeLength);
     Validate();
@@ -301,7 +313,7 @@ void GOSoundingPipe::UpdateHash(GOHash &hash) {
   hash.Update(m_PipeConfigNode.GetEffectiveLoopLoad());
   hash.Update(m_PipeConfigNode.GetEffectiveAttackLoad());
   hash.Update(m_PipeConfigNode.GetEffectiveReleaseLoad());
-  hash.Update(m_SampleMidiKeyNumber);
+  hash.Update(m_OdfMidiKeyNumber);
   hash.Update(m_LoopCrossfadeLength);
   hash.Update(m_ReleaseCrossfadeLength);
 
@@ -332,12 +344,41 @@ void GOSoundingPipe::UpdateHash(GOHash &hash) {
   }
 }
 
-void GOSoundingPipe::Initialize() {}
+float GOSoundingPipe::GetManualTuningPitchOffset() const {
+  return m_PipeConfigNode.GetEffectivePitchTuning()
+    + m_PipeConfigNode.GetEffectiveManualTuning();
+}
 
-const wxString &GOSoundingPipe::GetLoadTitle() { return m_Filename; }
+float GOSoundingPipe::GetAutoTuningPitchOffset() const {
+  float pitchAdjustment = 0.0;
+
+  // For any other temperament than original. Calculate pitchAdjustment by
+  // converting from the original temperament to the equal one before using
+  // temperament offset. Take PitchCorrection into account. Also GUI tuning
+  // adjustments are added and ODF adjustments removed leaving difference.
+  if (!m_PipeConfigNode.GetEffectiveIgnorePitch() && m_SampleMidiKeyNumber) {
+    pitchAdjustment
+      = log(m_HarmonicNumber / 8.0) / log(2) * 1200 // harmonic correction
+      + ((int)m_MidiKeyNumber - m_SampleMidiKeyNumber) * 100 // note correction
+      - m_SampleMidiPitchFraction; // fraction correction
+  }
+  return pitchAdjustment + m_PipeConfigNode.GetEffectivePitchCorrection()
+    + m_PipeConfigNode.GetEffectiveAutoTuningCorection(); // final correction
+}
 
 void GOSoundingPipe::Validate() {
-  if (!m_OrganController->GetConfig().ODFCheck())
+  // make effective values
+  m_SampleMidiKeyNumber = m_OdfMidiKeyNumber >= 0
+    ? m_OdfMidiKeyNumber
+    : m_SoundProvider.GetMidiKeyNumber();
+  m_SampleMidiPitchFraction = m_OdfMidiPitchFraction >= 0.0
+    ? m_OdfMidiPitchFraction
+    : m_OdfMidiKeyNumber < 0
+    ? m_SoundProvider.GetMidiPitchFract()
+    : 0.0; // if MidiKeyNumber is provided in the ODF then we ignore
+           // the PitchFraction from the sample
+
+  if (!p_OrganModel->GetConfig().ODFCheck())
     return;
 
   if (!m_PipeConfigNode.GetEffectiveChannels())
@@ -372,35 +413,26 @@ void GOSoundingPipe::Validate() {
   }
 
   if (
-    m_RetunePipe && m_SoundProvider.GetMidiKeyNumber() == 0
-    && m_SoundProvider.GetMidiPitchFract() == 0
-    && m_SampleMidiKeyNumber == -1) {
+    m_RetunePipe && m_SampleMidiKeyNumber <= 0
+    && m_SampleMidiPitchFraction <= 0.0) {
     wxLogWarning(
       _("rank %s pipe %s: no pitch information provided"),
       m_Rank->GetName().c_str(),
       GetLoadTitle().c_str());
     return;
   }
-  double offset;
-  if (!m_RetunePipe)
-    offset = 0;
-  else
-    offset = m_SoundProvider.GetMidiKeyNumber()
-      + log(8.0 / m_HarmonicNumber) * (12.0 / log(2))
-      - (m_SoundProvider.GetMidiPitchFract()
-         - m_PipeConfigNode.GetEffectivePitchTuning()
-         + m_PipeConfigNode.GetEffectivePitchCorrection())
-        / 100.0
-      - m_MidiKeyNumber;
-  if (offset < -18 || offset > 18) {
+  float offset = m_RetunePipe ? GetAutoTuningPitchOffset() : 0.0;
+
+  if (offset < -1800 || offset > 1800) {
     wxLogError(
-      _("rank %s pipe %s: temperament would retune pipe by more than "
+      _("rank %s pipe %s: temperament would retune pipe by %f - more than "
         "1800 cent"),
-      m_Rank->GetName().c_str(),
-      GetLoadTitle().c_str());
+      m_Rank->GetName(),
+      GetLoadTitle(),
+      offset);
     return;
   }
-  if (offset < -6 || offset > 6) {
+  if (offset < -600 || offset > 600) {
     wxLogWarning(
       _("rank %s pipe %s: temperament would retune pipe by more "
         "than 600 cent"),
@@ -411,54 +443,47 @@ void GOSoundingPipe::Validate() {
 }
 
 void GOSoundingPipe::SetTremulant(bool on) {
-  if (on) {
-    if (!m_Tremulant) {
-      m_Tremulant = true;
-      m_SoundProvider.UseSampleGroup(1);
-      if (m_Sampler)
-        m_OrganController->SwitchSample(GetSoundProvider(), m_Sampler);
-    }
-  } else {
-    if (m_Tremulant) {
-      m_Tremulant = false;
-      m_SoundProvider.UseSampleGroup(0);
-      if (m_Sampler)
-        m_OrganController->SwitchSample(GetSoundProvider(), m_Sampler);
-    }
-  }
-}
+  if (on != m_Tremulant) {
+    m_Tremulant = on;
+    m_SoundProvider.UseSampleGroup((unsigned)on);
 
-GOSoundProvider *GOSoundingPipe::GetSoundProvider() { return &m_SoundProvider; }
+    GOSoundEngine *pSoundEngine = GetSoundEngine();
 
-void GOSoundingPipe::SetOn(unsigned velocity) {
-  m_Sampler = m_OrganController->StartSample(
-    GetSoundProvider(),
-    m_SamplerGroupID,
-    m_AudioGroupID,
-    velocity,
-    m_PipeConfigNode.GetEffectiveDelay(),
-    m_LastStop);
-  if (m_Sampler)
-    m_Instances++;
-  if (GetSoundProvider()->IsOneshot())
-    m_Sampler = 0;
-}
-
-void GOSoundingPipe::SetOff() {
-  m_Instances--;
-  if (m_Sampler) {
-    m_LastStop = m_OrganController->StopSample(GetSoundProvider(), m_Sampler);
-    m_Sampler = 0;
+    if (pSoundEngine && m_Sampler)
+      pSoundEngine->SwitchSample(&m_SoundProvider, m_Sampler);
   }
 }
 
 void GOSoundingPipe::Change(unsigned velocity, unsigned last_velocity) {
-  if (!m_Instances && velocity)
-    SetOn(velocity);
-  else if (m_Instances && !velocity)
-    SetOff();
-  else if (m_Sampler && last_velocity != velocity)
-    m_OrganController->UpdateVelocity(GetSoundProvider(), m_Sampler, velocity);
+  GOSoundEngine *pSoundEngine = GetSoundEngine();
+
+  if (!m_Instances && velocity) {
+    // the key pressed
+    m_Sampler = pSoundEngine ? pSoundEngine->StartSample(
+                  &m_SoundProvider,
+                  m_SamplerGroupID,
+                  m_AudioGroupID,
+                  velocity,
+                  m_PipeConfigNode.GetEffectiveDelay(),
+                  m_LastStop)
+                             : nullptr;
+    if (m_Sampler)
+      m_Instances++;
+    if (m_SoundProvider.IsOneshot())
+      m_Sampler = nullptr;
+  } else if (m_Instances && !velocity) {
+    // the key released
+    m_Instances--;
+    if (m_Sampler) {
+      m_LastStop = pSoundEngine
+        ? pSoundEngine->StopSample(&m_SoundProvider, m_Sampler)
+        : 0;
+      m_Sampler = nullptr;
+    }
+  } else if (m_Sampler && last_velocity != velocity)
+    // the key was pressed before and the velocity is changed now
+    if (pSoundEngine)
+      pSoundEngine->UpdateVelocity(&m_SoundProvider, m_Sampler, velocity);
 }
 
 void GOSoundingPipe::UpdateAmplitude() {
@@ -468,36 +493,15 @@ void GOSoundingPipe::UpdateAmplitude() {
 }
 
 void GOSoundingPipe::UpdateTuning() {
-  float pitchAdjustment = 0;
+  float pitchAdjustment = m_IsTemperamentOriginalBased
+    ? GetManualTuningPitchOffset()
+    : GetAutoTuningPitchOffset();
 
-  if (m_IsTemperamentOriginalBased) {
-    // For original temperament. Set pitchAdjustment from GetEffectiveTuning
-    pitchAdjustment = m_PipeConfigNode.GetEffectivePitchTuning()
-      + m_PipeConfigNode.GetEffectiveManualTuning();
-  } else {
-    // For any other temperament than original. Calculate pitchAdjustment by
-    // converting from the original temperament to the equal one before using
-    // temperament offset. Take PitchCorrection into account. Also GUI tuning
-    // adjustments are added and ODF adjustments removed leaving difference.
-    double concert_pitch_correction = 0;
-
-    if (
-      !m_PipeConfigNode.GetEffectiveIgnorePitch()
-      && m_SoundProvider.GetMidiKeyNumber()) {
-      concert_pitch_correction
-        = (100.0 * m_SoundProvider.GetMidiKeyNumber() - 100.0 * m_MidiKeyNumber
-           + log(8.0 / m_HarmonicNumber) / log(2) * 1200)
-        + m_SoundProvider.GetMidiPitchFract();
-    }
-    pitchAdjustment = m_PipeConfigNode.GetEffectivePitchCorrection()
-      + m_PipeConfigNode.GetEffectiveAutoTuningCorection()
-      - concert_pitch_correction;
-  }
   m_SoundProvider.SetTuning(pitchAdjustment + m_TemperamentOffset);
 }
 
 void GOSoundingPipe::UpdateAudioGroup() {
-  m_AudioGroupID = m_OrganController->GetConfig().GetAudioGroupId(
+  m_AudioGroupID = p_OrganModel->GetConfig().GetAudioGroupId(
     m_PipeConfigNode.GetEffectiveAudioGroup());
 }
 
@@ -515,8 +519,8 @@ void GOSoundingPipe::SetTemperament(const GOTemperament &temperament) {
 }
 
 void GOSoundingPipe::PreparePlayback() {
-  UpdateAudioGroup();
   GOPipe::PreparePlayback();
+  UpdateAudioGroup();
 }
 
 void GOSoundingPipe::AbortPlayback() {
@@ -525,4 +529,5 @@ void GOSoundingPipe::AbortPlayback() {
   m_Sampler = 0;
   m_LastStop = 0;
   m_SoundProvider.UseSampleGroup(0);
+  GOPipe::AbortPlayback();
 }

@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2022 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -8,6 +8,8 @@
 #include "GOEventHandlerList.h"
 
 #include <algorithm>
+
+#include "control/GOControlChangedHandler.h"
 
 void GOEventHandlerList::RegisterCacheObject(GOCacheObject *obj) {
   m_CacheObjects.push_back(obj);
@@ -26,9 +28,9 @@ void GOEventHandlerList::RegisterMidiConfigurator(GOMidiConfigurator *obj) {
   m_MidiConfigurators.push_back(obj);
 }
 
-void GOEventHandlerList::RegisterPlaybackStateHandler(
-  GOPlaybackStateHandler *handler) {
-  m_PlaybackStateHandlers.push_back(handler);
+void GOEventHandlerList::RegisterSoundStateHandler(
+  GOSoundStateHandler *handler) {
+  m_SoundStateHandlers.push_back(handler);
 }
 
 void GOEventHandlerList::RegisterSaveableObject(GOSaveableObject *obj) {
@@ -47,11 +49,16 @@ void GOEventHandlerList::UnregisterSaveableObject(GOSaveableObject *obj) {
   }
 }
 
+void GOEventHandlerList::SendControlChanged(void *pControl) {
+  for (auto handler : m_ControlChangedHandlers)
+    handler->ControlChanged(pControl);
+}
+
 void GOEventHandlerList::Cleanup() {
   m_CacheObjects.clear();
   m_ControlChangedHandlers.clear();
   m_MidiConfigurators.clear();
   m_MidiEventHandlers.clear();
-  m_PlaybackStateHandlers.clear();
+  m_SoundStateHandlers.clear();
   m_SaveableObjects.clear();
 }

@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2022 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -11,8 +11,8 @@
 
 #include "config/GOConfig.h"
 #include "config/GOConfigReader.h"
-#include "model/GOManual.h"
 
+#include "GOManual.h"
 #include "GOOrganController.h"
 
 GOCoupler::GOCoupler(GOOrganController *organController, unsigned sourceManual)
@@ -58,13 +58,6 @@ void GOCoupler::PreparePlayback() {
       = m_FirstMidiNote - src->GetFirstLogicalKeyMIDINoteNumber();
   else
     m_FirstLogicalKey = 0;
-}
-
-void GOCoupler::StartPlayback() {
-  GODrawstop::StartPlayback();
-
-  GOManual *src = m_OrganController->GetManual(m_SourceManual);
-
   if (m_UnisonOff && IsActive())
     src->SetUnisonOff(true);
 }

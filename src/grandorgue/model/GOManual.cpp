@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2022 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -20,7 +20,7 @@
 
 GOManual::GOManual(GOOrganController *organController)
   : m_group(wxT("---")),
-    m_midi(organController, MIDI_RECV_MANUAL),
+    m_midi(*organController, MIDI_RECV_MANUAL),
     m_sender(organController, MIDI_SEND_MANUAL),
     m_division(organController, MIDI_SEND_MANUAL),
     m_OrganController(organController),
@@ -45,11 +45,11 @@ GOManual::GOManual(GOOrganController *organController)
     m_divisionals(0),
     m_ODFCouplerCount(0),
     m_displayed(false),
-    m_DivisionalTemplate(organController) {
+    m_DivisionalTemplate(*organController) {
   m_InputCouplers.push_back(NULL);
   m_OrganController->RegisterEventHandler(this);
   m_OrganController->RegisterMidiConfigurator(this);
-  m_OrganController->RegisterPlaybackStateHandler(this);
+  m_OrganController->RegisterSoundStateHandler(this);
 }
 
 unsigned GOManual::RegisterCoupler(GOCoupler *coupler) {
@@ -287,7 +287,7 @@ void GOManual::SetKey(
   if (
     m_first_accessible_logical_key_nb <= note + 1
     && note <= m_first_accessible_logical_key_nb + m_nb_accessible_keys)
-    m_OrganController->ControlChanged(this);
+    m_OrganController->SendControlChanged(this);
 }
 
 void GOManual::Set(unsigned note, unsigned velocity) {
@@ -445,8 +445,6 @@ void GOManual::PreparePlayback() {
   m_sender.SetName(m_name);
 }
 
-void GOManual::StartPlayback() {}
-
 void GOManual::PrepareRecording() {
   m_sender.ResetKey();
   for (unsigned i = 0; i < m_KeyVelocity.size(); i++)
@@ -516,7 +514,7 @@ void GOManual::ShowConfigDialog() {
     GetMidiType().c_str(),
     GetMidiName().c_str());
 
-  m_OrganController->GetDocument()->ShowMIDIEventDialog(
+  m_OrganController->ShowMIDIEventDialog(
     this, title, &m_midi, &m_sender, NULL, &m_division);
 }
 

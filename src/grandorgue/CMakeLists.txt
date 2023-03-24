@@ -1,5 +1,5 @@
 # Copyright 2006 Milan Digital Audio LLC
-# Copyright 2009-2022 GrandOrgue contributors (see AUTHORS)
+# Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
 # License GPL-2.0 or later (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
 
 include(${CMAKE_SOURCE_DIR}/cmake/AddLinkerOption.cmake)
@@ -101,6 +101,7 @@ loader/GOFileStore.cpp
 loader/GOLoaderFilename.cpp
 loader/GOLoadThread.cpp
 loader/GOLoadWorker.cpp
+midi/dialog-creator/GOMidiDialogCreatorProxy.cpp
 midi/ports/GOMidiInPort.cpp
 midi/ports/GOMidiOutPort.cpp
 midi/ports/GOMidiPort.cpp
@@ -121,6 +122,9 @@ model/pipe-config/GOPipeConfig.cpp
 model/pipe-config/GOPipeConfigNode.cpp
 model/pipe-config/GOPipeConfigTreeNode.cpp
 model/GOCacheObject.cpp
+model/GOCoupler.cpp
+model/GODivisionalCoupler.cpp
+model/GODrawStop.cpp
 model/GODummyPipe.cpp
 model/GOEnclosure.cpp
 model/GOEventHandlerList.cpp
@@ -159,6 +163,7 @@ sound/GOSoundReverbEngine.cpp
 sound/GOSoundReverbPartition.cpp
 sound/GOSoundResample.cpp
 sound/GOSoundSamplerPool.cpp
+sound/GOSoundStateHandler.cpp
 sound/GOSound.cpp
 GOAudioGauge.cpp
 GOAudioRecorder.cpp
@@ -167,10 +172,7 @@ GOCacheCleaner.cpp
 GOCacheWriter.cpp
 GOBitmap.cpp
 GOBitmapCache.cpp
-GOCoupler.cpp
 GODC.cpp
-GODivisionalCoupler.cpp
-GODrawStop.cpp
 GOEvent.cpp
 GOFont.cpp
 GOKeyReceiver.cpp

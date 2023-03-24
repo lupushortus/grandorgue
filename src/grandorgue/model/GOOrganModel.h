@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2022 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -10,8 +10,10 @@
 
 #include "ptrvector.h"
 
-#include "GOEventHandlerList.h"
+#include "midi/dialog-creator/GOMidiDialogCreatorProxy.h"
 #include "pipe-config/GOPipeConfigTreeNode.h"
+
+#include "GOEventHandlerList.h"
 
 class GOConfig;
 class GOConfigReader;
@@ -27,7 +29,8 @@ class GOSwitch;
 class GOTremulant;
 class GOWindchest;
 
-class GOOrganModel : public GOEventHandlerList {
+class GOOrganModel : public GOEventHandlerList,
+                     public GOMidiDialogCreatorProxy {
 private:
   const GOConfig &m_config;
 

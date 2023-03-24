@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2022 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -71,7 +71,7 @@ void GOPerfTestApp::RunTest(
   unsigned samples_per_frame) {
   try {
     GOConfig settings(wxT("perftest"));
-    GOOrganController *organController = new GOOrganController(NULL, settings);
+    GOOrganController *organController = new GOOrganController(settings);
     const wxString testsDir = argc >= 2 ? argv[1]
                                         : GOStdPath::GetResourceDir()
         + wxFileName::GetPathSeparator() + "perftests";
@@ -113,7 +113,6 @@ void GOPerfTestApp::RunTest(
           LOOP_LOAD_ALL,
           1,
           1,
-          -1,
           0,
           0);
         pipes.push_back(w);

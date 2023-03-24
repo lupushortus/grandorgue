@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2022 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -26,7 +26,7 @@ GOWindchest::GOWindchest(GOOrganController *organController)
     m_pipes(0),
     m_PipeConfig(
       &organController->GetRootPipeConfigNode(), organController, NULL) {
-  m_OrganController->RegisterPlaybackStateHandler(this);
+  m_OrganController->RegisterSoundStateHandler(this);
 }
 
 void GOWindchest::Init(GOConfigReader &cfg, wxString group, wxString name) {
@@ -125,10 +125,4 @@ void GOWindchest::UpdateTremulant(GOTremulant *tremulant) {
     }
 }
 
-void GOWindchest::AbortPlayback() {}
-
-void GOWindchest::StartPlayback() {}
-
 void GOWindchest::PreparePlayback() { UpdateVolume(); }
-
-void GOWindchest::PrepareRecording() {}

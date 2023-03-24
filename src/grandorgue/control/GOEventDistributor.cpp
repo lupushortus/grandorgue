@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2022 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -9,10 +9,10 @@
 
 #include "model/GOCacheObject.h"
 #include "model/GOEventHandlerList.h"
+#include "sound/GOSoundStateHandler.h"
 
 #include "GOControlChangedHandler.h"
 #include "GOEventHandler.h"
-#include "GOPlaybackStateHandler.h"
 #include "GOSaveableObject.h"
 
 void GOEventDistributor::SendMidi(const GOMidiEvent &event) {
@@ -45,28 +45,22 @@ void GOEventDistributor::UpdateHash(GOHash &hash) {
     obj->UpdateHash(hash);
 }
 
-void GOEventDistributor::PreparePlayback() {
-  for (auto handler : p_model->GetPlaybackStateHandlers())
-    handler->PreparePlayback();
+void GOEventDistributor::PreparePlayback(GOSoundEngine *pSoundEngine) {
+  for (auto handler : p_model->GetSoundStateHandlers())
+    handler->PreparePlaybackExt(pSoundEngine);
 }
 
 void GOEventDistributor::StartPlayback() {
-  for (auto handler : p_model->GetPlaybackStateHandlers())
-    handler->StartPlayback();
+  for (auto handler : p_model->GetSoundStateHandlers())
+    handler->StartPlaybackExt();
 }
 
 void GOEventDistributor::AbortPlayback() {
-  for (auto handler : p_model->GetPlaybackStateHandlers())
-    handler->AbortPlayback();
+  for (auto handler : p_model->GetSoundStateHandlers())
+    handler->AbortPlaybackExt();
 }
 
 void GOEventDistributor::PrepareRecording() {
-  for (auto handler : p_model->GetPlaybackStateHandlers())
-    handler->PrepareRecording();
-}
-
-void GOEventDistributor::ControlChanged(void *control) {
-  if (control)
-    for (auto handler : p_model->GetControlChangedHandlers())
-      handler->ControlChanged(control);
+  for (auto handler : p_model->GetSoundStateHandlers())
+    handler->PrepareRecordingExt();
 }

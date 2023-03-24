@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2022 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -10,13 +10,14 @@
 
 #include <wx/string.h>
 
-#include "GOEventHandler.h"
-#include "GOKeyReceiver.h"
-#include "GOPlaybackStateHandler.h"
-#include "GOSaveableObject.h"
 #include "midi/GOMidiConfigurator.h"
 #include "midi/GOMidiReceiver.h"
 #include "midi/GOMidiSender.h"
+#include "sound/GOSoundStateHandler.h"
+
+#include "GOEventHandler.h"
+#include "GOKeyReceiver.h"
+#include "GOSaveableObject.h"
 
 class GOConfigReader;
 class GOConfigWriter;
@@ -25,7 +26,7 @@ class GOOrganController;
 
 class GOEnclosure : private GOEventHandler,
                     private GOSaveableObject,
-                    private GOPlaybackStateHandler,
+                    private GOSoundStateHandler,
                     public GOMidiConfigurator {
 private:
   GOMidiReceiver m_midi;
@@ -46,7 +47,6 @@ private:
 
   void AbortPlayback();
   void PreparePlayback();
-  void StartPlayback();
   void PrepareRecording();
 
 public:

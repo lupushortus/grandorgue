@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2022 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -14,7 +14,7 @@ class GOCacheObject;
 class GOControlChangedHandler;
 class GOEventHandler;
 class GOMidiConfigurator;
-class GOPlaybackStateHandler;
+class GOSoundStateHandler;
 class GOSaveableObject;
 
 class GOEventHandlerList {
@@ -23,16 +23,12 @@ private:
   std::vector<GOControlChangedHandler *> m_ControlChangedHandlers;
   std::vector<GOMidiConfigurator *> m_MidiConfigurators;
   std::vector<GOEventHandler *> m_MidiEventHandlers;
-  std::vector<GOPlaybackStateHandler *> m_PlaybackStateHandlers;
+  std::vector<GOSoundStateHandler *> m_SoundStateHandlers;
   std::vector<GOSaveableObject *> m_SaveableObjects;
 
 public:
   const std::vector<GOCacheObject *> &GetCacheObjects() const {
     return m_CacheObjects;
-  }
-  const std::vector<GOControlChangedHandler *> &GetControlChangedHandlers()
-    const {
-    return m_ControlChangedHandlers;
   }
   const std::vector<GOMidiConfigurator *> &GetMidiConfigurators() const {
     return m_MidiConfigurators;
@@ -40,9 +36,8 @@ public:
   const std::vector<GOEventHandler *> &GetMidiEventHandlers() const {
     return m_MidiEventHandlers;
   }
-  const std::vector<GOPlaybackStateHandler *> &GetPlaybackStateHandlers()
-    const {
-    return m_PlaybackStateHandlers;
+  const std::vector<GOSoundStateHandler *> &GetSoundStateHandlers() const {
+    return m_SoundStateHandlers;
   }
   const std::vector<GOSaveableObject *> &GetSaveableObjects() const {
     return m_SaveableObjects;
@@ -52,9 +47,15 @@ public:
   void RegisterControlChangedHandler(GOControlChangedHandler *handler);
   void RegisterMidiConfigurator(GOMidiConfigurator *obj);
   void RegisterEventHandler(GOEventHandler *handler);
-  void RegisterPlaybackStateHandler(GOPlaybackStateHandler *handler);
+  void RegisterSoundStateHandler(GOSoundStateHandler *handler);
   void RegisterSaveableObject(GOSaveableObject *obj);
   void UnregisterSaveableObject(GOSaveableObject *obj);
+
+  /**
+   * Calls ControlChanged for all ControlChanged handlers
+   * @param pControl - the control that state is changed
+   */
+  void SendControlChanged(void *pControl);
 
   void Cleanup();
 };

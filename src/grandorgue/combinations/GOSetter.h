@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2022 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -15,8 +15,7 @@
 #include "control/GOLabelControl.h"
 #include "model/GOCombination.h"
 #include "model/GOEnclosure.h"
-
-#include "GOPlaybackStateHandler.h"
+#include "sound/GOSoundStateHandler.h"
 
 #define N_CRESCENDOS 4
 
@@ -24,7 +23,7 @@ class GOGeneralCombination;
 
 typedef enum { SETTER_REGULAR, SETTER_SCOPE, SETTER_SCOPED } SetterType;
 
-class GOSetter : private GOPlaybackStateHandler,
+class GOSetter : private GOSoundStateHandler,
                  private GOControlChangedHandler,
                  public GOElementCreator,
                  public GOSaveableObject {
@@ -59,10 +58,7 @@ private:
 
   void ControlChanged(void *control);
 
-  void AbortPlayback();
   void PreparePlayback();
-  void StartPlayback();
-  void PrepareRecording();
 
 public:
   GOSetter(GOOrganController *organController);

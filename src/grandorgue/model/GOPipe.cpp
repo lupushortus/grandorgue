@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2022 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -18,7 +18,7 @@ GOPipe::GOPipe(
     m_Velocities(1),
     m_Rank(rank),
     m_MidiKeyNumber(midi_key_number) {
-  handlerList->RegisterPlaybackStateHandler(this);
+  handlerList->RegisterSoundStateHandler(this);
 }
 
 GOPipe::~GOPipe() {}
@@ -29,17 +29,11 @@ unsigned GOPipe::RegisterReference(GOPipe *pipe) {
   return id;
 }
 
-void GOPipe::AbortPlayback() {}
-
 void GOPipe::PreparePlayback() {
   m_Velocity = 0;
   for (unsigned i = 0; i < m_Velocities.size(); i++)
     m_Velocities[i] = 0;
 }
-
-void GOPipe::StartPlayback() {}
-
-void GOPipe::PrepareRecording() {}
 
 void GOPipe::SetTemperament(const GOTemperament &temperament) {}
 

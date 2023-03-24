@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2022 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -15,6 +15,7 @@ class GOConfigWriter;
 class GOEventHandlerList;
 class GOHash;
 class GOMidiEvent;
+class GOSoundEngine;
 
 class GOEventDistributor {
 private:
@@ -29,7 +30,7 @@ protected:
   void ResolveReferences();
   void UpdateHash(GOHash &hash);
 
-  void PreparePlayback();
+  void PreparePlayback(GOSoundEngine *pSoundEngine);
   void StartPlayback();
   void AbortPlayback();
   void PrepareRecording();
@@ -39,7 +40,6 @@ public:
   ~GOEventDistributor() { p_model = nullptr; }
 
   void HandleKey(int key);
-  void ControlChanged(void *control);
 };
 
 #endif

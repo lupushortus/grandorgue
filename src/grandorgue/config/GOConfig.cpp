@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2022 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -453,7 +453,7 @@ void GOConfig::SetLanguageId(int langId) {
                                  : wxLocale::GetLanguageCanonicalName(langId));
 }
 
-unsigned GOConfig::GetEventCount() {
+unsigned GOConfig::GetEventCount() const {
   return sizeof(m_MIDISettings) / sizeof(m_MIDISettings[0]);
 }
 
@@ -485,13 +485,13 @@ wxString GOConfig::GetEventTitle(unsigned index) {
   return wxGetTranslation(m_MIDISettings[index].name);
 }
 
-GOMidiReceiverBase *GOConfig::GetMidiEvent(unsigned index) {
+const GOMidiReceiverBase *GOConfig::GetMidiEvent(unsigned index) const {
   assert(index < GetEventCount());
   return m_MIDIEvents[index];
 }
 
-GOMidiReceiverBase *GOConfig::FindMidiEvent(
-  GOMidiReceiverType type, unsigned index) {
+const GOMidiReceiverBase *GOConfig::FindMidiEvent(
+  GOMidiReceiverType type, unsigned index) const {
   for (unsigned i = 0; i < GetEventCount(); i++)
     if (m_MIDISettings[i].type == type && m_MIDISettings[i].index == index)
       return m_MIDIEvents[i];

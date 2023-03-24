@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2022 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -20,7 +20,7 @@ GOButtonControl::GOButtonControl(
   bool pushbutton,
   bool isPiston)
   : m_OrganController(organController),
-    m_midi(organController, midi_type),
+    m_midi(*organController, midi_type),
     m_sender(organController, MIDI_SEND_BUTTON),
     m_shortcut(organController, KEY_RECV_BUTTON),
     m_Pushbutton(pushbutton),
@@ -32,7 +32,7 @@ GOButtonControl::GOButtonControl(
     m_IsPiston(isPiston) {
   m_OrganController->RegisterEventHandler(this);
   m_OrganController->RegisterMidiConfigurator(this);
-  m_OrganController->RegisterPlaybackStateHandler(this);
+  m_OrganController->RegisterSoundStateHandler(this);
 }
 
 GOButtonControl::~GOButtonControl() {}
@@ -114,8 +114,6 @@ void GOButtonControl::PreparePlayback() {
   m_sender.SetName(m_Name);
 }
 
-void GOButtonControl::StartPlayback() {}
-
 void GOButtonControl::PrepareRecording() { m_sender.SetDisplay(m_Engaged); }
 
 void GOButtonControl::ProcessMidi(const GOMidiEvent &event) {
@@ -148,7 +146,7 @@ void GOButtonControl::Display(bool onoff) {
     return;
   m_sender.SetDisplay(onoff);
   m_Engaged = onoff;
-  m_OrganController->ControlChanged(this);
+  m_OrganController->SendControlChanged(this);
 }
 
 bool GOButtonControl::IsEngaged() const { return m_Engaged; }
@@ -187,8 +185,7 @@ void GOButtonControl::ShowConfigDialog() {
     key = NULL;
   }
 
-  m_OrganController->GetDocument()->ShowMIDIEventDialog(
-    this, title, midi, &m_sender, key);
+  m_OrganController->ShowMIDIEventDialog(this, title, midi, &m_sender, key);
 }
 
 wxString GOButtonControl::GetElementStatus() {

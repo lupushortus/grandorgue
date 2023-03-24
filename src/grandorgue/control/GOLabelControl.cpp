@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2022 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -19,7 +19,7 @@ GOLabelControl::GOLabelControl(GOOrganController *organController)
     m_OrganController(organController),
     m_sender(organController, MIDI_SEND_LABEL) {
   m_OrganController->RegisterMidiConfigurator(this);
-  m_OrganController->RegisterPlaybackStateHandler(this);
+  m_OrganController->RegisterSoundStateHandler(this);
 }
 
 GOLabelControl::~GOLabelControl() {}
@@ -49,7 +49,7 @@ const wxString &GOLabelControl::GetContent() { return m_Content; }
 void GOLabelControl::SetContent(wxString name) {
   m_Content = name;
   m_sender.SetLabel(m_Content);
-  m_OrganController->ControlChanged(this);
+  m_OrganController->SendControlChanged(this);
 }
 
 void GOLabelControl::AbortPlayback() {
@@ -58,8 +58,6 @@ void GOLabelControl::AbortPlayback() {
 }
 
 void GOLabelControl::PreparePlayback() { m_sender.SetName(m_Name); }
-
-void GOLabelControl::StartPlayback() {}
 
 void GOLabelControl::PrepareRecording() { m_sender.SetLabel(m_Content); }
 
@@ -73,8 +71,8 @@ void GOLabelControl::ShowConfigDialog() {
     GetMidiType().c_str(),
     GetMidiName().c_str());
 
-  m_OrganController->GetDocument()->ShowMIDIEventDialog(
-    this, title, NULL, &m_sender, NULL);
+  m_OrganController->ShowMIDIEventDialog(
+    this, title, nullptr, &m_sender, nullptr);
 }
 
 wxString GOLabelControl::GetElementStatus() { return m_Content; }

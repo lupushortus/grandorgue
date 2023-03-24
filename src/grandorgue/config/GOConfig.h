@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2022 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -168,11 +168,12 @@ public:
   const wxString &GetResourceDirectory() const { return m_ResourceDir; }
   const wxString GetPackageDirectory();
 
-  unsigned GetEventCount();
+  unsigned GetEventCount() const;
   wxString GetEventGroup(unsigned index);
   wxString GetEventTitle(unsigned index);
-  GOMidiReceiverBase *GetMidiEvent(unsigned index);
-  GOMidiReceiverBase *FindMidiEvent(GOMidiReceiverType type, unsigned index);
+  const GOMidiReceiverBase *GetMidiEvent(unsigned index) const;
+  const GOMidiReceiverBase *FindMidiEvent(
+    GOMidiReceiverType type, unsigned index) const;
 
   /*
   bool GetMidiInState(wxString device, bool isEnabledByDefault);

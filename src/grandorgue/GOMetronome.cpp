@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2022 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -65,7 +65,7 @@ GOMetronome::GOMetronome(GOOrganController *organController)
   m_buttons[ID_METRONOME_BEAT_P1]->SetPreconfigIndex(26);
   m_buttons[ID_METRONOME_BEAT_M1]->SetPreconfigIndex(27);
 
-  m_OrganController->RegisterPlaybackStateHandler(this);
+  m_OrganController->RegisterSoundStateHandler(this);
 }
 
 GOMetronome::~GOMetronome() { StopTimer(); }
@@ -229,10 +229,6 @@ void GOMetronome::PreparePlayback() {
   m_Running = false;
   UpdateState();
 }
-
-void GOMetronome::StartPlayback() {}
-
-void GOMetronome::PrepareRecording() {}
 
 GOEnclosure *GOMetronome::GetEnclosure(const wxString &name, bool is_panel) {
   return NULL;

@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2022 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -48,6 +48,8 @@
 #include "midi/GOMidiEvent.h"
 #include "midi/GOMidiPlayer.h"
 #include "midi/GOMidiRecorder.h"
+#include "model/GOCoupler.h"
+#include "model/GODivisionalCoupler.h"
 #include "model/GOEnclosure.h"
 #include "model/GOManual.h"
 #include "model/GORank.h"
@@ -59,12 +61,12 @@
 #include "sound/GOSoundReleaseAlignTable.h"
 #include "temperaments/GOTemperament.h"
 
+#include "go_defs.h"
+
 #include "GOAudioRecorder.h"
 #include "GOBuffer.h"
 #include "GOCache.h"
 #include "GOCacheWriter.h"
-#include "GOCoupler.h"
-#include "GODivisionalCoupler.h"
 #include "GODocument.h"
 #include "GOEvent.h"
 #include "GOHash.h"
@@ -73,15 +75,17 @@
 #include "GOPath.h"
 
 static const wxString WX_ORGAN = wxT("Organ");
+static const wxString WX_GRANDORGUE_VERSION = wxT("GrandOrgueVersion");
 
-GOOrganController::GOOrganController(GODocument *doc, GOConfig &settings)
+GOOrganController::GOOrganController(
+  GOConfig &config, GOMidiDialogCreator *pMidiDialogCreator)
   : GOEventDistributor(this),
-    GOOrganModel(settings),
-    m_doc(doc),
+    GOOrganModel(config),
+    m_config(config),
     m_odf(),
     m_ArchiveID(),
     m_hash(),
-    m_FileStore(settings),
+    m_FileStore(config),
     m_CacheFilename(),
     m_SettingFilename(),
     m_ODFHash(),
@@ -94,6 +98,7 @@ GOOrganController::GOOrganController(GODocument *doc, GOConfig &settings)
     m_b_customized(false),
     m_CurrentPitch(999999.0), // for enforcing updating the label first time
     m_OrganModified(false),
+    m_OrganModificationListener(nullptr),
     m_DivisionalsStoreIntermanualCouplers(false),
     m_DivisionalsStoreIntramanualCouplers(false),
     m_DivisionalsStoreTremulants(false),
@@ -116,11 +121,11 @@ GOOrganController::GOOrganController(GODocument *doc, GOConfig &settings)
     m_SampleSetId1(0),
     m_SampleSetId2(0),
     m_bitmaps(this),
-    m_config(settings),
-    m_GeneralTemplate(this),
+    m_GeneralTemplate(*this),
     m_PitchLabel(this),
     m_TemperamentLabel(this),
     m_MainWindowData(this, wxT("MainWindow")) {
+  GOOrganModel::SetMidiDialogCreator(pMidiDialogCreator);
   GOOrganModel::SetModificationListener(this);
   m_pool.SetMemoryLimit(m_config.MemoryLimit() * 1024 * 1024);
 }
@@ -133,6 +138,7 @@ GOOrganController::~GOOrganController() {
   m_tremulants.clear();
   m_ranks.clear();
   GOOrganModel::SetModificationListener(nullptr);
+  GOOrganModel::SetMidiDialogCreator(nullptr);
 }
 
 void GOOrganController::SetOrganModified(bool modified) {
@@ -140,6 +146,9 @@ void GOOrganController::SetOrganModified(bool modified) {
     m_OrganModified = modified;
     m_setter->UpdateModified(modified);
   }
+  if (m_OrganModificationListener)
+    // for reflecting model changes on GUI
+    m_OrganModificationListener->OnIsModifiedChanged(modified);
 }
 
 void GOOrganController::OnIsModifiedChanged(bool modified) {
@@ -246,6 +255,7 @@ void GOOrganController::ReadOrganFile(GOConfigReader &cfg) {
     wxT("CombinationsStoreNonDisplayedDrawstops"),
     false,
     true);
+  cfg.ReadString(CMBSetting, WX_ORGAN, WX_GRANDORGUE_VERSION, false);
   m_volume = cfg.ReadInteger(
     CMBSetting, WX_ORGAN, wxT("Volume"), -120, 100, false, m_config.Volume());
   if (m_volume > 20)
@@ -719,37 +729,33 @@ bool GOOrganController::Save() {
 }
 
 bool GOOrganController::Export(const wxString &cmb) {
-  wxString fn = cmb;
-  wxString tmp_name = fn + wxT(".new");
-  wxString buffer;
-  bool prefix = false;
-
   GOConfigFileWriter cfg_file;
-  m_b_customized = true;
+  GOConfigWriter cfg(cfg_file, false);
 
-  GOConfigWriter cfg(cfg_file, prefix);
+  m_b_customized = true;
   cfg.WriteString(WX_ORGAN, wxT("ODFHash"), m_ODFHash);
   cfg.WriteString(WX_ORGAN, wxT("ChurchName"), m_ChurchName);
   cfg.WriteString(WX_ORGAN, wxT("ChurchAddress"), m_ChurchAddress);
   cfg.WriteString(WX_ORGAN, wxT("ODFPath"), GetODFFilename());
   if (m_ArchiveID != wxEmptyString)
     cfg.WriteString(WX_ORGAN, wxT("ArchiveID"), m_ArchiveID);
-
+  cfg.WriteString(WX_ORGAN, WX_GRANDORGUE_VERSION, wxT(APP_VERSION));
   cfg.WriteInteger(WX_ORGAN, wxT("Volume"), m_volume);
-
   cfg.WriteString(WX_ORGAN, wxT("Temperament"), m_Temperament);
 
   GOEventDistributor::Save(cfg);
 
+  wxString tmp_name = cmb + wxT(".new");
+
   if (::wxFileExists(tmp_name) && !::wxRemoveFile(tmp_name)) {
-    wxLogError(_("Could not write to '%s'"), tmp_name.c_str());
+    wxLogError(_("Could not write to '%s'"), tmp_name);
     return false;
   }
   if (!cfg_file.Save(tmp_name)) {
-    wxLogError(_("Could not write to '%s'"), tmp_name.c_str());
+    wxLogError(_("Could not write to '%s'"), tmp_name);
     return false;
   }
-  if (!GORenameFile(tmp_name, fn))
+  if (!GORenameFile(tmp_name, cmb))
     return false;
   return true;
 }
@@ -784,7 +790,7 @@ GOButtonControl *GOOrganController::GetButtonControl(
   return NULL;
 }
 
-GODocument *GOOrganController::GetDocument() { return m_doc; }
+// GODocument *GOOrganController::GetDocument() { return m_doc; }
 
 void GOOrganController::SetVolume(int volume) { m_volume = volume; }
 
@@ -883,38 +889,6 @@ GOConfig &GOOrganController::GetSettings() { return m_config; }
 
 GOBitmapCache &GOOrganController::GetBitmapCache() { return m_bitmaps; }
 
-GOSoundSampler *GOOrganController::StartSample(
-  const GOSoundProvider *pipe,
-  int sampler_group_id,
-  unsigned audio_group,
-  unsigned velocity,
-  unsigned delay,
-  uint64_t last_stop) {
-  if (!m_soundengine)
-    return NULL;
-  return m_soundengine->StartSample(
-    pipe, sampler_group_id, audio_group, velocity, delay, last_stop);
-}
-
-uint64_t GOOrganController::StopSample(
-  const GOSoundProvider *pipe, GOSoundSampler *handle) {
-  if (m_soundengine)
-    return m_soundengine->StopSample(pipe, handle);
-  return 0;
-}
-
-void GOOrganController::SwitchSample(
-  const GOSoundProvider *pipe, GOSoundSampler *handle) {
-  if (m_soundengine)
-    m_soundengine->SwitchSample(pipe, handle);
-}
-
-void GOOrganController::UpdateVelocity(
-  const GOSoundProvider *pipe, GOSoundSampler *handle, unsigned velocity) {
-  if (m_soundengine)
-    m_soundengine->UpdateVelocity(pipe, handle, velocity);
-}
-
 void GOOrganController::SendMidiMessage(GOMidiEvent &e) {
   if (m_midi)
     m_midi->Send(e);
@@ -964,7 +938,7 @@ void GOOrganController::PreparePlayback(
   PreconfigRecorder();
 
   m_MidiSamplesetMatch.clear();
-  GOEventDistributor::PreparePlayback();
+  GOEventDistributor::PreparePlayback(engine);
 
   m_setter->UpdateModified(m_OrganModified);
 

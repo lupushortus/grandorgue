@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2022 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -16,7 +16,7 @@
 #include "config/GOConfigWriter.h"
 
 GOEnclosure::GOEnclosure(GOOrganController *organController)
-  : m_midi(organController, MIDI_RECV_ENCLOSURE),
+  : m_midi(*organController, MIDI_RECV_ENCLOSURE),
     m_sender(organController, MIDI_SEND_ENCLOSURE),
     m_shortcut(organController, KEY_RECV_ENCLOSURE),
     m_OrganController(organController),
@@ -28,7 +28,7 @@ GOEnclosure::GOEnclosure(GOOrganController *organController)
     m_Displayed2(false) {
   m_OrganController->RegisterEventHandler(this);
   m_OrganController->RegisterMidiConfigurator(this);
-  m_OrganController->RegisterPlaybackStateHandler(this);
+  m_OrganController->RegisterSoundStateHandler(this);
 }
 
 GOEnclosure::~GOEnclosure() {}
@@ -82,7 +82,7 @@ void GOEnclosure::Set(int n) {
     m_sender.SetValue(m_MIDIValue);
   }
   m_OrganController->UpdateVolume();
-  m_OrganController->ControlChanged(this);
+  m_OrganController->SendControlChanged(this);
 }
 
 int GOEnclosure::GetMIDIInputNumber() { return m_MIDIInputNumber; }
@@ -138,8 +138,6 @@ void GOEnclosure::PreparePlayback() {
   m_sender.SetName(m_Name);
 }
 
-void GOEnclosure::StartPlayback() {}
-
 void GOEnclosure::PrepareRecording() { m_sender.SetValue(m_MIDIValue); }
 
 void GOEnclosure::SetElementID(int id) {
@@ -157,7 +155,7 @@ void GOEnclosure::ShowConfigDialog() {
     GetMidiType().c_str(),
     GetMidiName().c_str());
 
-  m_OrganController->GetDocument()->ShowMIDIEventDialog(
+  m_OrganController->ShowMIDIEventDialog(
     this, title, &m_midi, &m_sender, &m_shortcut);
 }
 

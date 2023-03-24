@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2022 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -59,7 +59,7 @@ class GOOrganController : public GOEventDistributor,
   WX_DECLARE_STRING_HASH_MAP(bool, GOStringBoolMap);
 
 private:
-  GODocument *m_doc;
+  GOConfig &m_config;
   wxString m_odf;
   wxString m_ArchiveID;
   wxString m_ArchivePath;
@@ -80,6 +80,7 @@ private:
   bool m_b_customized;
   float m_CurrentPitch; // organ pitch
   bool m_OrganModified; // always m_IsOrganModified >= IsModelModified()
+  GOModificationListener *m_OrganModificationListener;
   bool m_DivisionalsStoreIntermanualCouplers;
   bool m_DivisionalsStoreIntramanualCouplers;
   bool m_DivisionalsStoreTremulants;
@@ -107,7 +108,6 @@ private:
 
   GOMemoryPool m_pool;
   GOBitmapCache m_bitmaps;
-  GOConfig &m_config;
   GOCombinationDefinition m_GeneralTemplate;
   GOLabelControl m_PitchLabel;
   GOLabelControl m_TemperamentLabel;
@@ -129,11 +129,15 @@ private:
   wxString GetOrganHash();
 
 public:
-  GOOrganController(GODocument *doc, GOConfig &settings);
+  GOOrganController(
+    GOConfig &config, GOMidiDialogCreator *pMidiDialogCreator = nullptr);
   ~GOOrganController();
 
   // Returns organ modification flag
   bool IsOrganModified() const { return m_OrganModified; }
+  void SetOrganModificationListener(GOModificationListener *listener) {
+    m_OrganModificationListener = listener;
+  }
   // Sets the organ modification flag
   void SetOrganModified() { SetOrganModified(true); }
   // Clears the organ modification flag
@@ -170,7 +174,7 @@ public:
   void Reset();
   void ProcessMidi(const GOMidiEvent &event);
   void AllNotesOff();
-  GODocument *GetDocument();
+  // GODocument *GetDocument();
 
   /* Access to internal ODF objects */
   GOSetter *GetSetter();
@@ -232,18 +236,6 @@ public:
   const wxString &GetOrganComments();
   const wxString &GetRecordingDetails();
   const wxString &GetInfoFilename();
-
-  GOSoundSampler *StartSample(
-    const GOSoundProvider *pipe,
-    int sampler_group_id,
-    unsigned audio_group,
-    unsigned velocity,
-    unsigned delay,
-    uint64_t last_stop);
-  uint64_t StopSample(const GOSoundProvider *pipe, GOSoundSampler *handle);
-  void SwitchSample(const GOSoundProvider *pipe, GOSoundSampler *handle);
-  void UpdateVelocity(
-    const GOSoundProvider *pipe, GOSoundSampler *handle, unsigned velocity);
 
   void SendMidiMessage(GOMidiEvent &e);
   void SendMidiRecorderMessage(GOMidiEvent &e);

@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2022 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -51,7 +51,7 @@ bool GODocument::LoadOrgan(
   GOConfig &cfg = m_sound.GetSettings();
 
   CloseOrgan();
-  m_OrganController = new GOOrganController(this, cfg);
+  m_OrganController = new GOOrganController(cfg, this);
   wxString error = m_OrganController->Load(dlg, organ, cmb);
   if (!error.IsEmpty()) {
     if (error != wxT("!")) {
@@ -202,7 +202,7 @@ void GODocument::ShowMidiList() {
 
 void GODocument::ShowMIDIEventDialog(
   void *element,
-  wxString title,
+  const wxString &title,
   GOMidiReceiverBase *event,
   GOMidiSender *sender,
   GOKeyReceiver *key,

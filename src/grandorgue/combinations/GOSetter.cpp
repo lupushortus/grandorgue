@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2022 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -298,7 +298,7 @@ GOSetter::GOSetter(GOOrganController *organController)
   SetSetterType(m_SetterType);
   SetCrescendoType(m_crescendobank);
 
-  m_OrganController->RegisterPlaybackStateHandler(this);
+  m_OrganController->RegisterSoundStateHandler(this);
   m_OrganController->RegisterControlChangedHandler(this);
 }
 
@@ -670,8 +670,6 @@ void GOSetter::ButtonStateChanged(int id) {
   }
 }
 
-void GOSetter::AbortPlayback() {}
-
 void GOSetter::PreparePlayback() {
   wxString buffer;
   buffer.Printf(wxT("%03d"), m_pos);
@@ -691,10 +689,6 @@ void GOSetter::PreparePlayback() {
 
   UpdateTranspose();
 }
-
-void GOSetter::StartPlayback() {}
-
-void GOSetter::PrepareRecording() {}
 
 void GOSetter::Update() {}
 

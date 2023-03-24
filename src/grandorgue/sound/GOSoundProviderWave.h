@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2022 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -125,7 +125,6 @@ public:
     loop_load_type loop_mode,
     unsigned attack_load,
     unsigned release_load,
-    int midi_key_number,
     unsigned loop_crossfade_length,
     unsigned release_crossfase_length);
   void SetAmplitude(float fixed_amplitude, float gain);

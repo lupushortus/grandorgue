@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2022 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -10,17 +10,16 @@
 
 #include <wx/string.h>
 
-#include <vector>
+#include "ptrvector.h"
 
 #include "combinations/model/GOCombinationDefinition.h"
-
-#include "GOEventHandler.h"
-#include "GOPlaybackStateHandler.h"
-#include "GOSaveableObject.h"
 #include "midi/GOMidiConfigurator.h"
 #include "midi/GOMidiReceiver.h"
 #include "midi/GOMidiSender.h"
-#include "ptrvector.h"
+#include "sound/GOSoundStateHandler.h"
+
+#include "GOEventHandler.h"
+#include "GOSaveableObject.h"
 
 class GOConfigReader;
 class GOConfigWriter;
@@ -34,7 +33,7 @@ class GOOrganController;
 
 class GOManual : private GOEventHandler,
                  private GOSaveableObject,
-                 private GOPlaybackStateHandler,
+                 private GOSoundStateHandler,
                  public GOMidiConfigurator {
 private:
   wxString m_group;
@@ -82,7 +81,6 @@ private:
 
   void AbortPlayback();
   void PreparePlayback();
-  void StartPlayback();
   void PrepareRecording();
 
 public:

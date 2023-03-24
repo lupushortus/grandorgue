@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2022 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -545,6 +545,13 @@ void GOFrame::Init(wxString filename) {
   clean.Cleanup();
 }
 
+void GOFrame::AttachDetachOrganController(bool isToAttach) {
+  GOOrganController *pOrgan = GetOrganController();
+
+  if (pOrgan)
+    pOrgan->SetModificationListener(isToAttach ? this : nullptr);
+}
+
 bool GOFrame::CloseOrgan(bool isForce) {
   bool isClosed = true;
 
@@ -572,6 +579,7 @@ bool GOFrame::CloseOrgan(bool isForce) {
       GOMutexLocker m_locker(m_mutex, true);
 
       if (m_locker.IsLocked()) {
+        AttachDetachOrganController(false);
         delete m_doc;
         m_doc = NULL;
         UpdatePanelMenu();
@@ -590,6 +598,9 @@ bool GOFrame::LoadOrgan(const GOOrgan &organ, const wxString &cmb) {
 
     retCode = m_doc->LoadOrgan(&dlg, organ, cmb);
     OnIsModifiedChanged(false);
+
+    // for reflecting model changes
+    AttachDetachOrganController(true);
   }
   return retCode;
 }
@@ -1084,7 +1095,7 @@ void GOFrame::OnSettings(wxCommandEvent &event) {
 
   bool isToContinue = true; // will GO continue running? Otherwise it will exit
   SettingsReasons *const pReasons = (SettingsReasons *)event.GetClientData();
-  GOSettingsDialog dialog(this, m_Sound, pReasons);
+  GOSettingsDialog dialog(this, m_config, m_Sound, m_Sound.GetMidi(), pReasons);
 
   if (dialog.ShowModal() == wxID_OK) {
     GOArchiveManager manager(m_config, m_config.OrganCachePath());

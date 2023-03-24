@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2022 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -15,7 +15,7 @@
 class GOCombinationElement;
 class GODrawstop;
 class GOManual;
-class GOOrganController;
+class GOOrganModel;
 
 class GOCombinationDefinition {
 public:
@@ -36,7 +36,7 @@ public:
   } CombinationSlot;
 
 private:
-  GOOrganController *m_OrganController;
+  GOOrganModel &r_OrganModel;
   std::vector<CombinationSlot> m_Content;
 
   void AddGeneral(
@@ -51,7 +51,7 @@ private:
     bool store_unconditional);
 
 public:
-  GOCombinationDefinition(GOOrganController *organController);
+  GOCombinationDefinition(GOOrganModel &organModel);
   ~GOCombinationDefinition();
 
   void InitGeneral();

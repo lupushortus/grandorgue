@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2022 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -8,13 +8,13 @@
 #ifndef GORANK_H
 #define GORANK_H
 
+#include "ptrvector.h"
+
 #include "midi/GOMidiConfigurator.h"
 #include "midi/GOMidiSender.h"
 #include "pipe-config/GOPipeConfigTreeNode.h"
+#include "sound/GOSoundStateHandler.h"
 
-#include "ptrvector.h"
-
-#include "GOPlaybackStateHandler.h"
 #include "GOSaveableObject.h"
 
 class GOPipe;
@@ -24,14 +24,23 @@ class GOOrganController;
 
 class GORank : private GOSaveableObject,
                public GOMidiConfigurator,
-               private GOPlaybackStateHandler {
+               private GOSoundStateHandler {
 private:
   GOOrganController *m_OrganController;
   wxString m_Name;
   ptr_vector<GOPipe> m_Pipes;
+  /**
+   * Number of stops using this rank
+   */
   unsigned m_StopCount;
-  std::vector<unsigned> m_Velocity;
-  std::vector<std::vector<unsigned>> m_Velocities;
+  /**
+   * last pressed velocity of notes and stop
+   */
+  std::vector<std::vector<unsigned>> m_NoteStopVelocities;
+  /**
+   * maximum last velocity of notes over all stops
+   */
+  std::vector<unsigned> m_MaxNoteVelocities;
   unsigned m_FirstMidiNoteNumber;
   bool m_Percussive;
   unsigned m_WindchestGroup;
@@ -48,8 +57,6 @@ private:
 
   void AbortPlayback();
   void PreparePlayback();
-  void StartPlayback();
-  void PrepareRecording();
 
 public:
   GORank(GOOrganController *organController);

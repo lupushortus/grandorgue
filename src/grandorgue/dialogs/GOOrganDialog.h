@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2022 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -42,8 +42,12 @@ private:
   wxSpinButton *m_AutoTuningCorrectionSpin;
   wxTextCtrl *m_Delay;
   wxSpinButton *m_DelaySpin;
+  wxTextCtrl *m_ReleaseLength;
+  wxSpinButton *m_ReleaseLengthSpin;
   wxComboBox *m_AudioGroup;
   wxString m_LastAudioGroup;
+  wxCheckBox *m_IgnorePitch;
+  bool m_LastIgnorePitch;
   wxChoice *m_BitsPerSample;
   int m_LastBitsPerSample;
   wxChoice *m_Channels;
@@ -64,7 +68,6 @@ private:
   wxButton *m_DefaultAll;
   wxButton *m_AudioGroupAssistant;
   wxButton *m_Collapse;
-  wxCheckBox *m_IgnorePitch;
   OrganTreeItemData *m_Last;
   unsigned m_LoadChangeCnt;
   wxDialog *m_ModalDialog;
@@ -97,7 +100,10 @@ private:
   void OnAutoTuningCorrectionChanged(wxCommandEvent &e);
   void OnDelaySpinChanged(wxSpinEvent &e);
   void OnDelayChanged(wxCommandEvent &e);
+  void OnReleaseLengthSpinChanged(wxSpinEvent &e);
+  void OnReleaseLengthChanged(wxCommandEvent &e);
   void OnAudioGroupChanged(wxCommandEvent &e);
+  void OnIgnorePitchChanged(wxCommandEvent &e);
   void OnBitsPerSampleChanged(wxCommandEvent &e);
   void OnCompressChanged(wxCommandEvent &e);
   void OnChannelsChanged(wxCommandEvent &e);
@@ -132,6 +138,8 @@ protected:
     ID_EVENT_AUTO_TUNING_CORRECTION_SPIN,
     ID_EVENT_DELAY,
     ID_EVENT_DELAY_SPIN,
+    ID_EVENT_RELEASE_LENGTH,
+    ID_EVENT_RELEASE_LENGTH_SPIN,
     ID_EVENT_AUDIO_GROUP,
     ID_EVENT_IGNORE_PITCH,
     ID_EVENT_LOOP_LOAD,

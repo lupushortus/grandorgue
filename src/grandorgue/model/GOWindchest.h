@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2022 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -13,8 +13,7 @@
 #include <vector>
 
 #include "pipe-config/GOPipeConfigTreeNode.h"
-
-#include "GOPlaybackStateHandler.h"
+#include "sound/GOSoundStateHandler.h"
 
 class GOConfigReader;
 class GOEnclosure;
@@ -23,7 +22,7 @@ class GORank;
 class GOTremulant;
 class GOOrganController;
 
-class GOWindchest : private GOPlaybackStateHandler {
+class GOWindchest : private GOSoundStateHandler {
 private:
   GOOrganController *m_OrganController;
   wxString m_Name;
@@ -34,10 +33,7 @@ private:
   std::vector<GOPipeWindchestCallback *> m_pipes;
   GOPipeConfigTreeNode m_PipeConfig;
 
-  void AbortPlayback();
-  void StartPlayback();
   void PreparePlayback();
-  void PrepareRecording();
 
 public:
   GOWindchest(GOOrganController *organController);

@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2022 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -10,8 +10,8 @@
 
 #include "control/GOElementCreator.h"
 #include "control/GOLabelControl.h"
+#include "sound/GOSoundStateHandler.h"
 
-#include "GOPlaybackStateHandler.h"
 #include "GOSaveableObject.h"
 #include "GOTimerCallback.h"
 
@@ -20,7 +20,7 @@ class GORank;
 class GOOrganController;
 
 class GOMetronome : private GOTimerCallback,
-                    private GOPlaybackStateHandler,
+                    private GOSoundStateHandler,
                     private GOSaveableObject,
                     public GOElementCreator {
 private:
@@ -44,8 +44,6 @@ private:
 
   void AbortPlayback();
   void PreparePlayback();
-  void StartPlayback();
-  void PrepareRecording();
 
   void Save(GOConfigWriter &cfg);
 
