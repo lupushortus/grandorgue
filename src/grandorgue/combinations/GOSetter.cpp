@@ -8,14 +8,18 @@
 #include "GOSetter.h"
 
 #include <wx/app.h>
+#include <wx/dir.h>
+#include <wx/filename.h>
 #include <wx/intl.h>
 #include <wx/window.h>
+#include <yaml-cpp/yaml.h>
 
-#include "combinations/model/GOGeneralCombination.h"
 #include "config/GOConfig.h"
 #include "config/GOConfigReader.h"
 #include "config/GOConfigWriter.h"
 #include "control/GOCallbackButtonControl.h"
+#include "control/GOGeneralButtonControl.h"
+#include "yaml/go-wx-yaml.h"
 
 #include "GOEvent.h"
 #include "GOOrganController.h"
@@ -55,6 +59,13 @@ enum {
   ID_SETTER_FULL,
   ID_SETTER_DELETE,
   ID_SETTER_INSERT,
+
+  ID_SETTER_REFRESH_FILES,
+  ID_SETTER_PREV_FILE,
+  ID_SETTER_NEXT_FILE,
+  ID_SETTER_LOAD_FILE,
+  ID_SETTER_SAVE_FILE,
+  ID_SETTER_SAVE_SETTINGS,
 
   ID_SETTER_GENERAL00,
   ID_SETTER_GENERAL01,
@@ -129,9 +140,24 @@ enum {
   ID_SETTER_TRANSPOSE_DOWN,
   ID_SETTER_TRANSPOSE_UP,
 
-  ID_SETTER_SAVE,
   ID_SETTER_ON,
 };
+
+const wxString GOSetter::KEY_REFRESH_FILES = wxT("RefreshFiles");
+const wxString GOSetter::KEY_PREV_FILE = wxT("PrevFile");
+const wxString GOSetter::KEY_CURR_FILE_NAME = wxT("CurrFileName");
+const wxString GOSetter::KEY_NEXT_FILE = wxT("NextFile");
+const wxString GOSetter::KEY_LOAD_FILE = wxT("LoadFile");
+const wxString GOSetter::KEY_SAVE_FILE = wxT("SaveFile");
+const wxString GOSetter::KEY_SAVE_SETTINGS = wxT("Save");
+
+const wxString GOSetter::GROUP_REFRESH_FILES = wxT("SetterRefreshFiles");
+const wxString GOSetter::GROUP_PREV_FILE = wxT("SetterPrevFile");
+const wxString GOSetter::GROUP_CURR_FILE_NAME = wxT("SetterCurrFileName");
+const wxString GOSetter::GROUP_NEXT_FILE = wxT("SetterNextFile");
+const wxString GOSetter::GROUP_LOAD_FILE = wxT("SetterLoadFile");
+const wxString GOSetter::GROUP_SAVE_FILE = wxT("SetterSaveFile");
+const wxString GOSetter::GROUP_SAVE_SETTINGS = wxT("SetterSave");
 
 const struct GOElementCreator::ButtonDefinitionEntry GOSetter::m_element_types[]
   = {
@@ -163,6 +189,11 @@ const struct GOElementCreator::ButtonDefinitionEntry GOSetter::m_element_types[]
     {wxT("Full"), ID_SETTER_FULL, true, false, false},
     {wxT("Insert"), ID_SETTER_INSERT, true, true, false},
     {wxT("Delete"), ID_SETTER_DELETE, true, true, false},
+    {KEY_REFRESH_FILES, ID_SETTER_REFRESH_FILES, true, true, false},
+    {KEY_PREV_FILE, ID_SETTER_PREV_FILE, true, true, false},
+    {KEY_NEXT_FILE, ID_SETTER_NEXT_FILE, true, true, false},
+    {KEY_LOAD_FILE, ID_SETTER_LOAD_FILE, true, true, false},
+    {KEY_SAVE_FILE, ID_SETTER_SAVE_FILE, true, true, false},
     {wxT("General01"), ID_SETTER_GENERAL00, true, true, true},
     {wxT("General02"), ID_SETTER_GENERAL01, true, true, true},
     {wxT("General03"), ID_SETTER_GENERAL02, true, true, true},
@@ -228,7 +259,7 @@ const struct GOElementCreator::ButtonDefinitionEntry GOSetter::m_element_types[]
     {wxT("TransposeDown"), ID_SETTER_TRANSPOSE_DOWN, true, true, false},
     {wxT("TransposeUp"), ID_SETTER_TRANSPOSE_UP, true, true, false},
 
-    {wxT("Save"), ID_SETTER_SAVE, true, true, false},
+    {KEY_SAVE_SETTINGS, ID_SETTER_SAVE_SETTINGS, true, true, false},
     {wxT("OnState"), ID_SETTER_ON, false, true, false},
 
     {wxT("CrescendoA"), ID_SETTER_CRESCENDO_A, true, true, false},
@@ -256,13 +287,14 @@ GOSetter::GOSetter(GOOrganController *organController)
     m_framegeneral(0),
     m_general(0),
     m_crescendo(0),
+    m_CurrFileDisplay(organController),
     m_PosDisplay(organController),
     m_BankDisplay(organController),
     m_CrescendoDisplay(organController),
     m_TransposeDisplay(organController),
     m_NameDisplay(organController),
     m_swell(organController),
-    m_SetterType(SETTER_REGULAR) {
+    m_SetterType(GOCombination::SETTER_REGULAR) {
   CreateButtons(m_OrganController);
 
   m_buttons[ID_SETTER_PREV]->SetPreconfigIndex(0);
@@ -304,7 +336,7 @@ GOSetter::GOSetter(GOOrganController *organController)
 
 GOSetter::~GOSetter() {}
 
-static const wxString OVERRIDE_MODE = wxT("OverrideMode");
+static const wxString WX_OVERRIDE_MODE = wxT("OverrideMode");
 
 void GOSetter::Load(GOConfigReader &cfg) {
   m_OrganController->RegisterSaveableObject(this);
@@ -332,10 +364,10 @@ void GOSetter::Load(GOConfigReader &cfg) {
     buffer.Printf(wxT("SetterCrescendo%d"), i);
 
     bool defaultAddMode
-      = cfg.ReadBoolean(ODFSetting, buffer, OVERRIDE_MODE, false, true);
+      = cfg.ReadBoolean(ODFSetting, buffer, WX_OVERRIDE_MODE, false, true);
 
     m_CrescendoOverrideMode[i] = cfg.ReadBoolean(
-      CMBSetting, buffer, OVERRIDE_MODE, false, defaultAddMode);
+      CMBSetting, buffer, WX_OVERRIDE_MODE, false, defaultAddMode);
   }
   for (unsigned i = 0; i < N_CRESCENDOS * CRESCENDO_STEPS; i++) {
     m_crescendo.push_back(new GOGeneralCombination(
@@ -369,6 +401,15 @@ void GOSetter::Load(GOConfigReader &cfg) {
   m_buttons[ID_SETTER_INSERT]->Init(cfg, wxT("SetterInsert"), _("Insert"));
   m_buttons[ID_SETTER_DELETE]->Init(cfg, wxT("SetterDelete"), _("Delete"));
 
+  m_buttons[ID_SETTER_REFRESH_FILES]->Init(
+    cfg, GROUP_REFRESH_FILES, _("Refresh files"));
+  m_buttons[ID_SETTER_PREV_FILE]->Init(cfg, GROUP_PREV_FILE, _("Prev file"));
+  m_buttons[ID_SETTER_NEXT_FILE]->Init(cfg, GROUP_NEXT_FILE, _("Next file"));
+  m_buttons[ID_SETTER_LOAD_FILE]->Init(cfg, GROUP_LOAD_FILE, _("Load file"));
+  m_buttons[ID_SETTER_SAVE_FILE]->Init(cfg, GROUP_SAVE_FILE, _("Save file"));
+  m_buttons[ID_SETTER_SAVE_SETTINGS]->Init(
+    cfg, GROUP_SAVE_SETTINGS, _("Save settings"));
+
   m_buttons[ID_SETTER_CRESCENDO_PREV]->Init(
     cfg, wxT("SetterCrescendoPrev"), _("<"));
   m_buttons[ID_SETTER_CRESCENDO_NEXT]->Init(
@@ -399,7 +440,6 @@ void GOSetter::Load(GOConfigReader &cfg) {
   m_buttons[ID_SETTER_TRANSPOSE_UP]->Init(
     cfg, wxT("SetterTransposeUp"), _("+"));
 
-  m_buttons[ID_SETTER_SAVE]->Init(cfg, wxT("SetterSave"), _("Save"));
   m_buttons[ID_SETTER_ON]->Init(cfg, wxT("SetterOn"), _("ON"));
   m_buttons[ID_SETTER_ON]->Display(true);
 
@@ -411,6 +451,7 @@ void GOSetter::Load(GOConfigReader &cfg) {
     cfg, wxT("SetterCrescendoPosition"), _("crescendo position"));
   m_TransposeDisplay.Init(cfg, wxT("SetterTranspose"), _("transpose"));
   m_NameDisplay.Init(cfg, wxT("SetterName"), _("organ name"));
+  m_CurrFileDisplay.Init(cfg, KEY_CURR_FILE_NAME, _("current file name"));
 
   for (unsigned i = 0; i < 10; i++) {
     wxString group;
@@ -433,20 +474,224 @@ void GOSetter::Load(GOConfigReader &cfg) {
     cfg, wxT("SetterGeneralNext"), _("Next"));
 }
 
+void GOSetter::DisplayCmbFile(const wxString &fileName) {
+  const bool isValid = !fileName.IsEmpty();
+  const bool isTheSameAsLoaded = fileName == m_CmbFileLastLoaded;
+
+  m_CmbFileDisplayed = fileName;
+  m_CurrFileDisplay.SetContent(
+    isValid ? wxFileName(fileName).GetName() : wxString());
+  m_buttons[ID_SETTER_LOAD_FILE]->Display(isValid && !isTheSameAsLoaded);
+  m_buttons[ID_SETTER_SAVE_FILE]->Display(
+    isValid && isTheSameAsLoaded && m_IsCmbChanged);
+}
+
+int GOSetter::FindCmbFilePosFor(const wxString &yamlFile) {
+  return yamlFile.IsEmpty() ? -1 : m_CmbFileList.Index(yamlFile);
+}
+
+void GOSetter::MoveToCmbFile(int offset) {
+  if (!m_IsCmbFileListPopulated) {
+    // read the list of combination files
+    wxDir cmbDir(m_CmbFilesDir);
+
+    m_CmbFileList.Clear();
+    wxDir::GetAllFiles(m_CmbFilesDir, &m_CmbFileList, wxT("*.yaml"));
+    m_CmbFileList.Sort();
+    m_CmbFilePos = FindCmbFilePosFor(m_CmbFileDisplayed);
+    m_IsCmbFileListPopulated = true;
+  }
+
+  unsigned l = m_CmbFileList.GetCount();
+
+  if (l) {
+    assert(abs(offset) <= l);
+
+    // move along the list
+    if (m_CmbFilePos < 0 && offset < 0)
+      m_CmbFilePos = 0;                             // move from the end
+    m_CmbFilePos = (m_CmbFilePos + offset + l) % l; // wrap around the margins
+    DisplayCmbFile(m_CmbFileList[m_CmbFilePos]);
+  }
+}
+
+void GOSetter::NotifyCmbChanged() {
+  // Temporary we mark the organ modified when a combination is changed for
+  // the user would save the preset.
+  // But we intend to split combinations and organ settings, so in the future
+  // we will only mark the combinations as modified, not the organ settings
+  m_OrganController->SetOrganModified();
+}
+
+void GOSetter::NotifyCmbPushed(bool isChanged) {
+  if (isChanged && IsSetterActive() && !m_IsCmbChanged) {
+    m_IsCmbChanged = true;
+    // light the save button if the last loaded combination file  is displayed
+    if (
+      !m_CmbFileDisplayed.IsEmpty()
+      && m_CmbFileDisplayed == m_CmbFileLastLoaded)
+      m_buttons[ID_SETTER_SAVE_FILE]->Display(true);
+    NotifyCmbChanged();
+  }
+}
+
 void GOSetter::Save(GOConfigWriter &cfg) {
   for (unsigned i = 0; i < N_CRESCENDOS; i++) {
     cfg.WriteBoolean(
       wxString::Format(wxT("SetterCrescendo%d"), i),
-      OVERRIDE_MODE,
+      WX_OVERRIDE_MODE,
       m_CrescendoOverrideMode[i]);
   }
   // another objects are saveble themself so they are saved separatelly
+}
+
+const char *const CURRENT = "current";
+const char *const SIMPLE_GENERALS = "generals";
+const char *const BANKED_GENERALS = "banked-generals";
+const char *const CRESCENDOS = "crescendos";
+const char *const OVERRIDE_MODE = "override-mode";
+const char *const STEPS = "steps";
+const char *const SEQUENCER = "sequencer";
+const wxString WX_C = wxT("%c");
+const wxString WX_C02U = wxT("%c%02u");
+const wxString WX_U = wxT("%u");
+const wxString WX_03U = wxT("%03u");
+
+wxString general_yaml_key(unsigned i) { return wxString::Format(WX_U, i); }
+
+wxString banked_general_yaml_key(unsigned i) {
+  return wxString::Format(WX_C02U, i / GENERALS + 'A', i % GENERALS + 1);
+}
+
+wxString crescendo_yaml_key(unsigned i) {
+  return wxString::Format(WX_C, i + 'A');
+}
+
+wxString crescendo_step_yaml_key(unsigned i) {
+  return wxString::Format(WX_U, i + 1);
+}
+
+wxString sequencer_cmb_yaml_key(unsigned i) {
+  return wxString::Format(WX_03U, i);
+}
+
+void GOSetter::ToYaml(YAML::Node &yamlNode) const {
+  // save generals
+  YAML::Node generalsNode;
+
+  for (unsigned l = m_OrganController->GetGeneralCount(), i = 0; i < l; i++)
+    m_OrganController->GetGeneral(i)->GetCombination().PutToYamlMap(
+      generalsNode, general_yaml_key(i));
+  put_to_map_if_not_null(yamlNode, SIMPLE_GENERALS, generalsNode);
+
+  // save banked generals
+  YAML::Node bankedGeneralsNode;
+
+  for (unsigned l = m_general.size(), i = 0; i < l; i++)
+    GOCombination::putToYamlMap(
+      bankedGeneralsNode, banked_general_yaml_key(i), m_general[i]);
+  put_to_map_if_not_null(yamlNode, BANKED_GENERALS, bankedGeneralsNode);
+
+  // save crescendos
+  YAML::Node crescendosNode;
+
+  for (unsigned i = 0; i < N_CRESCENDOS; i++) {
+    YAML::Node crescendoSteps;
+    unsigned baseIndex = CRESCENDO_STEPS * i;
+
+    for (unsigned j = 0; j < CRESCENDO_STEPS; j++)
+      GOCombination::putToYamlMap(
+        crescendoSteps, crescendo_step_yaml_key(j), m_crescendo[baseIndex + j]);
+    if (!crescendoSteps.IsNull()) {
+      YAML::Node crescendoNode = crescendosNode[crescendo_yaml_key(i)];
+
+      crescendoNode[OVERRIDE_MODE] = m_CrescendoOverrideMode[i];
+      crescendoNode[STEPS] = crescendoSteps;
+    }
+  }
+  put_to_map_if_not_null(yamlNode, CRESCENDOS, crescendosNode);
+
+  // save sequencer
+  YAML::Node sequencerNode;
+
+  for (unsigned i = 0; i < FRAME_GENERALS; i++)
+    GOCombination::putToYamlMap(
+      sequencerNode, wxString::Format(WX_03U, i), m_framegeneral[i]);
+  put_to_map_if_not_null(yamlNode, SEQUENCER, sequencerNode);
+}
+
+void GOSetter::FromYaml(const YAML::Node &yamlNode) {
+  // restore generals
+  const YAML::Node generalsNode = yamlNode[SIMPLE_GENERALS];
+
+  for (unsigned l = m_OrganController->GetGeneralCount(), i = 0; i < l; i++)
+    get_from_map_or_null(generalsNode, general_yaml_key(i))
+      >> m_OrganController->GetGeneral(i)->GetCombination();
+
+  // restore banked generals
+  const YAML::Node bankedGeneralsNode = yamlNode[BANKED_GENERALS];
+
+  for (unsigned l = m_general.size(), i = 0; i < l; i++)
+    get_from_map_or_null(bankedGeneralsNode, banked_general_yaml_key(i))
+      >> *m_general[i];
+
+  // restore crescendos
+  const YAML::Node crescendosNode = yamlNode[CRESCENDOS];
+
+  for (unsigned i = 0; i < N_CRESCENDOS; i++) {
+    const YAML::Node crescendoNode
+      = get_from_map_or_null(crescendosNode, crescendo_yaml_key(i));
+    const YAML::Node crescendoOverridNode
+      = get_from_map_or_null(crescendoNode, OVERRIDE_MODE);
+    const YAML::Node crescendoSteps
+      = get_from_map_or_null(crescendoNode, STEPS);
+    unsigned baseIndex = CRESCENDO_STEPS * i;
+
+    m_CrescendoOverrideMode[i] = crescendoOverridNode.as<bool, bool>(true);
+    for (unsigned j = 0; j < CRESCENDO_STEPS; j++)
+      get_from_map_or_null(crescendoSteps, crescendo_step_yaml_key(j))
+        >> *m_crescendo[baseIndex + j];
+  }
+
+  // restore sequencer
+  const YAML::Node sequencerNode = yamlNode[SEQUENCER];
+
+  for (unsigned i = 0; i < FRAME_GENERALS; i++)
+    get_from_map_or_null(sequencerNode, sequencer_cmb_yaml_key(i))
+      >> *m_framegeneral[i];
 }
 
 void GOSetter::ButtonStateChanged(int id) {
   GOCombination::ExtraElementsSet elementSet;
 
   switch (id) {
+
+  case ID_SETTER_REFRESH_FILES:
+    m_IsCmbFileListPopulated = false;
+    break;
+  case ID_SETTER_PREV_FILE:
+    MoveToCmbFile(-1);
+    break;
+  case ID_SETTER_NEXT_FILE:
+    MoveToCmbFile(1);
+    break;
+  case ID_SETTER_LOAD_FILE:
+    if (!m_CmbFileDisplayed.IsEmpty()) {
+      // Flash the button until OnCombinationsLoaded()
+      m_buttons[ID_SETTER_LOAD_FILE]->Display(true);
+      m_OrganController->LoadCombination(m_CmbFileDisplayed);
+      // for minimising buttons to press we just make GrandOrgue ready to play
+      // from the home position
+      SetterActive(false);
+      SetPosition(0, true);
+    }
+    break;
+  case ID_SETTER_SAVE_FILE:
+    if (
+      !m_CmbFileLastLoaded.IsEmpty()
+      && m_CmbFileDisplayed == m_CmbFileLastLoaded)
+      m_OrganController->ExportCombination(m_CmbFileLastLoaded);
+    break;
   case ID_SETTER_PREV:
     Prev();
     break;
@@ -492,11 +737,13 @@ void GOSetter::ButtonStateChanged(int id) {
     for (unsigned j = m_pos; j < m_framegeneral.size() - 1; j++)
       m_framegeneral[j]->Copy(m_framegeneral[j + 1]);
     ResetDisplay();
+    NotifyCmbChanged();
     break;
   case ID_SETTER_INSERT:
     for (unsigned j = m_framegeneral.size() - 1; j > m_pos; j--)
       m_framegeneral[j]->Copy(m_framegeneral[j - 1]);
     SetPosition(m_pos);
+    NotifyCmbChanged();
     break;
   case ID_SETTER_L0:
   case ID_SETTER_L1:
@@ -560,8 +807,9 @@ void GOSetter::ButtonStateChanged(int id) {
   case ID_SETTER_GENERAL47:
   case ID_SETTER_GENERAL48:
   case ID_SETTER_GENERAL49:
-    m_general[id - ID_SETTER_GENERAL00 + m_bank * GENERALS]->Push(
-      GetCrescendoAddSet(elementSet));
+    NotifyCmbPushed(
+      m_general[id - ID_SETTER_GENERAL00 + m_bank * GENERALS]->Push(
+        GetCrescendoAddSet(elementSet)));
     ResetDisplay();
     m_buttons[id]->Display(true);
     break;
@@ -576,13 +824,13 @@ void GOSetter::ButtonStateChanged(int id) {
     break;
 
   case ID_SETTER_REGULAR:
-    SetSetterType(SETTER_REGULAR);
+    SetSetterType(GOCombination::SETTER_REGULAR);
     break;
   case ID_SETTER_SCOPE:
-    SetSetterType(SETTER_SCOPE);
+    SetSetterType(GOCombination::SETTER_SCOPE);
     break;
   case ID_SETTER_SCOPED:
-    SetSetterType(SETTER_SCOPED);
+    SetSetterType(GOCombination::SETTER_SCOPED);
     break;
   case ID_SETTER_CRESCENDO_A:
   case ID_SETTER_CRESCENDO_B:
@@ -598,7 +846,8 @@ void GOSetter::ButtonStateChanged(int id) {
     Crescendo(m_crescendopos + 1, true);
     break;
   case ID_SETTER_CRESCENDO_CURRENT:
-    m_crescendo[m_crescendopos + m_crescendobank * CRESCENDO_STEPS]->Push();
+    NotifyCmbPushed(
+      m_crescendo[m_crescendopos + m_crescendobank * CRESCENDO_STEPS]->Push());
     break;
 
   case ID_SETTER_CRESCENDO_OVERRIDE: {
@@ -633,7 +882,7 @@ void GOSetter::ButtonStateChanged(int id) {
     m_OrganController->GetRootPipeConfigNode().ModifyManualTuning(100);
     m_OrganController->GetRootPipeConfigNode().ModifyAutoTuningCorrection(100);
     break;
-  case ID_SETTER_SAVE:
+  case ID_SETTER_SAVE_SETTINGS:
     m_OrganController->Save();
     break;
 
@@ -690,6 +939,39 @@ void GOSetter::PreparePlayback() {
   UpdateTranspose();
 }
 
+void GOSetter::OnCombinationsLoaded(
+  const wxString &yamlDir, const wxString &yamlFile) {
+  if (yamlDir != m_CmbFilesDir) {
+    m_CmbFilesDir = yamlDir;
+    m_CmbFileList.clear();
+    m_IsCmbFileListPopulated = false;
+    m_CmbFilePos = -1;
+    // loaded combinations from a new dir
+  } else {
+    // loaded combinations from the same dir as before
+    m_CmbFilePos = m_IsCmbFileListPopulated && !yamlFile.IsEmpty()
+      ? FindCmbFilePosFor(yamlFile)
+      : -1;
+  }
+  m_CmbFileLastLoaded = yamlFile;
+  m_IsCmbChanged = false;
+  DisplayCmbFile(m_CmbFileLastLoaded);
+}
+
+void GOSetter::OnCombinationsSaved(const wxString &yamlFile) {
+  if (yamlFile == m_CmbFileLastLoaded)
+    m_IsCmbChanged = false;
+  else if (wxFileName(yamlFile).GetPath() == m_CmbFilesDir) {
+    // Possible a new file has been created in the same directory, so we need to
+    // refresh
+    m_IsCmbFileListPopulated = false;
+    // switch to the new file
+    m_CmbFileLastLoaded = yamlFile;
+    m_IsCmbChanged = false;
+  }
+  DisplayCmbFile(m_CmbFileLastLoaded);
+}
+
 void GOSetter::Update() {}
 
 bool GOSetter::IsSetterActive() {
@@ -712,13 +994,11 @@ void GOSetter::Push() { SetPosition(m_pos); }
 
 unsigned GOSetter::GetPosition() { return m_pos; }
 
-SetterType GOSetter::GetSetterType() { return m_SetterType; }
-
-void GOSetter::SetSetterType(SetterType type) {
+void GOSetter::SetSetterType(GOCombination::SetterType type) {
   m_SetterType = type;
-  m_buttons[ID_SETTER_REGULAR]->Display(type == SETTER_REGULAR);
-  m_buttons[ID_SETTER_SCOPE]->Display(type == SETTER_SCOPE);
-  m_buttons[ID_SETTER_SCOPED]->Display(type == SETTER_SCOPED);
+  m_buttons[ID_SETTER_REGULAR]->Display(type == GOCombination::SETTER_REGULAR);
+  m_buttons[ID_SETTER_SCOPE]->Display(type == GOCombination::SETTER_SCOPE);
+  m_buttons[ID_SETTER_SCOPED]->Display(type == GOCombination::SETTER_SCOPED);
 }
 
 void GOSetter::SetCrescendoType(unsigned no) {
@@ -767,7 +1047,8 @@ void GOSetter::SetPosition(int pos, bool push) {
   if (push) {
     GOCombination::ExtraElementsSet elementSet;
 
-    m_framegeneral[m_pos]->Push(GetCrescendoAddSet(elementSet));
+    NotifyCmbPushed(
+      m_framegeneral[m_pos]->Push(GetCrescendoAddSet(elementSet)));
 
     m_buttons[ID_SETTER_HOME]->Display(m_pos == 0);
     for (unsigned i = 0; i < 10; i++)
@@ -797,6 +1078,7 @@ void GOSetter::Crescendo(int newpos, bool force) {
     return;
 
   bool crescendoAddMode = !m_CrescendoOverrideMode[m_crescendobank];
+  bool changed = false;
 
   while (pos > m_crescendopos) {
     const unsigned oldIdx = m_crescendopos + m_crescendobank * CRESCENDO_STEPS;
@@ -807,8 +1089,9 @@ void GOSetter::Crescendo(int newpos, bool force) {
     else
       m_CrescendoExtraSets[oldIdx].clear();
     ++m_crescendopos;
-    m_crescendo[newIdx]->Push(
-      crescendoAddMode ? &m_CrescendoExtraSets[oldIdx] : nullptr, true);
+    changed = changed
+      || m_crescendo[newIdx]->Push(
+        crescendoAddMode ? &m_CrescendoExtraSets[oldIdx] : nullptr, true);
   }
 
   while (pos < m_crescendopos) {
@@ -816,9 +1099,11 @@ void GOSetter::Crescendo(int newpos, bool force) {
 
     const unsigned newIdx = m_crescendopos + m_crescendobank * CRESCENDO_STEPS;
 
-    m_crescendo[newIdx]->Push(
-      crescendoAddMode ? &m_CrescendoExtraSets[newIdx] : nullptr, true);
+    changed = changed
+      || m_crescendo[newIdx]->Push(
+        crescendoAddMode ? &m_CrescendoExtraSets[newIdx] : nullptr, true);
   }
+  NotifyCmbPushed(changed);
 
   wxString buffer;
   buffer.Printf(wxT("%d"), m_crescendopos + 1);
@@ -847,7 +1132,7 @@ void GOSetter::SetTranspose(int value) {
 }
 
 void GOSetter::UpdateModified(bool modified) {
-  m_buttons[ID_SETTER_SAVE]->Display(modified);
+  m_buttons[ID_SETTER_SAVE_SETTINGS]->Display(modified);
 }
 
 GOEnclosure *GOSetter::GetEnclosure(const wxString &name, bool is_panel) {
@@ -875,6 +1160,9 @@ GOLabelControl *GOSetter::GetLabelControl(const wxString &name, bool is_panel) {
 
   if (name == wxT("TransposeLabel"))
     return &m_TransposeDisplay;
+
+  if (name == KEY_CURR_FILE_NAME)
+    return &m_CurrFileDisplay;
 
   if (is_panel)
     return NULL;

@@ -109,14 +109,6 @@ bool GODocument::LoadOrgan(
   return true;
 }
 
-bool GODocument::ImportCombination(const wxString &cmb) {
-  if (!m_OrganController)
-    return false;
-  m_OrganController->LoadCombination(cmb);
-  m_OrganController->SetOrganModified();
-  return true;
-}
-
 bool GODocument::UpdateCache(GOProgressDialog *dlg, bool compress) {
   if (!m_OrganController)
     return false;
@@ -218,6 +210,7 @@ void GODocument::ShowMIDIEventDialog(
       key,
       division);
     dlg->RegisterMIDIListener(m_OrganController->GetMidi());
+    dlg->SetModificationListener(m_OrganController);
     registerWindow(GODocument::MIDI_EVENT, element, dlg);
   }
 }

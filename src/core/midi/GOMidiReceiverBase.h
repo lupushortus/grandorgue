@@ -9,6 +9,7 @@
 #define GOMIDIRECEIVERBASE_H
 
 #include "GOMidiReceiverEventPatternList.h"
+#include "GOTime.h"
 
 class GOConfigReader;
 class GOConfigWriter;
@@ -62,8 +63,6 @@ public:
   unsigned KeyLimit(GOMidiReceiverMessageType type);
   unsigned LowerValueLimit(GOMidiReceiverMessageType type);
   unsigned UpperValueLimit(GOMidiReceiverMessageType type);
-
-  virtual void Assign(const GOMidiReceiverEventPatternList &data);
 };
 
 #endif

@@ -19,10 +19,25 @@ class GOOrganController;
 class GODivisionalCombination : public GOCombination {
 protected:
   GOOrganController *m_OrganController;
-  wxString m_group;
   unsigned m_odfManualNumber;
   int m_DivisionalNumber;
   bool m_IsSetter;
+
+  // It is not registered as saveable object because
+  // GOdivisionalSetter::LoadCombination creates the combinations dynamically
+  void LoadCombinationInt(GOConfigReader &cfg, GOSettingType srcType) override;
+
+  void PutElementToYamlMap(
+    const GOCombinationDefinition::Element &e,
+    const wxString &valueLabel,
+    const unsigned objectIndex,
+    YAML::Node &yamlMap) const override;
+
+  /**
+   * Loads the combination from the Yaml Node
+   * @param yamlNode - a YAML node to load from
+   */
+  void FromYamlMap(const YAML::Node &yamlMap) override;
 
 public:
   GODivisionalCombination(
@@ -39,11 +54,9 @@ public:
     wxString group,
     int manualNumber,
     int divisionalNumber);
-  // It does not inherit GOSaveableOblect because
-  // GOdivisionalSetter::LoadCombination creates the combinations dynamically
-  void LoadCombination(GOConfigReader &cfg);
   void Save(GOConfigWriter &cfg);
-  void Push(ExtraElementsSet const *extraSet = nullptr);
+
+  bool Push(ExtraElementsSet const *extraSet = nullptr);
 
   wxString GetMidiType();
 

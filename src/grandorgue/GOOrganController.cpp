@@ -8,11 +8,13 @@
 #include "GOOrganController.h"
 
 #include <math.h>
+#include <wx/datetime.h>
 #include <wx/filename.h>
 #include <wx/log.h>
 #include <wx/msgdlg.h>
-#include <wx/stream.h>
+#include <wx/txtstrm.h>
 #include <wx/wfstream.h>
+#include <yaml-cpp/yaml.h>
 
 #include "archive/GOArchive.h"
 #include "archive/GOArchiveFile.h"
@@ -60,6 +62,7 @@
 #include "sound/GOSoundEngine.h"
 #include "sound/GOSoundReleaseAlignTable.h"
 #include "temperaments/GOTemperament.h"
+#include "yaml/go-wx-yaml.h"
 
 #include "go_defs.h"
 
@@ -98,7 +101,6 @@ GOOrganController::GOOrganController(
     m_b_customized(false),
     m_CurrentPitch(999999.0), // for enforcing updating the label first time
     m_OrganModified(false),
-    m_OrganModificationListener(nullptr),
     m_DivisionalsStoreIntermanualCouplers(false),
     m_DivisionalsStoreIntramanualCouplers(false),
     m_DivisionalsStoreTremulants(false),
@@ -126,7 +128,7 @@ GOOrganController::GOOrganController(
     m_TemperamentLabel(this),
     m_MainWindowData(this, wxT("MainWindow")) {
   GOOrganModel::SetMidiDialogCreator(pMidiDialogCreator);
-  GOOrganModel::SetModificationListener(this);
+  GOOrganModel::SetModelModificationListener(this);
   m_pool.SetMemoryLimit(m_config.MemoryLimit() * 1024 * 1024);
 }
 
@@ -137,7 +139,7 @@ GOOrganController::~GOOrganController() {
   m_manuals.clear();
   m_tremulants.clear();
   m_ranks.clear();
-  GOOrganModel::SetModificationListener(nullptr);
+  GOOrganModel::SetModelModificationListener(nullptr);
   GOOrganModel::SetMidiDialogCreator(nullptr);
 }
 
@@ -146,9 +148,7 @@ void GOOrganController::SetOrganModified(bool modified) {
     m_OrganModified = modified;
     m_setter->UpdateModified(modified);
   }
-  if (m_OrganModificationListener)
-    // for reflecting model changes on GUI
-    m_OrganModificationListener->OnIsModifiedChanged(modified);
+  GOModificationProxy::OnIsModifiedChanged(modified);
 }
 
 void GOOrganController::OnIsModifiedChanged(bool modified) {
@@ -329,6 +329,7 @@ void GOOrganController::ReadOrganFile(GOConfigReader &cfg) {
 
   GetRootPipeConfigNode().SetName(GetChurchName());
   ReadCombinations(cfg);
+  m_setter->OnCombinationsLoaded(GetCombinationsDir(), wxEmptyString);
 
   GOHash hash;
   hash.Update(m_ChurchName.utf8_str(), strlen(m_ChurchName.utf8_str()));
@@ -627,45 +628,137 @@ wxString GOOrganController::Load(
   return errMsg;
 }
 
+// const wxString &WX_CMB = wxT(".cmb");
+const wxString &WX_YAML = wxT("yaml");
+const char *const INFO = "info";
+const char *const CONTENT_TYPE = "content-type";
+const wxString WX_GRANDORGUE_COMBINATIONS = "GrandOrgue Combinations";
+const char *const ORGAN_NAME = "organ-name";
+const char *const GRANDORGUE_VERSION = "grandorgue-version";
+const char *const SAVED_TIME = "saved_time";
+
+wxString GOOrganController::ExportCombination(const wxString &fileName) {
+  wxString errMsg;
+  wxFileOutputStream fOS(fileName);
+
+  if (fOS.IsOk()) {
+    YAML::Node globalNode(YAML::NodeType::Map);
+    YAML::Node infoNode = globalNode[INFO];
+
+    infoNode[CONTENT_TYPE] = WX_GRANDORGUE_COMBINATIONS;
+    infoNode[ORGAN_NAME] = m_ChurchName;
+    infoNode[GRANDORGUE_VERSION] = APP_VERSION;
+    infoNode[SAVED_TIME] = wxDateTime::Now().Format();
+
+    globalNode << *m_setter;
+    globalNode << *m_DivisionalSetter;
+    YAML::Emitter outYaml;
+
+    outYaml << YAML::BeginDoc << globalNode;
+
+    if (fOS.WriteAll(outYaml.c_str(), outYaml.size()))
+      m_setter->OnCombinationsSaved(fileName);
+    else
+      errMsg.Printf(
+        wxT("Unable to write all the data to the file '%s'"), fileName);
+    fOS.Close();
+  } else
+    errMsg.Printf(wxT("Unable to open the file '%s' for writing"), fileName);
+  return errMsg;
+}
+
+/**
+ * Check the churchName of the imported combination file. If it differs from the
+ * current organ m_ChurchName then ask for the user
+ * @param churchName the organ the combination file was saved of
+ * @return true if the churchNames are the same or the user agree with importing
+ *   the combination file
+ */
+bool GOOrganController::IsToImportCombinationsFor(
+  const wxString &fileName, const wxString &churchName) const {
+  bool isToImport = true;
+
+  if (churchName != m_ChurchName) {
+    wxLogWarning(
+      _("This combination file '%s' was originally made for another organ "
+        "'%s'"),
+      fileName,
+      churchName);
+    isToImport = wxMessageBox(
+                   wxString::Format(
+                     _("This combination file '%s' was originally made for "
+                       "another organ '%s'. Importing it can cause various "
+                       "problems. Should it really be imported?"),
+                     fileName,
+                     churchName),
+                   _("Import Combinations"),
+                   wxYES_NO,
+                   NULL)
+      == wxYES;
+  }
+  return isToImport;
+}
+
 void GOOrganController::LoadCombination(const wxString &file) {
+  wxString errMsg;
+  const wxFileName fileName(file);
+
   try {
-    GOConfigFileReader odf_ini_file;
+    const wxString fileExt = fileName.GetExt();
 
-    if (!odf_ini_file.Read(file))
-      throw wxString::Format(_("Unable to read '%s'"), file.c_str());
+    if (fileExt == WX_YAML) {
+      YAML::Node cmbNode = YAML::LoadFile(file.c_str().AsChar());
+      YAML::Node cmbInfoNode = cmbNode[INFO];
+      const wxString contentType = cmbInfoNode[CONTENT_TYPE].as<wxString>();
 
-    GOConfigReaderDB ini;
-    ini.ReadData(odf_ini_file, CMBSetting, false);
-    GOConfigReader cfg(ini);
+      if (contentType != WX_GRANDORGUE_COMBINATIONS)
+        throw wxString::Format(
+          _("The file '%s' is not a GrandOrgue Combination file"), file);
+      if (IsToImportCombinationsFor(
+            file, cmbInfoNode[ORGAN_NAME].as<wxString>())) {
+        cmbNode >> *m_setter;
+        cmbNode >> *m_DivisionalSetter;
+        m_setter->OnCombinationsLoaded(fileName.GetPath(), file);
+      }
+    } else {
+      GOConfigFileReader odf_ini_file;
 
-    wxString church_name
-      = cfg.ReadString(CMBSetting, WX_ORGAN, wxT("ChurchName"));
-    if (church_name != m_ChurchName)
-      if (
-        wxMessageBox(
-          _("This combination file was originally made for "
-            "another organ. Importing it can cause various "
-            "problems. Should it really be imported?"),
-          _("Import"),
-          wxYES_NO,
-          NULL)
-        == wxNO)
+      if (!odf_ini_file.Read(file))
+        throw wxString::Format(_("Unable to read '%s'"), file.c_str());
+
+      GOConfigReaderDB ini;
+      ini.ReadData(odf_ini_file, CMBSetting, false);
+      GOConfigReader cfg(ini);
+
+      wxString church_name
+        = cfg.ReadString(CMBSetting, WX_ORGAN, wxT("ChurchName"));
+      if (!IsToImportCombinationsFor(file, church_name))
         return;
 
-    wxString hash = odf_ini_file.getEntry(WX_ORGAN, wxT("ODFHash"));
-    if (hash != wxEmptyString)
-      if (hash != m_ODFHash) {
-        wxLogWarning(
-          _("The combination file does not exactly match the current ODF."));
-      }
-    /* skip informational items */
-    cfg.ReadString(CMBSetting, WX_ORGAN, wxT("ChurchAddress"), false);
-    cfg.ReadString(CMBSetting, WX_ORGAN, wxT("ODFPath"), false);
+      wxString hash = odf_ini_file.getEntry(WX_ORGAN, wxT("ODFHash"));
+      if (hash != wxEmptyString)
+        if (hash != m_ODFHash) {
+          wxLogWarning(
+            _("The combination file does not exactly match the current ODF."));
+        }
+      /* skip informational items */
+      cfg.ReadString(CMBSetting, WX_ORGAN, wxT("ChurchAddress"), false);
+      cfg.ReadString(CMBSetting, WX_ORGAN, wxT("ODFPath"), false);
 
-    ReadCombinations(cfg);
-  } catch (wxString error) {
-    wxLogError(wxT("%s\n"), error.c_str());
-    GOMessageBox(error, _("Load error"), wxOK | wxICON_ERROR, NULL);
+      ReadCombinations(cfg);
+      m_setter->OnCombinationsLoaded(GetCombinationsDir(), wxEmptyString);
+    }
+    SetOrganModified();
+  } catch (const wxString &error) {
+    errMsg = error;
+  } catch (const std::exception &e) {
+    errMsg = e.what();
+  } catch (...) { // We must not allow unhandled exceptions here
+    errMsg.Printf("Unknown exception");
+  }
+  if (!errMsg.IsEmpty()) {
+    wxLogError(errMsg);
+    GOMessageBox(errMsg, _("Load error"), wxOK | wxICON_ERROR, NULL);
   }
 }
 
@@ -882,6 +975,11 @@ const wxString GOOrganController::GetSettingFilename() {
 }
 
 const wxString GOOrganController::GetCacheFilename() { return m_CacheFilename; }
+
+wxString GOOrganController::GetCombinationsDir() const {
+  return wxFileName(m_config.OrganCombinationsPath(), m_ChurchName)
+    .GetFullPath();
+}
 
 GOMemoryPool &GOOrganController::GetMemoryPool() { return m_pool; }
 

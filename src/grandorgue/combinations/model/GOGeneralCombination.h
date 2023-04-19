@@ -11,19 +11,30 @@
 #include <wx/string.h>
 
 #include "GOCombination.h"
-#include "GOSaveableObject.h"
 
 class GOConfigReader;
 class GOConfigWriter;
 class GOOrganController;
 
-class GOGeneralCombination : public GOCombination, private GOSaveableObject {
+class GOGeneralCombination : public GOCombination {
 private:
   GOOrganController *m_OrganController;
   bool m_IsSetter;
 
   void Save(GOConfigWriter &cfg);
-  void LoadCombination(GOConfigReader &cfg);
+  void LoadCombinationInt(GOConfigReader &cfg, GOSettingType srcType) override;
+
+  void PutElementToYamlMap(
+    const GOCombinationDefinition::Element &e,
+    const wxString &valueLabel,
+    const unsigned objectIndex,
+    YAML::Node &yamlMap) const override;
+
+  /**
+   * Loads the combination from the Yaml Node. Called from FromYaml
+   * @param node
+   */
+  void FromYamlMap(const YAML::Node &yamlMap) override;
 
 public:
   GOGeneralCombination(
@@ -38,8 +49,9 @@ public:
    * extraSet
    * If isFromCrescendo and extraSet is passed then does not depress other
    * buttons
+   * return if anything is changed
    */
-  void Push(
+  bool Push(
     ExtraElementsSet const *extraSet = nullptr, bool isFromCrescendo = false);
 };
 

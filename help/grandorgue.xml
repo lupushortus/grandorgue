@@ -14,7 +14,7 @@ License GPL-2.0 or later (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
       <holder>Milan Digital Audio LLC</holder>
     </copyright>
     <copyright>
-      <year>2009-2021</year>
+      <year>2009-2023</year>
       <holder>GrandOrgue contributors (see AUTHORS)</holder>
     </copyright>
     <legalnotice>
@@ -415,6 +415,44 @@ you wish to discard your modifications. Note that the file containing saved sett
 currently in use is <emphasis>deleted</emphasis>.
 </para>
         </sect3>
+        <sect3 id="import_comb">
+          <title>Import Combinations</title>
+          <indexterm>
+            <primary>Import Combinations</primary>
+          </indexterm>
+	  <para>
+	    This menu item opens the file selection dialog that allows the user
+	    to select either a yaml-file, created with <emphasis>Export
+	    Combinations</emphasis>, or a .cmb-file, created with <emphasis>
+	    Export Settings</emphasis>. In the second case apply only the
+	    combination part of settings from a  previously exported settings
+	    file to the currently loaded sample set. All other settings that
+	    might have previously been changed are preserved.
+	  </para>
+          <para>
+	    Note The file selection dialog is opened at the directory where
+	    exported combination are stored, not where the settings files
+	    are. For selecting a .cmb file you have to navigate to the
+	    Export/import directory that is named <emphasis>Settings</emphasis>
+	    by default.
+	  </para>
+          <para>
+	    A settings file matches a sample set when the <emphasis>ChurchName
+	    </emphasis> property of the settings file matches the <emphasis>
+	      ChurchName</emphasis> property of the definition file.
+	  </para>
+        </sect3>
+        <sect3 id="export_combinations">
+          <title>Export Combinations</title>
+          <indexterm>
+            <primary>Export Combinations</primary>
+          </indexterm>
+          <para>
+	    Saves current combination settings to a text file in YAML format.
+	    The user can view this file and can import it later with <emphasis>
+	    Import Combinations</emphasis>
+	  </para>
+        </sect3>
         <sect3 id="import_settings">
           <title>Import Settings</title>
           <indexterm>
@@ -430,21 +468,8 @@ A settings file matches a sample set when the <emphasis>ChurchName</emphasis> pr
 matches the <emphasis>ChurchName</emphasis> property of the definition file.
 </para>
         </sect3>
-        <sect3 id="import_comb">
-          <title>Import Combinations</title>
-          <indexterm>
-            <primary>Import Combinations</primary>
-          </indexterm>
-          <para>Apply only the combination settings from a  previously exported settings file to the currently loaded
-sample set. All other settings that might have previously been changed are preserved.</para>
-          <para>Note that settings may only be applied to a matching sample
-set, and you will receive a warning if you try to do otherwise. The
-location where the combinations were imported from will be remembered for the next time.</para>
-          <para>A settings file matches a sample set when the <emphasis>ChurchName</emphasis> property of the settings file
-matches the <emphasis>ChurchName</emphasis> property of the definition file.</para>
-        </sect3>
         <sect3 id="export_settings">
-          <title>Export Settings/Combinations</title>
+          <title>Export Settings</title>
           <indexterm>
             <primary>Export Settings</primary>
           </indexterm>
@@ -452,7 +477,7 @@ matches the <emphasis>ChurchName</emphasis> property of the definition file.</pa
 engaged states; divisional, general, and program combinations;
 volume spinner value; temperament setting; fine tuning data.
 </para>
-          <para><emphasis>Export Settings/Combinations</emphasis> allows the user to choose a specific file name and folder. The latest location where settings were exported to will be remembered for the next time.</para>
+          <para><emphasis>Export Settings</emphasis> allows the user to choose a specific file name and folder. The latest location where settings were exported to will be remembered for the next time.</para>
         </sect3>
         <sect3>
           <title id="audiomidisettings">Settings...</title>
@@ -4255,14 +4280,29 @@ will be added to the <link linkend="knownorgans">known organs list</link>.
                 <entry>Default: <emphasis>Data</emphasis></entry>
               </row>
               <row>
+                <entry><emphasis role="strong">Combinations</emphasis></entry>
+                <entry>
+		  This is the folder where GrandOrgue stores or looks for
+		  combinations files in YAML format. Combinations for different
+		  organs are stored in subfolders of this folder. The names of
+		  the subfolders equal to the organ names. The subfolder of the
+		  current loaded organ is opened when one of the
+		  <link linkend="import_comb">File &gt; Import Combinations
+		  </link>, <link linkend="export_combinations">File &gt; Export
+		  Combinations</link> menu items is selected.
+                </entry>
+                <entry>Default: <emphasis>Settings</emphasis></entry>
+              </row>
+              <row>
                 <entry><emphasis role="strong">Export/Import</emphasis></entry>
                 <entry>
-This is the folder where GrandOrgue stores or looks for settings files. It is
-opened when one of the <link linkend="import_settings">File &gt; Import
-Settings</link>, <link linkend="import_comb">File &gt; Import Combinations</link>,
-<link linkend="export_settings">File &gt; Export Settings/Combinations</link> menu
-items is selected. This folder is usually different from the folder where
-GrandOrgue <link linkend="settingsstore">stores</link> preset files.
+		  This is the folder where GrandOrgue stores or looks for
+		  settings files. It is opened when one of the
+		  <link linkend="import_settings">File &gt; Import Settings
+		  </link>, <link linkend="export_settings">File &gt; Export
+		  Settings</link> menu items is selected. This
+		  folder is usually different from the folder where GrandOrgue
+		  <link linkend="settingsstore">stores</link> preset files.
                 </entry>
                 <entry>Default: <emphasis>Settings</emphasis></entry>
               </row>
@@ -5867,6 +5907,92 @@ when the sample set doesn't provide them.
           <listitem><simpara>Displays the current slot. It is an "active" label, and as such supports a <link linkend="activelabel">MIDI send</link> configuration</simpara></listitem>
         </varlistentry>
         <varlistentry>
+          <term>Second line</term>
+          <listitem>
+	    <simpara>
+	      This line has elements for working with yaml combination files in
+	      the current combinations directory. By default it is a
+	      subdirectory with the same name as the current loaded organ name
+	      in the Combinations directory. But after importing a yaml
+	      combination file with the <link linkend="import_comb">Import
+	      Combinations</link> menu item, the current combinations directory
+	      becomes the directory where the combination file has been loaded
+	      from.
+	    </simpara>
+	  </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>Large label on the second line</term>
+          <listitem>
+	    <simpara>
+	      Displays a yaml combination file name. It may be either the file
+	      that is loaded or another file the current combinations directory
+	      when the user navigates over them. It is an "active" label, and as
+	      such supports a <link linkend="activelabel">MIDI send</link>
+	      configuration.
+	    </simpara>
+	  </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>Refresh files</term>
+          <listitem>
+	    <simpara>
+	      Reload the list of combination files the current combinations
+	      directory.
+	    </simpara>
+	  </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>Prev file</term>
+          <listitem>
+	    <simpara>
+	      Navigate to a previous (in alphabetical order) combinations file
+	      in the directory.
+	    </simpara>
+	  </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>Next file</term>
+          <listitem>
+	    <simpara>
+	      Navigate to a next (in alphabetical order) combinations file in
+	      the directory.
+	    </simpara>
+	  </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>Load file</term>
+          <listitem>
+	    <simpara>
+	      Load the combination file displayed in the label. The lighting of
+	      the button shows whether the currently displayed file is loaded
+	      (dark) or not loaded (light). After loading the combination file
+	      with this button, the 000 slot is activated automatically.
+	    </simpara>
+	  </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>Save file</term>
+          <listitem>
+	    <simpara>
+	      Save the current combinations file to the file whrere they were
+	      previously been loaded from. This button works only if the label
+	      is navigated to this file (the Save button is dark). Lighting of
+	      this button shows whether the combinations set has been changed
+	      (light) or not (dark) since it was loaded.
+	    </simpara>
+	    <note>
+	      <simpara>
+		This button allows to save the combinations to the same file
+		where they have been loaded from. For saving combinations to
+		another file or for creating a new one use the
+		<link linkend="export_combinations">Export Combinations</link>
+		menu item.
+	      </simpara>
+	    </note>
+	  </listitem>
+        </varlistentry>
+        <varlistentry>
           <term>Current</term>
           <listitem><simpara>
 While <link linkend="memoryset">setting</link>, store the state of drawstops
@@ -7189,11 +7315,30 @@ attributes of a label.
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term>CurrFileName</term>
+          <listitem>
+            <para>
+	      Represents the current combinations file name of the setter.
+	      The section must contain the GUI attributes of a label.
+	    </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>RefreshFiles, PrevFile, NextFile, LoadFile, SaveFile</term>
+          <listitem>
+            <para>
+	      Refresh files/Prev file/Next file/Load file/Save file buttons of
+	      the setter. The section must contain the GUI attributes of a
+	      button (displayed as drawstop per default).
+	    </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term>Prev, Next, Set</term>
           <listitem>
             <para>
 Prev/next/set button of the setter. The section must contain the GUI
-attributes of a button (displayed as button per default).
+attributes of a button (displayed as drawstop per default).
      </para>
           </listitem>
         </varlistentry>
@@ -7202,7 +7347,7 @@ attributes of a button (displayed as button per default).
           <listitem>
             <para>
 +/- 1/10/100 button of the setter. The section must contain the GUI
-attributes of a button (displayed as button per default).
+attributes of a button (displayed as drawstop per default).
      </para>
           </listitem>
         </varlistentry>
@@ -7211,7 +7356,7 @@ attributes of a button (displayed as button per default).
           <listitem>
             <para>
 Move to 000 button of the setter. The section must contain the GUI
-attributes of a button (displayed as button per default).
+attributes of a button (displayed as drawstop per default).
      </para>
           </listitem>
         </varlistentry>
@@ -7220,7 +7365,7 @@ attributes of a button (displayed as button per default).
           <listitem>
             <para>
 Recall current number button of the setter. The section must contain the GUI
-attributes of a button (displayed as button per default).
+attributes of a button (displayed as drawstop per default).
      </para>
           </listitem>
         </varlistentry>
@@ -7229,7 +7374,7 @@ attributes of a button (displayed as button per default).
           <listitem>
             <para>
 General cancel button of the setter. The section must contain the GUI
-attributes of a button (displayed as button per default).
+attributes of a button (displayed as drawstop per default).
      </para>
           </listitem>
         </varlistentry>
@@ -7239,7 +7384,7 @@ attributes of a button (displayed as button per default).
             <para>
 Recall combination with the specified digit as last digit button of
 the setter. The section must contain the GUI attributes of a button
-(displayed as button per default).
+(displayed as drawstop per default).
      </para>
           </listitem>
         </varlistentry>
@@ -7248,7 +7393,7 @@ the setter. The section must contain the GUI attributes of a button
           <listitem>
             <para>
 Button to switch between the various setter modes. The section must
-contain the GUI attributes of a button (displayed as button per
+contain the GUI attributes of a button (displayed as drawstop per
 default).
      </para>
           </listitem>
@@ -7259,7 +7404,7 @@ default).
             <para>
 Button to enable storing all elements in the setter (restrictions from
 the ODF are ignored). The section must contain the GUI attributes of a
-button (displayed as button per default).
+button (displayed as drawstop per default).
      </para>
           </listitem>
         </varlistentry>
@@ -7268,7 +7413,7 @@ button (displayed as button per default).
           <listitem>
             <para>
 Buttons to insert/remove a combination. The section must contain the
-GUI attributes of a button (displayed as button per default).
+GUI attributes of a button (displayed as drawstop per default).
      </para>
           </listitem>
         </varlistentry>
@@ -7305,7 +7450,7 @@ attributes of a label.
           <listitem>
             <para>
 Buttons to switch between the various crescendo modes. The section
-must contain the GUI attributes of a button (displayed as button per
+must contain the GUI attributes of a button (displayed as drawstop per
 default).
      </para>
           </listitem>
@@ -7315,7 +7460,7 @@ default).
           <listitem>
             <para>
 Buttons for controlling the crescendo combinations. The section must
-contain the GUI attributes of a button (displayed as button per
+contain the GUI attributes of a button (displayed as drawstop per
 default).
      </para>
           </listitem>
@@ -8825,8 +8970,8 @@ group label font of the panel.
           <term>DispImageNum</term>
           <listitem>
             <para>
-	      (integer 0 - 12, default: 1) Builtin bitmap set to use. 0 means
-	      that the lable does not have a background image.
+	      (integer 0 - 15, default: 1) Builtin bitmap set to use. 0 means
+	      that the label does not have a background image.
 	    </para>
           </listitem>
         </varlistentry>
@@ -9104,7 +9249,7 @@ The GUI properties of button objects are:
           <listitem>
             <para>
 (boolean, default: true for divisionals, generals and pistons, else
-false) True means to display as button, false as drawstop
+false) True means to display as piston, false as drawstop
      </para>
           </listitem>
         </varlistentry>

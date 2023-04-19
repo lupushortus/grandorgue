@@ -32,8 +32,8 @@ midi/GOMidiFileReader.cpp
 midi/GOMidiMap.cpp
 midi/GOMidiEventPattern.cpp
 midi/GOMidiReceiverBase.cpp
-midi/GOMidiReceiverEventPatternList.cpp
-midi/GOMidiSenderEventPatternList.cpp
+midi/GOMidiReceiverEventPattern.cpp
+midi/GOMidiSenderEventPattern.cpp
 midi/GOMidiWXEvent.cpp
 settings/GOSetting.cpp
 settings/GOSettingBool.cpp
@@ -55,6 +55,7 @@ GOCompress.cpp
 GOHash.cpp
 GOKeyConvert.cpp
 GOKeyReceiverData.cpp
+GOLogicalColour.cpp
 GOMemoryPool.cpp
 GOOrgan.cpp
 GOOrganList.cpp
