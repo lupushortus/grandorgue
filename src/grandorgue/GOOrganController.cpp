@@ -101,11 +101,6 @@ GOOrganController::GOOrganController(
     m_b_customized(false),
     m_CurrentPitch(999999.0), // for enforcing updating the label first time
     m_OrganModified(false),
-    m_DivisionalsStoreIntermanualCouplers(false),
-    m_DivisionalsStoreIntramanualCouplers(false),
-    m_DivisionalsStoreTremulants(false),
-    m_GeneralsStoreDivisionalCouplers(false),
-    m_CombinationsStoreNonDisplayedDrawstops(false),
     m_ChurchName(),
     m_ChurchAddress(),
     m_OrganBuilder(),
@@ -241,20 +236,6 @@ void GOOrganController::ReadOrganFile(GOConfigReader &cfg) {
   /* load basic organ information */
   unsigned NumberOfPanels = cfg.ReadInteger(
     ODFSetting, WX_ORGAN, wxT("NumberOfPanels"), 0, 100, false);
-  m_DivisionalsStoreIntermanualCouplers = cfg.ReadBoolean(
-    ODFSetting, WX_ORGAN, wxT("DivisionalsStoreIntermanualCouplers"));
-  m_DivisionalsStoreIntramanualCouplers = cfg.ReadBoolean(
-    ODFSetting, WX_ORGAN, wxT("DivisionalsStoreIntramanualCouplers"));
-  m_DivisionalsStoreTremulants
-    = cfg.ReadBoolean(ODFSetting, WX_ORGAN, wxT("DivisionalsStoreTremulants"));
-  m_GeneralsStoreDivisionalCouplers = cfg.ReadBoolean(
-    ODFSetting, WX_ORGAN, wxT("GeneralsStoreDivisionalCouplers"));
-  m_CombinationsStoreNonDisplayedDrawstops = cfg.ReadBoolean(
-    ODFSetting,
-    WX_ORGAN,
-    wxT("CombinationsStoreNonDisplayedDrawstops"),
-    false,
-    true);
   cfg.ReadString(CMBSetting, WX_ORGAN, WX_GRANDORGUE_VERSION, false);
   m_volume = cfg.ReadInteger(
     CMBSetting, WX_ORGAN, wxT("Volume"), -120, 100, false, m_config.Volume());
@@ -263,8 +244,12 @@ void GOOrganController::ReadOrganFile(GOConfigReader &cfg) {
   m_Temperament
     = cfg.ReadString(CMBSetting, WX_ORGAN, wxT("Temperament"), false);
 
+  // It must be created before GOOrganModel::Load because lots of objects
+  // reference to it
+  m_setter = new GOSetter(this);
+  m_elementcreators.push_back(m_setter);
+
   GOOrganModel::Load(cfg, this);
-  wxString buffer;
 
   for (unsigned i = 0; i < m_enclosures.size(); i++)
     m_enclosures[i]->SetElementID(
@@ -278,8 +263,6 @@ void GOOrganController::ReadOrganFile(GOConfigReader &cfg) {
     m_tremulants[i]->SetElementID(
       GetRecorderElementID(wxString::Format(wxT("T%d"), i)));
 
-  m_setter = new GOSetter(this);
-  m_elementcreators.push_back(m_setter);
   m_DivisionalSetter = new GODivisionalSetter(this);
   m_elementcreators.push_back(m_DivisionalSetter);
   m_AudioRecorder = new GOAudioRecorder(this);
@@ -310,6 +293,8 @@ void GOOrganController::ReadOrganFile(GOConfigReader &cfg) {
   m_panels.resize(0);
   m_panels.push_back(new GOGUIPanel(this));
   m_panels[0]->Load(cfg, wxT(""));
+
+  wxString buffer;
 
   for (unsigned i = 0; i < NumberOfPanels; i++) {
     buffer.Printf(wxT("Panel%03d"), i + 1);
@@ -889,26 +874,6 @@ void GOOrganController::SetVolume(int volume) { m_volume = volume; }
 
 int GOOrganController::GetVolume() { return m_volume; }
 
-bool GOOrganController::DivisionalsStoreIntermanualCouplers() {
-  return m_DivisionalsStoreIntermanualCouplers;
-}
-
-bool GOOrganController::DivisionalsStoreIntramanualCouplers() {
-  return m_DivisionalsStoreIntramanualCouplers;
-}
-
-bool GOOrganController::DivisionalsStoreTremulants() {
-  return m_DivisionalsStoreTremulants;
-}
-
-bool GOOrganController::CombinationsStoreNonDisplayedDrawstops() {
-  return m_CombinationsStoreNonDisplayedDrawstops;
-}
-
-bool GOOrganController::GeneralsStoreDivisionalCouplers() {
-  return m_GeneralsStoreDivisionalCouplers;
-}
-
 GOSetter *GOOrganController::GetSetter() { return m_setter; }
 
 GOGUIPanel *GOOrganController::GetPanel(unsigned index) {
@@ -987,16 +952,6 @@ GOConfig &GOOrganController::GetSettings() { return m_config; }
 
 GOBitmapCache &GOOrganController::GetBitmapCache() { return m_bitmaps; }
 
-void GOOrganController::SendMidiMessage(GOMidiEvent &e) {
-  if (m_midi)
-    m_midi->Send(e);
-}
-
-void GOOrganController::SendMidiRecorderMessage(GOMidiEvent &e) {
-  if (m_MidiRecorder)
-    m_MidiRecorder->SendMidiRecorderMessage(e);
-}
-
 GOMidi *GOOrganController::GetMidi() { return m_midi; }
 
 void GOOrganController::LoadMIDIFile(wxString const &filename) {
@@ -1013,6 +968,7 @@ void GOOrganController::Abort() {
   m_MidiRecorder->StopRecording();
   m_AudioRecorder->StopRecording();
   m_AudioRecorder->SetAudioRecorder(NULL);
+  GOOrganModel::SetMidi(nullptr, nullptr);
   m_midi = NULL;
 }
 
@@ -1036,6 +992,7 @@ void GOOrganController::PreparePlayback(
   PreconfigRecorder();
 
   m_MidiSamplesetMatch.clear();
+  GOOrganModel::SetMidi(midi, m_MidiRecorder);
   GOEventDistributor::PreparePlayback(engine);
 
   m_setter->UpdateModified(m_OrganModified);

@@ -10,6 +10,7 @@
 
 #include "ptrvector.h"
 
+#include "midi/GOMidiSendProxy.h"
 #include "midi/dialog-creator/GOMidiDialogCreatorProxy.h"
 #include "modification/GOModificationProxy.h"
 #include "pipe-config/GOPipeConfigTreeNode.h"
@@ -30,11 +31,18 @@ class GOTremulant;
 class GOWindchest;
 
 class GOOrganModel : public GOEventHandlerList,
-                     public GOMidiDialogCreatorProxy {
+                     public GOMidiDialogCreatorProxy,
+                     public GOMidiSendProxy {
 private:
   GOModificationProxy m_ModificationProxy;
 
-  const GOConfig &m_config;
+  GOConfig &m_config;
+
+  bool m_DivisionalsStoreIntermanualCouplers;
+  bool m_DivisionalsStoreIntramanualCouplers;
+  bool m_DivisionalsStoreTremulants;
+  bool m_GeneralsStoreDivisionalCouplers;
+  bool m_CombinationsStoreNonDisplayedDrawstops;
 
   GOPipeConfigTreeNode m_RootPipeConfigNode;
 
@@ -57,10 +65,32 @@ protected:
   void Load(GOConfigReader &cfg, GOOrganController *organController);
 
 public:
-  GOOrganModel(const GOConfig &config);
+  GOOrganModel(GOConfig &config);
   ~GOOrganModel();
 
   const GOConfig &GetConfig() const { return m_config; }
+  GOConfig &GetConfig() { return m_config; }
+
+  /* combinations properties */
+  bool DivisionalsStoreIntermanualCouplers() const {
+    return m_DivisionalsStoreIntermanualCouplers;
+  }
+
+  bool DivisionalsStoreIntramanualCouplers() const {
+    return m_DivisionalsStoreIntramanualCouplers;
+  }
+
+  bool DivisionalsStoreTremulants() const {
+    return m_DivisionalsStoreTremulants;
+  }
+
+  bool CombinationsStoreNonDisplayedDrawstops() const {
+    return m_CombinationsStoreNonDisplayedDrawstops;
+  }
+
+  bool GeneralsStoreDivisionalCouplers() const {
+    return m_GeneralsStoreDivisionalCouplers;
+  }
 
   GOPipeConfigNode &GetRootPipeConfigNode() { return m_RootPipeConfigNode; }
 

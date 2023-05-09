@@ -21,8 +21,13 @@
 #include "GOTremulant.h"
 #include "GOWindchest.h"
 
-GOOrganModel::GOOrganModel(const GOConfig &config)
+GOOrganModel::GOOrganModel(GOConfig &config)
   : m_config(config),
+    m_DivisionalsStoreIntermanualCouplers(false),
+    m_DivisionalsStoreIntramanualCouplers(false),
+    m_DivisionalsStoreTremulants(false),
+    m_GeneralsStoreDivisionalCouplers(false),
+    m_CombinationsStoreNonDisplayedDrawstops(false),
     m_RootPipeConfigNode(nullptr, this, nullptr),
     m_OrganModelModified(false),
     m_FirstManual(0),
@@ -34,8 +39,23 @@ GOOrganModel::~GOOrganModel() {}
 void GOOrganModel::Load(
   GOConfigReader &cfg, GOOrganController *organController) {
   wxString group = wxT("Organ");
-  unsigned NumberOfWindchestGroups
-    = cfg.ReadInteger(ODFSetting, group, wxT("NumberOfWindchestGroups"), 1, 50);
+  m_DivisionalsStoreIntermanualCouplers = cfg.ReadBoolean(
+    ODFSetting, group, wxT("DivisionalsStoreIntermanualCouplers"));
+  m_DivisionalsStoreIntramanualCouplers = cfg.ReadBoolean(
+    ODFSetting, group, wxT("DivisionalsStoreIntramanualCouplers"));
+  m_DivisionalsStoreTremulants
+    = cfg.ReadBoolean(ODFSetting, group, wxT("DivisionalsStoreTremulants"));
+  m_GeneralsStoreDivisionalCouplers = cfg.ReadBoolean(
+    ODFSetting, group, wxT("GeneralsStoreDivisionalCouplers"));
+  m_CombinationsStoreNonDisplayedDrawstops = cfg.ReadBoolean(
+    ODFSetting,
+    group,
+    wxT("CombinationsStoreNonDisplayedDrawstops"),
+    false,
+    true);
+
+  unsigned NumberOfWindchestGroups = cfg.ReadInteger(
+    ODFSetting, group, wxT("NumberOfWindchestGroups"), 1, 999);
 
   m_RootPipeConfigNode.Load(cfg, group, wxEmptyString);
   m_windchests.resize(0);
@@ -58,7 +78,7 @@ void GOOrganModel::Load(
     = cfg.ReadInteger(ODFSetting, group, wxT("NumberOfEnclosures"), 0, 50);
   m_enclosures.resize(0);
   for (unsigned i = 0; i < NumberOfEnclosures; i++) {
-    m_enclosures.push_back(new GOEnclosure(organController));
+    m_enclosures.push_back(new GOEnclosure(*organController));
     m_enclosures[i]->Load(
       cfg, wxString::Format(wxT("Enclosure%03u"), i + 1), i);
   }
@@ -86,7 +106,7 @@ void GOOrganModel::Load(
   m_ODFRankCount
     = cfg.ReadInteger(ODFSetting, group, wxT("NumberOfRanks"), 0, 999, false);
   for (unsigned i = 0; i < m_ODFRankCount; i++) {
-    m_ranks.push_back(new GORank(organController));
+    m_ranks.push_back(new GORank(*organController));
     m_ranks[i]->Load(cfg, wxString::Format(wxT("Rank%03d"), i + 1), -1);
   }
 

@@ -13,26 +13,30 @@
 #include "midi/GOMidiConfigurator.h"
 #include "midi/GOMidiReceiver.h"
 #include "midi/GOMidiSender.h"
+#include "midi/GOMidiShortcutReceiver.h"
 #include "sound/GOSoundStateHandler.h"
 
 #include "GOEventHandler.h"
-#include "GOKeyReceiver.h"
 #include "GOSaveableObject.h"
 
 class GOConfigReader;
 class GOConfigWriter;
 class GOMidiEvent;
 class GOOrganController;
+class GOOrganModel;
 
 class GOButtonControl : private GOEventHandler,
                         public GOSaveableObject,
                         protected GOSoundStateHandler,
                         public GOMidiConfigurator {
+private:
+  GOMidiMap &r_MidiMap;
+
 protected:
   GOOrganController *m_OrganController;
   GOMidiReceiver m_midi;
   GOMidiSender m_sender;
-  GOKeyReceiver m_shortcut;
+  GOMidiShortcutReceiver m_shortcut;
   bool m_Pushbutton;
   bool m_Displayed;
   wxString m_Name;
@@ -56,7 +60,6 @@ public:
     GOMidiReceiverType midi_type,
     bool pushbutton,
     bool isPiston = false);
-  virtual ~GOButtonControl();
   void Init(GOConfigReader &cfg, const wxString &group, const wxString &name);
   void Load(GOConfigReader &cfg, const wxString &group);
   bool IsDisplayed();

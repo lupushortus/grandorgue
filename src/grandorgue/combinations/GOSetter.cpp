@@ -293,7 +293,7 @@ GOSetter::GOSetter(GOOrganController *organController)
     m_CrescendoDisplay(organController),
     m_TransposeDisplay(organController),
     m_NameDisplay(organController),
-    m_swell(organController),
+    m_swell(*organController),
     m_SetterType(GOCombination::SETTER_REGULAR) {
   CreateButtons(m_OrganController);
 
@@ -661,7 +661,7 @@ void GOSetter::FromYaml(const YAML::Node &yamlNode) {
       >> *m_framegeneral[i];
 }
 
-void GOSetter::ButtonStateChanged(int id) {
+void GOSetter::ButtonStateChanged(int id, bool newState) {
   GOCombination::ExtraElementsSet elementSet;
 
   switch (id) {

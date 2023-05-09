@@ -9,10 +9,6 @@
 
 #include "GOCallbackButtonControl.h"
 
-GOElementCreator::GOElementCreator() : m_buttons() {}
-
-GOElementCreator::~GOElementCreator() {}
-
 void GOElementCreator::CreateButtons(GOOrganController *organController) {
   const struct ButtonDefinitionEntry *entries = GetButtonDefinitionList();
   for (unsigned i = 0;
@@ -40,8 +36,9 @@ GOButtonControl *GOElementCreator::GetButtonControl(
   return NULL;
 }
 
-void GOElementCreator::ButtonStateChanged(GOButtonControl *button) {
+void GOElementCreator::ButtonStateChanged(
+  GOButtonControl *button, bool newState) {
   for (unsigned i = 0; i < m_buttons.size(); i++)
     if (m_buttons[i] == button)
-      ButtonStateChanged(i);
+      ButtonStateChanged(i, newState);
 }

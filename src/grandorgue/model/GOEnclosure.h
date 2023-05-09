@@ -13,26 +13,29 @@
 #include "midi/GOMidiConfigurator.h"
 #include "midi/GOMidiReceiver.h"
 #include "midi/GOMidiSender.h"
+#include "midi/GOMidiShortcutReceiver.h"
 #include "sound/GOSoundStateHandler.h"
 
 #include "GOEventHandler.h"
-#include "GOKeyReceiver.h"
 #include "GOSaveableObject.h"
 
 class GOConfigReader;
 class GOConfigWriter;
 class GOMidiEvent;
-class GOOrganController;
+class GOMidiMap;
+class GOOrganModel;
 
 class GOEnclosure : private GOEventHandler,
                     private GOSaveableObject,
                     private GOSoundStateHandler,
                     public GOMidiConfigurator {
 private:
+  GOOrganModel &r_OrganModel;
+  GOMidiMap &r_MidiMap;
+
   GOMidiReceiver m_midi;
   GOMidiSender m_sender;
-  GOKeyReceiver m_shortcut;
-  GOOrganController *m_OrganController;
+  GOMidiShortcutReceiver m_shortcut;
   int m_AmpMinimumLevel;
   int m_MIDIInputNumber;
   int m_MIDIValue;
@@ -50,8 +53,7 @@ private:
   void PrepareRecording();
 
 public:
-  GOEnclosure(GOOrganController *organController);
-  virtual ~GOEnclosure();
+  GOEnclosure(GOOrganModel &organModel);
   void Init(
     GOConfigReader &cfg, wxString group, wxString Name, unsigned def_value);
   void Load(GOConfigReader &cfg, wxString group, int enclosure_nb);

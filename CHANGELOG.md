@@ -1,3 +1,10 @@
+# 3.11.2 (2023-05-08)
+- Fixed crash on loading organ with general of divisional buttons https://github.com/GrandOrgue/grandorgue/issues/1512
+# 3.11.1 (2023-05-03)
+- Fixed processing yaml combinations on organs with invisible couplers https://github.com/GrandOrgue/grandorgue/issues/1489
+- Fixed uncompatibility with recent linux distros. Use grandorgue-wx32 on new linux distros (where wxWidgets 3.0 is not available) https://github.com/GrandOrgue/grandorgue/issues/1480
+- Added support of negative y-axis adjustment of manual keys https://github.com/GrandOrgue/grandorgue/issues/1485
+- Fixed opening an organ with more than 50 windchest groups https://github.com/GrandOrgue/grandorgue/issues/1484
 # 3.11.0 (2023-04-17)
 - Added capability of navigating over, loading and saving the YAML combinations files on the Combination Setter panel https://github.com/GrandOrgue/grandorgue/issues/1196
 - Added capability of exporting and importing combinations in yaml format files https://github.com/GrandOrgue/grandorgue/issues/1195
