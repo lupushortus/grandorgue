@@ -8,10 +8,9 @@
 #ifndef GOORGANCONTROLLER_H
 #define GOORGANCONTROLLER_H
 
-#include <wx/hashmap.h>
-#include <wx/string.h>
-
 #include <vector>
+
+#include <wx/string.h>
 
 #include "ptrvector.h"
 
@@ -27,6 +26,7 @@
 #include "GOMainWindowData.h"
 #include "GOMemoryPool.h"
 #include "GOTimer.h"
+#include "GOVirtualCouplerController.h"
 
 class GOGUIPanel;
 class GOGUIPanelCreator;
@@ -56,8 +56,6 @@ class GOOrganController : public GOEventDistributor,
                           public GOTimer,
                           public GOOrganModel,
                           public GOModificationProxy {
-  WX_DECLARE_STRING_HASH_MAP(bool, GOStringBoolMap);
-
 private:
   GOConfig &m_config;
   wxString m_odf;
@@ -89,10 +87,11 @@ private:
   wxString m_RecordingDetails;
   wxString m_InfoFilename;
 
+  GOVirtualCouplerController m_VirtualCouplers;
+
   ptr_vector<GOGUIPanel> m_panels;
   ptr_vector<GOGUIPanelCreator> m_panelcreators;
   ptr_vector<GOElementCreator> m_elementcreators;
-  GOStringBoolMap m_UsedSections;
 
   GOSoundEngine *m_soundengine;
   GOMidi *m_midi;
@@ -185,9 +184,7 @@ public:
   GOBitmapCache &GetBitmapCache();
   void SetTemperament(wxString name);
   wxString GetTemperament();
-  void MarkSectionInUse(wxString name);
 
-  int GetRecorderElementID(wxString name);
   GOCombinationDefinition &GetGeneralTemplate();
   GOLabelControl *GetPitchLabel();
   GOLabelControl *GetTemperamentLabel();

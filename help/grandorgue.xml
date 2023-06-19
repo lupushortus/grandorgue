@@ -7037,7 +7037,7 @@ The manual information for each manual is available in sections called
           <term>NumberOfEnclosures</term>
           <listitem>
             <para>
-(integer 0 - 50, required) number of enclosures. The details of each enclosure are contained in a section called <emphasis>Enclosure999</emphasis>
+(integer 0 - 999 required) number of enclosures. The details of each enclosure are contained in a section called <emphasis>Enclosure999</emphasis>
      </para>
           </listitem>
         </varlistentry>
@@ -7271,7 +7271,7 @@ attributes of a label.
               Represents a divisional button YYY (000 means 1, 001 - 2 etc) for
               the manual XXX (000 - Pedal, 001 - the first manual, etc). The
               section must contain the GUI attributes of a button (displayed as
-              button per default).
+              piston per default).
             </para>
           </listitem>
         </varlistentry>
@@ -7282,7 +7282,7 @@ attributes of a label.
               Represents a button switching the current bank of divisionals for
               the manual XXX (000 - Pedal, 001 - the first manual, etc). The
               section must contain the GUI attributes of a button (displayed as
-              button per default).
+              piston per default).
             </para>
           </listitem>
         </varlistentry>
@@ -7431,7 +7431,7 @@ attributes of a button (displayed as piston per default).
           <listitem>
             <para>
 Buttons for switching banks of the setter generals. The section must
-contain the GUI attributes of a button (displayed as piston per
+contain the GUI attributes of a button (displayed as drawstop per
 default).
      </para>
           </listitem>
@@ -8822,6 +8822,15 @@ for the keys.
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term>DispImageNum</term>
+          <listitem>
+            <para>
+(integer 1 - 2, default: 1) determines which set of builtin bitmaps is used for
+displaying the keys.
+     </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term>DisplayFirstNote</term>
           <listitem>
             <para>
@@ -9301,7 +9310,7 @@ is false, move it a little bit left. Otherwise ignored.
           <listitem>
             <para>
 (integer 1 - type dependent, default: see below) Builtin bitmap set to
-use. GrandOrgue has 6 for drawstops and 5 for pistons. The default is
+use. GrandOrgue has 7 for drawstops and 5 for pistons. The default is
 3 (piston) or 4 (drawstops) for read-only buttons, otherwise the
 default is 1.
      </para>

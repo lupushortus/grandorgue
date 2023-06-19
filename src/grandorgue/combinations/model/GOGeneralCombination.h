@@ -14,11 +14,12 @@
 
 class GOConfigReader;
 class GOConfigWriter;
-class GOOrganController;
+class GOOrganModel;
+class GOSetter;
 
 class GOGeneralCombination : public GOCombination {
 private:
-  GOOrganController *m_OrganController;
+  GOOrganModel &r_OrganModel;
   bool m_IsSetter;
 
   void LoadCombinationInt(GOConfigReader &cfg, GOSettingType srcType) override;
@@ -38,21 +39,10 @@ private:
 
 public:
   GOGeneralCombination(
-    GOCombinationDefinition &general_template,
-    GOOrganController *organController,
-    bool is_setter);
+    GOOrganModel &organModel,
+    const GOCombinationDefinition &cmbDef,
+    bool isSetter);
   void Load(GOConfigReader &cfg, wxString group);
-
-  /*
-   * Activate this combination
-   * If extraSet is passed then not to disable stops that are present in
-   * extraSet
-   * If isFromCrescendo and extraSet is passed then does not depress other
-   * buttons
-   * return if anything is changed
-   */
-  bool Push(
-    ExtraElementsSet const *extraSet = nullptr, bool isFromCrescendo = false);
 };
 
 #endif /* GOGENERALCOMBINATION_H */

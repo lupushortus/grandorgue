@@ -57,7 +57,7 @@ GOMetronome::GOMetronome(GOOrganController *organController)
     m_MeasureDisplay(organController),
     m_rank(NULL),
     m_StopID(0) {
-  CreateButtons(m_OrganController);
+  CreateButtons(*m_OrganController);
 
   m_buttons[ID_METRONOME_ON]->SetPreconfigIndex(25);
   m_buttons[ID_METRONOME_MEASURE_P1]->SetPreconfigIndex(28);
@@ -102,7 +102,7 @@ void GOMetronome::Load(GOConfigReader &cfg) {
 
   m_OrganController->RegisterSaveableObject(this);
 
-  GOWindchest *windchest = new GOWindchest(m_OrganController);
+  GOWindchest *windchest = new GOWindchest(*m_OrganController);
   windchest->Init(cfg, wxT("MetronomeWindchest"), _("Metronome"));
   unsigned samplegroup = m_OrganController->AddWindchest(windchest);
 

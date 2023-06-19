@@ -12,28 +12,29 @@
 #include <wx/intl.h>
 #include <wx/log.h>
 
-#include "combinations/GOSetter.h"
 #include "config/GOConfigWriter.h"
+#include "model/GOCoupler.h"
+#include "model/GODivisionalCoupler.h"
 #include "model/GODrawStop.h"
+#include "model/GOManual.h"
+#include "model/GOOrganModel.h"
+#include "model/GOStop.h"
+#include "model/GOSwitch.h"
+#include "model/GOTremulant.h"
 #include "yaml/go-wx-yaml.h"
 
 #include "GOCombinationDefinition.h"
 #include "GOCombinationElement.h"
-#include "GOOrganController.h"
-#include "model/GOCoupler.h"
-#include "model/GODivisionalCoupler.h"
-#include "model/GOManual.h"
-#include "model/GOStop.h"
-#include "model/GOSwitch.h"
-#include "model/GOTremulant.h"
+
+class GOOrganModel;
 
 GOCombination::GOCombination(
-  const GOCombinationDefinition &combination_template,
-  GOOrganController *organController)
-  : m_Template(combination_template),
-    m_OrganFile(organController),
+  GOOrganModel &organModel, const GOCombinationDefinition &cmbDef)
+  : r_OrganModel(organModel),
+    m_Template(cmbDef),
     m_IsFull(false),
-    r_ElementDefinitions(combination_template.GetElements()),
+    m_HasScope(false),
+    r_ElementDefinitions(cmbDef.GetElements()),
     m_Protected(false) {}
 
 GOCombination::~GOCombination() {}
@@ -43,6 +44,7 @@ void GOCombination::Clear() {
   for (unsigned i = 0; i < m_State.size(); i++)
     m_State[i] = -1;
   m_IsFull = false;
+  m_HasScope = false;
 }
 
 void GOCombination::Copy(GOCombination *combination) {
@@ -53,7 +55,7 @@ void GOCombination::Copy(GOCombination *combination) {
 
 bool GOCombination::IsEmpty() const {
   return std::find_if(
-           m_State.begin(), m_State.end(), [](int i) { return i > 0; })
+           m_State.begin(), m_State.end(), [](int i) { return i >= 0; })
     == m_State.end();
 }
 
@@ -68,7 +70,9 @@ void GOCombination::SetLoadedState(
   if (pos >= 0) {
     int &state = m_State[pos];
 
-    if (state < 0) // has not yet been set
+    // when loading scope/scoped cmb from yaml, the same element may be read
+    // twice: for the scope and for the regular cmb
+    if (state < 0 || (m_HasScope && state == 0)) // has not yet been set
       state = (elementNumber > 0) ? 1 : 0;
     else // has already been set
       wxLogError(
@@ -85,7 +89,7 @@ void GOCombination::SetStatesFromYaml(
     const wxString &elementTypeName
       = GOCombinationDefinition::ELEMENT_TYPE_NAMES[elementType];
     GOManual *pManual
-      = manualNumber >= 0 ? m_OrganFile->GetManual(manualNumber) : nullptr;
+      = manualNumber >= 0 ? r_OrganModel.GetManual(manualNumber) : nullptr;
     int maxElementNumber = 0;
 
     // find maxElementNumber dependent on the element type
@@ -99,13 +103,13 @@ void GOCombination::SetStatesFromYaml(
         maxElementNumber = pManual->GetCouplerCount();
       break;
     case GOCombinationDefinition::COMBINATION_TREMULANT:
-      maxElementNumber = m_OrganFile->GetTremulantCount();
+      maxElementNumber = r_OrganModel.GetTremulantCount();
       break;
     case GOCombinationDefinition::COMBINATION_SWITCH:
-      maxElementNumber = m_OrganFile->GetSwitchCount();
+      maxElementNumber = r_OrganModel.GetSwitchCount();
       break;
     case GOCombinationDefinition::COMBINATION_DIVISIONALCOUPLER:
-      maxElementNumber = m_OrganFile->GetDivisionalCouplerCount();
+      maxElementNumber = r_OrganModel.GetDivisionalCouplerCount();
       break;
     }
 
@@ -129,13 +133,13 @@ void GOCombination::SetStatesFromYaml(
             realElementName = pManual->GetCoupler(i)->GetName();
           break;
         case GOCombinationDefinition::COMBINATION_TREMULANT:
-          realElementName = m_OrganFile->GetTremulant(i)->GetName();
+          realElementName = r_OrganModel.GetTremulant(i)->GetName();
           break;
         case GOCombinationDefinition::COMBINATION_SWITCH:
-          realElementName = m_OrganFile->GetSwitch(i)->GetName();
+          realElementName = r_OrganModel.GetSwitch(i)->GetName();
           break;
         case GOCombinationDefinition::COMBINATION_DIVISIONALCOUPLER:
-          realElementName = m_OrganFile->GetDivisionalCoupler(i)->GetName();
+          realElementName = r_OrganModel.GetDivisionalCoupler(i)->GetName();
           break;
         }
       } else
@@ -161,14 +165,14 @@ void GOCombination::SetStatesFromYaml(
           break;
         case GOCombinationDefinition::COMBINATION_TREMULANT:
           i = pManual ? pManual->FindTremulantByName(name)
-                      : m_OrganFile->FindTremulantByName(name);
+                      : r_OrganModel.FindTremulantByName(name);
           break;
         case GOCombinationDefinition::COMBINATION_SWITCH:
           i = pManual ? pManual->FindSwitchByName(name)
-                      : m_OrganFile->FindSwitchByName(name);
+                      : r_OrganModel.FindSwitchByName(name);
           break;
         case GOCombinationDefinition::COMBINATION_DIVISIONALCOUPLER:
-          i = m_OrganFile->FindDivisionalCouplerByName(name);
+          i = r_OrganModel.FindDivisionalCouplerByName(name);
           break;
         }
         fitNumber = (unsigned)(i + 1);
@@ -280,13 +284,15 @@ void GOCombination::WriteNumberOfStops(
 }
 
 const wxString WX_IS_FULL = wxT("IsFull");
+const wxString WX_HAS_SCOPE = wxT("HasScope");
 
 // Load the combination either from the odf or from the cmb
 void GOCombination::LoadCombination(
   GOConfigReader &cfg, GOSettingType srcType) {
-  UpdateState();
+  Clear();
   m_IsFull = cfg.ReadBoolean(srcType, m_group, WX_IS_FULL, false, true);
   LoadCombinationInt(cfg, srcType);
+  m_HasScope = cfg.ReadBoolean(srcType, m_group, WX_HAS_SCOPE, false, false);
 }
 
 void GOCombination::LoadCombination(GOConfigReader &cfg) {
@@ -300,15 +306,18 @@ void GOCombination::LoadCombination(GOConfigReader &cfg) {
 
 void GOCombination::Save(GOConfigWriter &cfg) {
   cfg.WriteBoolean(m_group, WX_IS_FULL, m_IsFull);
+  cfg.WriteBoolean(m_group, WX_HAS_SCOPE, m_HasScope);
   SaveInt(cfg);
 }
 
 const wxString WX_P03D = wxT("%03d");
 const char *const FULL = "full";
+const char *const SCOPE = "scope";
 
-void GOCombination::ToYaml(YAML::Node &yamlMap) const {
+void GOCombination::PutElementsToYaml(
+  YAML::Node &yamlMap, int stateFrom) const {
   for (unsigned i = 0; i < r_ElementDefinitions.size(); i++)
-    if (GetState(i) > 0) {
+    if (GetState(i) >= stateFrom) {
       const auto &e = r_ElementDefinitions[i];
       unsigned value = e.index;
 
@@ -316,8 +325,17 @@ void GOCombination::ToYaml(YAML::Node &yamlMap) const {
       PutElementToYamlMap(
         e, wxString::Format(WX_P03D, value), value - 1, yamlMap);
     }
-  // if the combination is not empty
-  if (yamlMap.IsDefined() && yamlMap.IsMap() && m_IsFull)
+}
+
+void GOCombination::ToYaml(YAML::Node &yamlMap) const {
+  PutElementsToYaml(yamlMap, 1);
+  if (m_HasScope) {
+    YAML::Node scopeNode(YAML::NodeType::Map);
+
+    PutElementsToYaml(scopeNode, 0);
+    yamlMap[SCOPE] = scopeNode;
+  }
+  if (m_IsFull)
     yamlMap[FULL] = true; // save whether the combination is set as full
 }
 
@@ -326,33 +344,46 @@ void GOCombination::FromYaml(const YAML::Node &yamlNode) {
     Clear();
 
     if (yamlNode.IsDefined() && yamlNode.IsMap()) {
+      const YAML::Node scopeNode = yamlNode[SCOPE];
+
+      m_HasScope = scopeNode.IsDefined();
+
+      if (m_HasScope) {
+        // set state to 0 for the scope
+        FromYamlMap(scopeNode);
+        std::replace(m_State.begin(), m_State.end(), 1, 0);
+      }
+
       FromYamlMap(yamlNode);
       m_IsFull = yamlNode[FULL].as<bool>(false);
 
       // clear all non mentioned elements. Otherwise they won't be disabled when
       // this combination is switched on
+      if (!m_HasScope) {
+        for (unsigned l = r_ElementDefinitions.size(), i = 0; i < l; i++) {
+          auto &state = m_State[i];
 
-      for (unsigned l = r_ElementDefinitions.size(), i = 0; i < l; i++) {
-        auto &state = m_State[i];
-
-        if (
-          state < 0
-          && (r_ElementDefinitions[i].store_unconditional || m_IsFull))
-          state = 0;
-        // else the element is not visible and it shouldn't be touched by the
-        // combination
+          if (
+            state < 0
+            && (r_ElementDefinitions[i].store_unconditional || m_IsFull))
+            state = 0;
+          // else the element is not visible so it shouldn't be touched by the
+          // combination
+        }
       }
     }
   }
 }
 
 bool GOCombination::FillWithCurrent(
-  SetterType setterType, bool isToStoreInvisibleObjects) {
+  GOSetterState::SetterType setterType, bool isToStoreInvisibleObjects) {
   bool used = false;
 
   UpdateState();
   m_IsFull = isToStoreInvisibleObjects;
-  if (setterType == SETTER_REGULAR) {
+  switch (setterType) {
+  case GOSetterState::SETTER_REGULAR:
+    m_HasScope = false;
     for (unsigned i = 0; i < r_ElementDefinitions.size(); i++) {
       if (
         !isToStoreInvisibleObjects
@@ -364,8 +395,9 @@ bool GOCombination::FillWithCurrent(
       } else
         m_State[i] = 0;
     }
-  }
-  if (setterType == SETTER_SCOPE) {
+    break;
+  case GOSetterState::SETTER_SCOPE:
+    m_HasScope = true;
     for (unsigned i = 0; i < r_ElementDefinitions.size(); i++) {
       if (
         !isToStoreInvisibleObjects
@@ -377,9 +409,10 @@ bool GOCombination::FillWithCurrent(
       } else
         m_State[i] = -1;
     }
-  }
-  if (setterType == SETTER_SCOPED) {
-    for (unsigned i = 0; i < r_ElementDefinitions.size(); i++) {
+    break;
+  case GOSetterState::SETTER_SCOPED:
+    m_HasScope = true;
+    for (unsigned i = 0; i < r_ElementDefinitions.size(); i++)
       if (m_State[i] != -1) {
         if (r_ElementDefinitions[i].control->GetCombinationState()) {
           m_State[i] = 1;
@@ -387,19 +420,20 @@ bool GOCombination::FillWithCurrent(
         } else
           m_State[i] = 0;
       }
-    }
+    break;
   }
   return used;
 }
 
-bool GOCombination::PushLocal(GOCombination::ExtraElementsSet const *extraSet) {
+bool GOCombination::Push(
+  const GOSetterState &setterState,
+  const GOCombination::ExtraElementsSet *extraSet) {
   bool used = false;
-  GOSetter &setter = *m_OrganFile->GetSetter();
 
-  if (setter.IsSetterActive()) {
+  if (setterState.m_IsActive) {
     if (!m_Protected) {
       used = FillWithCurrent(
-        setter.GetSetterType(), setter.StoreInvisibleObjects());
+        setterState.m_SetterType, setterState.m_IsStoreInvisible);
     }
   } else {
     UpdateState();
@@ -418,7 +452,7 @@ bool GOCombination::PushLocal(GOCombination::ExtraElementsSet const *extraSet) {
 
 void GOCombination::PutToYamlMap(YAML::Node &container, const char *key) const {
   if (!IsEmpty())
-    put_to_map_if_not_null(container, key, ToYamlNode());
+    container[key] = ToYamlNode();
 }
 
 void GOCombination::putToYamlMap(

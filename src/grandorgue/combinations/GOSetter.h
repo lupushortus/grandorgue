@@ -12,19 +12,26 @@
 
 #include "ptrvector.h"
 
+#include "control/GOCombinationButtonSet.h"
+#include "control/GOCombinationController.h"
 #include "control/GOControlChangedHandler.h"
 #include "control/GOElementCreator.h"
 #include "control/GOLabelControl.h"
 #include "model/GOCombination.h"
 #include "model/GOEnclosure.h"
+#include "model/GOGeneralCombination.h"
+#include "model/GOSetterState.h"
 #include "sound/GOSoundStateHandler.h"
 #include "yaml/GOSaveableToYaml.h"
 
 #define N_CRESCENDOS 4
 
 class GOGeneralCombination;
+class GODivisionalCombination;
 
 class GOSetter : private GOSoundStateHandler,
+                 private GOCombinationButtonSet,
+                 public GOCombinationController,
                  private GOControlChangedHandler,
                  public GOElementCreator,
                  public GOSaveableObject,
@@ -38,11 +45,9 @@ private:
   bool m_IsCmbFileListPopulated;
   // current loaded cmb file name (with dir and extension)
   wxString m_CmbFileLastLoaded;
-  // has the current combinations been changed after last loaded or saved
-  // used for lighting the save button
-  bool m_IsCmbChanged;
   // current displayed cmb file name (with dir and extension)
   wxString m_CmbFileDisplayed;
+  GOSetterState m_state;
   int m_CmbFilePos; // current displayed position or -1 or the list is not
                     // populated yet or no file are loaded
 
@@ -62,7 +67,6 @@ private:
   GOLabelControl m_TransposeDisplay;
   GOLabelControl m_NameDisplay;
   GOEnclosure m_swell;
-  GOCombination::SetterType m_SetterType;
 
   // Show the combination file name
   void DisplayCmbFile(const wxString &fileName);
@@ -73,7 +77,7 @@ private:
   // Display the prev/next cmb file
   void MoveToCmbFile(int offset);
 
-  void SetSetterType(GOCombination::SetterType type);
+  void SetSetterType(GOSetterState::SetterType type);
   void SetCrescendoType(unsigned no);
   void Crescendo(int pos, bool force = false);
 
@@ -85,6 +89,36 @@ private:
   void ControlChanged(void *control);
 
   void PreparePlayback();
+
+  /**
+   * Called after at least one combination is changed
+   * Temporary it calls mOrganController->SetModified()
+   */
+  void NotifyCmbChanged();
+  /**
+   * Called after a combination is pushed
+   * When Set is active then marks the cpmbinations as modified
+   * Temporary it calls mOrganController->SetModified()
+   */
+  void NotifyCmbPushed(bool isChanged = true);
+
+  /**
+   * Update all setter combination buttons light.
+   * If the button
+   * @param buttonToLight
+   * @param manualIndexOnlyFor
+   */
+  void UpdateAllButtonsLight(
+    GOButtonControl *buttonToLight, int manualIndexOnlyFor) override;
+
+  /**
+   * Update buttons light in all combination button set.
+   * If the button
+   * @param buttonToLight
+   * @param manualIndexOnlyFor
+   */
+  void UpdateAllSetsButtonsLight(
+    GOButtonControl *buttonToLight, int manualIndexOnlyFor);
 
 public:
   static const wxString KEY_REFRESH_FILES;
@@ -106,19 +140,8 @@ public:
   GOSetter(GOOrganController *organController);
   virtual ~GOSetter();
 
-  bool IsCmbModified() const { return m_IsCmbChanged; }
-
-  /**
-   * Called after at least one combination is changed
-   * Temporary it calls mOrganController->SetModified()
-   */
-  void NotifyCmbChanged();
-  /**
-   * Called after a combination is pushed
-   * When Set is active then marks the cpmbinations as modified
-   * Temporary it calls mOrganController->SetModified()
-   */
-  void NotifyCmbPushed(bool isChanged = true);
+  const GOSetterState &GetState() const { return m_state; }
+  bool IsCmbModified() const { return m_state.m_IsModified; }
 
   /**
    * Save all combinations to yaml as a map
@@ -157,11 +180,23 @@ public:
 
   void Update();
 
-  bool StoreInvisibleObjects();
-  bool IsSetterActive();
   void ToggleSetter();
   void SetterActive(bool on);
-  GOCombination::SetterType GetSetterType() const { return m_SetterType; }
+
+  /*
+   * Activate cmb
+   * If the crescendo in add mode then not to disable stops that are present in
+   * extraSet
+   * If isFromCrescendo and it is in add mode then then does not depress other
+   * buttons
+   * @param cmb the cmb to activate or to set
+   * @param pButton the button to light on
+   * return if anything is changed
+   */
+  void PushGeneral(
+    GOGeneralCombination &cmb, GOButtonControl *pButtonToLight) override;
+  void PushDivisional(
+    GODivisionalCombination &cmb, GOButtonControl *pButtonToLight) override;
 
   /*
    * If current crescendo is in override mode then returns nullptr
@@ -177,7 +212,11 @@ public:
   unsigned GetPosition();
   void UpdatePosition(int pos);
   void SetPosition(int pos, bool push = true);
-  void ResetDisplay();
+
+  /**
+   * Switch the light of all combination buttons off
+   */
+  void ResetCmbButtons() { UpdateAllSetsButtonsLight(nullptr, -1); }
   void SetTranspose(int value);
   void UpdateTranspose();
   void UpdateModified(bool modified);

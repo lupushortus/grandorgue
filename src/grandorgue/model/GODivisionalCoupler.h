@@ -18,10 +18,10 @@ private:
   std::vector<unsigned> m_manuals;
 
   void ChangeState(bool on);
-  void SetupCombinationState();
+  void SetupIsToStoreInCmb() override;
 
 public:
-  GODivisionalCoupler(GOOrganController *organController);
+  GODivisionalCoupler(GOOrganModel &organModel);
   void Load(GOConfigReader &cfg, wxString group);
 
   unsigned GetNumberOfManuals();

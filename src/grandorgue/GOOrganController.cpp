@@ -111,7 +111,6 @@ GOOrganController::GOOrganController(
     m_panels(),
     m_panelcreators(),
     m_elementcreators(),
-    m_UsedSections(),
     m_soundengine(0),
     m_midi(0),
     m_MidiSamplesetMatch(),
@@ -134,8 +133,12 @@ GOOrganController::~GOOrganController() {
   m_manuals.clear();
   m_tremulants.clear();
   m_ranks.clear();
+  m_VirtualCouplers.Cleanup();
+  GOOrganModel::Cleanup();
   GOOrganModel::SetModelModificationListener(nullptr);
   GOOrganModel::SetMidiDialogCreator(nullptr);
+  GOOrganModel::SetCombinationController(nullptr);
+  m_elementcreators.clear();
 }
 
 void GOOrganController::SetOrganModified(bool modified) {
@@ -247,6 +250,7 @@ void GOOrganController::ReadOrganFile(GOConfigReader &cfg) {
   // It must be created before GOOrganModel::Load because lots of objects
   // reference to it
   m_setter = new GOSetter(this);
+  GOOrganModel::SetCombinationController(m_setter);
   m_elementcreators.push_back(m_setter);
 
   GOOrganModel::Load(cfg, this);
@@ -263,7 +267,9 @@ void GOOrganController::ReadOrganFile(GOConfigReader &cfg) {
     m_tremulants[i]->SetElementID(
       GetRecorderElementID(wxString::Format(wxT("T%d"), i)));
 
-  m_DivisionalSetter = new GODivisionalSetter(this);
+  m_VirtualCouplers.Init(*this, cfg);
+
+  m_DivisionalSetter = new GODivisionalSetter(this, m_setter->GetState());
   m_elementcreators.push_back(m_DivisionalSetter);
   m_AudioRecorder = new GOAudioRecorder(this);
   m_MidiRecorder = new GOMidiRecorder(this);
@@ -272,7 +278,7 @@ void GOOrganController::ReadOrganFile(GOConfigReader &cfg) {
   m_elementcreators.push_back(m_MidiPlayer);
   m_elementcreators.push_back(m_MidiRecorder);
   m_elementcreators.push_back(new GOMetronome(this));
-  m_panelcreators.push_back(new GOGUICouplerPanel(this));
+  m_panelcreators.push_back(new GOGUICouplerPanel(this, m_VirtualCouplers));
   m_panelcreators.push_back(new GOGUIFloatingPanel(this));
   m_panelcreators.push_back(new GOGUIMetronomePanel(this));
   m_panelcreators.push_back(new GOGUICrescendoPanel(this));
@@ -1063,7 +1069,7 @@ void GOOrganController::Reset() {
     GetDivisionalCoupler(j)->Reset();
   for (unsigned k = 0; k < GetGeneralCount(); k++)
     GetGeneral(k)->Display(false);
-  m_setter->ResetDisplay();
+  m_setter->ResetCmbButtons();
 }
 
 void GOOrganController::SetTemperament(const GOTemperament &temperament) {
@@ -1086,10 +1092,6 @@ void GOOrganController::AllNotesOff() {
     GetManual(k)->AllNotesOff();
 }
 
-int GOOrganController::GetRecorderElementID(wxString name) {
-  return m_config.GetMidiMap().GetElementByString(name);
-}
-
 GOCombinationDefinition &GOOrganController::GetGeneralTemplate() {
   return m_GeneralTemplate;
 }
@@ -1102,10 +1104,4 @@ GOLabelControl *GOOrganController::GetTemperamentLabel() {
 
 GOMainWindowData *GOOrganController::GetMainWindowData() {
   return &m_MainWindowData;
-}
-
-void GOOrganController::MarkSectionInUse(wxString name) {
-  if (m_UsedSections[name])
-    throw wxString::Format(_("Section %s already in use"), name.c_str());
-  m_UsedSections[name] = true;
 }

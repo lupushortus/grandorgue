@@ -1,3 +1,17 @@
+- Fixed capability of running on MacOs 11.3
+- Fixed "The device does not support requested channel count" error when using an USB audio card on MacOS https://github.com/GrandOrgue/grandorgue/issues/1550
+# 3.12.1 (2023-06-06)
+- Fixed not storing switch state in combinations in organs with panels of the new style https://github.com/GrandOrgue/grandorgue/issues/1498
+- Fixed displaying light of various combination buttons https://github.com/GrandOrgue/grandorgue/issues/1536 
+- Fixed saving empty and scoped combinations to yaml https://github.com/GrandOrgue/grandorgue/issues/1531
+- Fixed bug of GC not working on manual with only a single stop https://github.com/GrandOrgue/grandorgue/issues/1556
+- Fixed installation on linux with another yaml-cpp version than 6.2 https://github.com/GrandOrgue/grandorgue/issues/1548
+# 3.12.0 (2023-05-25)
+- Reverted back default display of GeneralPrev and GeneralNext https://github.com/GrandOrgue/grandorgue/issues/1538
+- Added new builtin bitmap set of manual keys and one new drawstop bitmap https://github.com/GrandOrgue/grandorgue/discussions/1490
+- Removed support of MacOs 10.15. Now MacOs 11 or above is required https://github.com/GrandOrgue/grandorgue/discussions/1149
+- Fixed warning "temperament would retune pipe by more than 600 cents" for retuned pipes https://github.com/GrandOrgue/ODFEdit/discussions/11#discussioncomment-5877020
+- Increased the maximum value of Enclosures from 50 to 999 https://github.com/GrandOrgue/grandorgue/issues/1484
 # 3.11.2 (2023-05-08)
 - Fixed crash on loading organ with general of divisional buttons https://github.com/GrandOrgue/grandorgue/issues/1512
 # 3.11.1 (2023-05-03)

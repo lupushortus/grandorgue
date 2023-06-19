@@ -17,17 +17,17 @@
 
 #include "GOCombinationDefinition.h"
 #include "GOSaveableObject.h"
+#include "GOSetterState.h"
 
-class GOOrganController;
+class GOOrganModel;
 
 class GOCombination : public GOSaveableObject, public GOSaveableToYaml {
 public:
-  enum SetterType { SETTER_REGULAR, SETTER_SCOPE, SETTER_SCOPED };
   using ExtraElementsSet = std::unordered_set<unsigned>;
 
 private:
+  GOOrganModel &r_OrganModel;
   const GOCombinationDefinition &m_Template;
-  GOOrganController *m_OrganFile;
 
   /**
    *  States of the elements.
@@ -44,6 +44,13 @@ private:
    * the state -1 is also valid.
    */
   bool m_IsFull;
+
+  /**
+   * Whether the combination has been captured when `Scope` or `Scoped` engaged
+   */
+  bool m_HasScope;
+
+  void PutElementsToYaml(YAML::Node &yamlMap, int stateFrom) const;
 
 protected:
   const std::vector<GOCombinationDefinition::Element> &r_ElementDefinitions;
@@ -119,12 +126,10 @@ protected:
    * @param yamlMap
    */
   virtual void FromYamlMap(const YAML::Node &yamlMap) = 0;
-  virtual bool PushLocal(ExtraElementsSet const *extraSet = nullptr);
 
 public:
   GOCombination(
-    const GOCombinationDefinition &combination_template,
-    GOOrganController *organController);
+    GOOrganModel &organModel, const GOCombinationDefinition &cmbDef);
   virtual ~GOCombination();
 
   bool IsEmpty() const;
@@ -143,7 +148,8 @@ public:
   /**
    * Fills the combination from the current organ elements
    */
-  bool FillWithCurrent(SetterType setterType, bool isToStoreInvisibleObjects);
+  bool FillWithCurrent(
+    GOSetterState::SetterType setterType, bool isToStoreInvisibleObjects);
 
   void ToYaml(YAML::Node &yamlMap) const override;
 
@@ -164,6 +170,10 @@ public:
     YAML::Node &container, const wxString &key, const GOCombination *pCmb);
 
   void FromYaml(const YAML::Node &yamlNode) override;
+
+  bool Push(
+    const GOSetterState &setterState,
+    const ExtraElementsSet *extraSet = nullptr);
 };
 
 #endif

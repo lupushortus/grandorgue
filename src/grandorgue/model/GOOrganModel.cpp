@@ -8,6 +8,7 @@
 #include "GOOrganModel.h"
 
 #include "combinations/control/GOGeneralButtonControl.h"
+#include "config/GOConfig.h"
 #include "config/GOConfigReader.h"
 #include "control/GOPistonControl.h"
 #include "modification/GOModificationListener.h"
@@ -32,9 +33,15 @@ GOOrganModel::GOOrganModel(GOConfig &config)
     m_OrganModelModified(false),
     m_FirstManual(0),
     m_ODFManualCount(0),
-    m_ODFRankCount(0) {}
+    m_ODFRankCount(0) {
+  RegisterCombinationButtonSet(this);
+}
 
 GOOrganModel::~GOOrganModel() {}
+
+unsigned GOOrganModel::GetRecorderElementID(const wxString &name) {
+  return m_config.GetMidiMap().GetElementByString(name);
+}
 
 void GOOrganModel::Load(
   GOConfigReader &cfg, GOOrganController *organController) {
@@ -60,7 +67,7 @@ void GOOrganModel::Load(
   m_RootPipeConfigNode.Load(cfg, group, wxEmptyString);
   m_windchests.resize(0);
   for (unsigned i = 0; i < NumberOfWindchestGroups; i++)
-    m_windchests.push_back(new GOWindchest(organController));
+    m_windchests.push_back(new GOWindchest(*organController));
 
   m_ODFManualCount
     = cfg.ReadInteger(ODFSetting, group, wxT("NumberOfManuals"), 1, 16) + 1;
@@ -75,7 +82,7 @@ void GOOrganModel::Load(
     m_manuals.push_back(new GOManual(organController));
 
   unsigned NumberOfEnclosures
-    = cfg.ReadInteger(ODFSetting, group, wxT("NumberOfEnclosures"), 0, 50);
+    = cfg.ReadInteger(ODFSetting, group, wxT("NumberOfEnclosures"), 0, 999);
   m_enclosures.resize(0);
   for (unsigned i = 0; i < NumberOfEnclosures; i++) {
     m_enclosures.push_back(new GOEnclosure(*organController));
@@ -87,14 +94,14 @@ void GOOrganModel::Load(
     = cfg.ReadInteger(ODFSetting, group, wxT("NumberOfSwitches"), 0, 999, 0);
   m_switches.resize(0);
   for (unsigned i = 0; i < NumberOfSwitches; i++) {
-    m_switches.push_back(new GOSwitch(organController));
+    m_switches.push_back(new GOSwitch(*organController));
     m_switches[i]->Load(cfg, wxString::Format(wxT("Switch%03d"), i + 1));
   }
 
   unsigned NumberOfTremulants
     = cfg.ReadInteger(ODFSetting, group, wxT("NumberOfTremulants"), 0, 10);
   for (unsigned i = 0; i < NumberOfTremulants; i++) {
-    m_tremulants.push_back(new GOTremulant(organController));
+    m_tremulants.push_back(new GOTremulant(*organController));
     m_tremulants[i]->Load(
       cfg, wxString::Format(wxT("Tremulant%03d"), i + 1), -((int)(i + 1)));
   }
@@ -136,7 +143,7 @@ void GOOrganModel::Load(
     ODFSetting, group, wxT("NumberOfReversiblePistons"), 0, 32);
   m_pistons.resize(0);
   for (unsigned i = 0; i < NumberOfReversiblePistons; i++) {
-    m_pistons.push_back(new GOPistonControl(organController));
+    m_pistons.push_back(new GOPistonControl(*this));
     m_pistons[i]->Load(
       cfg, wxString::Format(wxT("ReversiblePiston%03d"), i + 1));
   }
@@ -145,7 +152,7 @@ void GOOrganModel::Load(
     ODFSetting, group, wxT("NumberOfDivisionalCouplers"), 0, 8);
   m_DivisionalCoupler.resize(0);
   for (unsigned i = 0; i < NumberOfDivisionalCouplers; i++) {
-    m_DivisionalCoupler.push_back(new GODivisionalCoupler(organController));
+    m_DivisionalCoupler.push_back(new GODivisionalCoupler(*organController));
     m_DivisionalCoupler[i]->Load(
       cfg, wxString::Format(wxT("DivisionalCoupler%03d"), i + 1));
   }
@@ -284,4 +291,11 @@ unsigned GOOrganModel::GetGeneralCount() { return m_generals.size(); }
 
 GOGeneralButtonControl *GOOrganModel::GetGeneral(unsigned index) {
   return m_generals[index];
+}
+
+void GOOrganModel::UpdateAllButtonsLight(
+  GOButtonControl *buttonToLight, int manualIndexOnlyFor) {
+  if (manualIndexOnlyFor < 0)
+    for (GOGeneralButtonControl *pGeneral : m_generals)
+      updateOneButtonLight(pGeneral, buttonToLight);
 }

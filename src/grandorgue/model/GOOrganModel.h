@@ -10,6 +10,8 @@
 
 #include "ptrvector.h"
 
+#include "combinations/control/GOCombinationButtonSet.h"
+#include "combinations/control/GOCombinationControllerProxy.h"
 #include "midi/GOMidiSendProxy.h"
 #include "midi/dialog-creator/GOMidiDialogCreatorProxy.h"
 #include "modification/GOModificationProxy.h"
@@ -30,7 +32,9 @@ class GOSwitch;
 class GOTremulant;
 class GOWindchest;
 
-class GOOrganModel : public GOEventHandlerList,
+class GOOrganModel : private GOCombinationButtonSet,
+                     public GOCombinationControllerProxy,
+                     public GOEventHandlerList,
                      public GOMidiDialogCreatorProxy,
                      public GOMidiSendProxy {
 private:
@@ -64,12 +68,23 @@ protected:
 
   void Load(GOConfigReader &cfg, GOOrganController *organController);
 
+  /**
+   * Update all generals buttons light.
+   * @param buttonToLight - the button that should be lighted on. All other
+   *   divisionals are lighted off
+   * @param manualIndexOnlyFor - if >= 0 change lighting of this manual only
+   */
+  void UpdateAllButtonsLight(
+    GOButtonControl *buttonToLight, int manualIndexOnlyFor) override;
+
 public:
   GOOrganModel(GOConfig &config);
   ~GOOrganModel();
 
   const GOConfig &GetConfig() const { return m_config; }
   GOConfig &GetConfig() { return m_config; }
+
+  unsigned GetRecorderElementID(const wxString &name);
 
   /* combinations properties */
   bool DivisionalsStoreIntermanualCouplers() const {

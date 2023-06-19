@@ -33,14 +33,13 @@ private:
 
   void SetRankKey(unsigned key, unsigned velocity);
   void ChangeState(bool on);
-  void SetupCombinationState();
 
   void AbortPlayback();
   void PreparePlayback();
   void StartPlayback();
 
 public:
-  GOStop(GOOrganController *organController, unsigned first_midi_note_number);
+  GOStop(GOOrganModel &organModel, unsigned first_midi_note_number);
   GORank *GetRank(unsigned index);
   void Load(GOConfigReader &cfg, wxString group);
   void SetKey(unsigned note, unsigned velocity);

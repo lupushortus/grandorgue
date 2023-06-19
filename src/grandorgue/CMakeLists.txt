@@ -21,7 +21,11 @@ if (APPLE)
   pkg_check_modules(YAML_CPP REQUIRED yaml-cpp)
 else()
   # but pkg_config does not support static linking for yaml-cpp, so use cmake config
+  ## at first, try to find static package
+  set(CMAKE_FIND_DEBUG_MODE TRUE)
   find_package(yaml-cpp REQUIRED)
+  set(CMAKE_FIND_DEBUG_MODE FALSE)
+  message("yaml-cpp_CONFIG=${yaml-cpp_CONFIG}")
   include("${yaml-cpp_CONFIG}")
   # the variables are different in both methods
   set(YAML_CPP_INCLUDE_DIRS "${YAML_CPP_INCLUDE_DIR}")
@@ -41,8 +45,10 @@ include_directories(${YAML_CPP_INCLUDE_DIRS})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 set(grandorgue_src
-combinations/control/GOGeneralButtonControl.cpp
+combinations/control/GOCombinationButtonSet.cpp
+combinations/control/GOCombinationControllerProxy.cpp
 combinations/control/GODivisionalButtonControl.cpp
+combinations/control/GOGeneralButtonControl.cpp
 combinations/model/GOCombination.cpp
 combinations/model/GOCombinationDefinition.cpp
 combinations/model/GODivisionalCombination.cpp
@@ -60,7 +66,7 @@ control/GOElementCreator.cpp
 control/GOEventDistributor.cpp
 control/GOLabelControl.cpp
 control/GOPistonControl.cpp
-control/GOPushbuttonControl.cpp
+dialogs/common/GODialog.cpp
 dialogs/common/GODialogCloser.cpp
 dialogs/common/GODialogTab.cpp
 dialogs/common/GOTabbedDialog.cpp
@@ -205,6 +211,7 @@ GOProperties.cpp
 GOFrame.cpp
 GODocument.cpp
 GOPanelView.cpp
+GOVirtualCouplerController.cpp
 )
 
 if (USE_INTERNAL_ZITACONVOLVER)

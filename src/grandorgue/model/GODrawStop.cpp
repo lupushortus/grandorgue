@@ -12,7 +12,7 @@
 #include "config/GOConfigReader.h"
 #include "config/GOConfigWriter.h"
 
-#include "GOOrganController.h"
+#include "GOOrganModel.h"
 #include "GOSwitch.h"
 
 const struct IniFileEnumEntry GODrawstop::m_function_types[] = {
@@ -25,16 +25,16 @@ const struct IniFileEnumEntry GODrawstop::m_function_types[] = {
   {wxT("Xor"), FUNCTION_XOR},
 };
 
-GODrawstop::GODrawstop(GOOrganController *organController)
-  : GOButtonControl(organController, MIDI_RECV_DRAWSTOP, false),
+GODrawstop::GODrawstop(GOOrganModel &organModel)
+  : GOButtonControl(organModel, MIDI_RECV_DRAWSTOP, false),
     m_Type(FUNCTION_INPUT),
     m_GCState(0),
     m_ActiveState(false),
     m_CombinationState(false),
     m_ControlledDrawstops(),
     m_ControllingDrawstops(),
-    m_StoreDivisional(false),
-    m_StoreGeneral(false) {}
+    m_IsToStoreInDivisional(false),
+    m_IsToStoreInGeneral(false) {}
 
 void GODrawstop::RegisterControlled(GODrawstop *sw) {
   m_ControlledDrawstops.push_back(sw);
@@ -44,9 +44,19 @@ void GODrawstop::Init(GOConfigReader &cfg, wxString group, wxString name) {
   m_Type = FUNCTION_INPUT;
   m_Engaged = cfg.ReadBoolean(CMBSetting, group, wxT("DefaultToEngaged"));
   m_GCState = 0;
-  m_StoreDivisional = true;
-  m_StoreGeneral = true;
+  m_IsToStoreInDivisional = true;
+  m_IsToStoreInGeneral = true;
   GOButtonControl::Init(cfg, group, name);
+}
+
+void GODrawstop::SetupIsToStoreInCmb() {
+  const bool isControlledByUser = !IsReadOnly();
+
+  m_IsToStoreInDivisional
+    = r_OrganModel.CombinationsStoreNonDisplayedDrawstops()
+    || isControlledByUser;
+  m_IsToStoreInGeneral = r_OrganModel.CombinationsStoreNonDisplayedDrawstops()
+    || isControlledByUser;
 }
 
 void GODrawstop::Load(GOConfigReader &cfg, wxString group) {
@@ -79,7 +89,7 @@ void GODrawstop::Load(GOConfigReader &cfg, wxString group) {
         group,
         wxT("SwitchCount"),
         1,
-        m_OrganController->GetSwitchCount(),
+        r_OrganModel.GetSwitchCount(),
         true,
         1);
     }
@@ -89,10 +99,10 @@ void GODrawstop::Load(GOConfigReader &cfg, wxString group) {
         group,
         wxString::Format(wxT("Switch%03d"), i + 1),
         1,
-        m_OrganController->GetSwitchCount(),
+        r_OrganModel.GetSwitchCount(),
         true,
         1);
-      GODrawstop *s = m_OrganController->GetSwitch(no - 1);
+      GODrawstop *s = r_OrganModel.GetSwitch(no - 1);
       for (unsigned j = 0; j < m_ControllingDrawstops.size(); j++)
         if (unique && m_ControllingDrawstops[j] == s)
           throw wxString::Format(
@@ -106,11 +116,15 @@ void GODrawstop::Load(GOConfigReader &cfg, wxString group) {
   }
 
   GOButtonControl::Load(cfg, group);
-  SetupCombinationState();
-  m_StoreDivisional = cfg.ReadBoolean(
-    ODFSetting, group, wxT("StoreInDivisional"), false, m_StoreDivisional);
-  m_StoreGeneral = cfg.ReadBoolean(
-    ODFSetting, group, wxT("StoreInGeneral"), false, m_StoreGeneral);
+  SetupIsToStoreInCmb();
+  m_IsToStoreInDivisional = cfg.ReadBoolean(
+    ODFSetting,
+    group,
+    wxT("StoreInDivisional"),
+    false,
+    m_IsToStoreInDivisional);
+  m_IsToStoreInGeneral = cfg.ReadBoolean(
+    ODFSetting, group, wxT("StoreInGeneral"), false, m_IsToStoreInGeneral);
 }
 
 void GODrawstop::Save(GOConfigWriter &cfg) {
@@ -152,8 +166,6 @@ void GODrawstop::SetCombination(bool on) {
   m_CombinationState = on;
   Set(on);
 }
-
-bool GODrawstop::IsActive() const { return m_ActiveState; }
 
 void GODrawstop::StartPlayback() {
   GOButtonControl::StartPlayback();
@@ -202,9 +214,3 @@ void GODrawstop::Update() {
     break;
   }
 }
-
-bool GODrawstop::GetCombinationState() const { return IsEngaged(); }
-
-bool GODrawstop::GetStoreDivisional() const { return m_StoreDivisional; }
-
-bool GODrawstop::GetStoreGeneral() const { return m_StoreGeneral; }

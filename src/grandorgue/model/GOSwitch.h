@@ -13,10 +13,9 @@
 class GOSwitch : public GODrawstop {
 protected:
   void ChangeState(bool);
-  void SetupCombinationState();
 
 public:
-  GOSwitch(GOOrganController *organController);
+  GOSwitch(GOOrganModel &organModel);
   ~GOSwitch();
 
   wxString GetMidiType();

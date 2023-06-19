@@ -14,7 +14,6 @@
 
 class GOConfigReader;
 class GOConfigWriter;
-class GOOrganController;
 struct IniFileEnumEntry;
 
 class GOCoupler : public GODrawstop {
@@ -51,12 +50,12 @@ private:
   void SetOut(int note, unsigned velocity);
   unsigned GetInternalState(int note);
   void ChangeState(bool on);
-  void SetupCombinationState();
+  void SetupIsToStoreInCmb() override;
 
   void PreparePlayback();
 
 public:
-  GOCoupler(GOOrganController *organController, unsigned sourceManual);
+  GOCoupler(GOOrganModel &organModel, unsigned sourceManual);
   void Init(
     GOConfigReader &cfg,
     wxString group,

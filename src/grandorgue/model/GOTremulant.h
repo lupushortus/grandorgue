@@ -38,7 +38,7 @@ private:
 
   void InitSoundProvider(GOMemoryPool &pool);
   void ChangeState(bool on);
-  void SetupCombinationState();
+  void SetupIsToStoreInCmb() override;
 
   void Initialize();
   void LoadData(const GOFileStore &fileStore, GOMemoryPool &pool);
@@ -51,7 +51,7 @@ private:
   void StartPlayback();
 
 public:
-  GOTremulant(GOOrganController *organController);
+  GOTremulant(GOOrganModel &organModel);
   ~GOTremulant();
   void Load(GOConfigReader &cfg, wxString group, int sampler_group_id);
   GOTremulantType GetTremulantType();

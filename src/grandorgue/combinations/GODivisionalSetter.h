@@ -15,6 +15,7 @@
 
 #include "ptrvector.h"
 
+#include "control/GOCombinationButtonSet.h"
 #include "control/GOElementCreator.h"
 #include "yaml/GOSaveableToYaml.h"
 
@@ -23,8 +24,10 @@
 class GOOrganController;
 class GODivisionalCombination;
 class GOLabelControl;
+class GOSetterState;
 
 class GODivisionalSetter : public GOElementCreator,
+                           private GOCombinationButtonSet,
                            GOSaveableObject,
                            public GOSaveableToYaml {
 private:
@@ -34,6 +37,7 @@ private:
   using DivisionalMap = std::map<unsigned, GODivisionalCombination *>;
 
   GOOrganController *m_OrganController;
+  const GOSetterState &r_SetterState;
 
   // the setter starts manuals from 0 but m_OrganController may start from
   // m_FirstManualIndex
@@ -61,6 +65,15 @@ private:
   // delete all combinations from m_DivisionalMaps
   void ClearCombinations();
 
+  /**
+   * Update all divisional buttons light.
+   * @param buttonToLight - the button that should be lighted on. All other
+   *   divisionals are lighted off
+   * @param manualIndexOnlyFor - if >= 0 change lighting of this manual only
+   */
+  void UpdateAllButtonsLight(
+    GOButtonControl *buttonToLight, int manualIndexOnlyFor) override;
+
 protected:
   // called from GOElementCreator::CreateButtons()
   const struct GOElementCreator::ButtonDefinitionEntry *
@@ -80,7 +93,8 @@ public:
   // calculates the setter element name for the next-bank button
   static wxString GetDivisionalBankNextLabelName(unsigned manualIndex);
 
-  GODivisionalSetter(GOOrganController *organController);
+  GODivisionalSetter(
+    GOOrganController *organController, const GOSetterState &setterState);
   virtual ~GODivisionalSetter();
 
   // saves all combinations to the preset file

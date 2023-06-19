@@ -10,29 +10,25 @@
 #include <wx/intl.h>
 #include <wx/log.h>
 
-#include "combinations/control/GODivisionalButtonControl.h"
-
-#include "combinations/GOSetter.h"
 #include "config/GOConfigWriter.h"
 #include "model/GOCoupler.h"
 #include "model/GODivisionalCoupler.h"
 #include "model/GOManual.h"
+#include "model/GOOrganModel.h"
 #include "model/GOStop.h"
 #include "model/GOSwitch.h"
 #include "model/GOTremulant.h"
 #include "yaml/go-wx-yaml.h"
 
-#include "GOOrganController.h"
-
 GODivisionalCombination::GODivisionalCombination(
-  GOOrganController *organController,
-  GOCombinationDefinition &divisional_template,
-  bool is_setter)
-  : GOCombination(divisional_template, organController),
-    m_OrganController(organController),
+  GOOrganModel &organModel,
+  const GOCombinationDefinition &cmbDef,
+  bool isSetter)
+  : GOCombination(organModel, cmbDef),
+    r_OrganModel(organModel),
     m_odfManualNumber(1),
     m_DivisionalNumber(0),
-    m_IsSetter(is_setter) {}
+    m_IsSetter(isSetter) {}
 
 void GODivisionalCombination::Init(
   const wxString &group, int manualNumber, int divisionalNumber) {
@@ -55,7 +51,7 @@ void GODivisionalCombination::Load(
 
 void GODivisionalCombination::LoadCombinationInt(
   GOConfigReader &cfg, GOSettingType srcType) {
-  GOManual *associatedManual = m_OrganController->GetManual(m_odfManualNumber);
+  GOManual *associatedManual = r_OrganModel.GetManual(m_odfManualNumber);
   wxString buffer;
   unsigned NumberOfStops
     = ReadNumberOfStops(cfg, srcType, associatedManual->GetStopCount());
@@ -66,23 +62,23 @@ void GODivisionalCombination::LoadCombinationInt(
     0,
     srcType == CMBSetting ? associatedManual->GetCouplerCount()
                           : associatedManual->GetODFCouplerCount(),
-    m_OrganController->DivisionalsStoreIntermanualCouplers()
-      || m_OrganController->DivisionalsStoreIntramanualCouplers(),
+    r_OrganModel.DivisionalsStoreIntermanualCouplers()
+      || r_OrganModel.DivisionalsStoreIntramanualCouplers(),
     0);
   unsigned NumberOfTremulants = cfg.ReadInteger(
     srcType,
     m_group,
     wxT("NumberOfTremulants"),
     0,
-    m_OrganController->GetTremulantCount(),
-    m_OrganController->DivisionalsStoreTremulants(),
+    r_OrganModel.GetTremulantCount(),
+    r_OrganModel.DivisionalsStoreTremulants(),
     0);
   unsigned NumberOfSwitches = cfg.ReadInteger(
     srcType,
     m_group,
     wxT("NumberOfSwitches"),
     0,
-    m_OrganController->GetSwitchCount(),
+    r_OrganModel.GetSwitchCount(),
     false,
     0);
 
@@ -191,7 +187,7 @@ void GODivisionalCombination::PutElementToYamlMap(
   const wxString &valueLabel,
   const unsigned objectIndex,
   YAML::Node &yamlMap) const {
-  GOManual &manual = *m_OrganController->GetManual(m_odfManualNumber);
+  GOManual &manual = *r_OrganModel.GetManual(m_odfManualNumber);
 
   switch (e.type) {
   case GOCombinationDefinition::COMBINATION_STOP:
@@ -204,12 +200,12 @@ void GODivisionalCombination::PutElementToYamlMap(
 
   case GOCombinationDefinition::COMBINATION_TREMULANT:
     yamlMap[TREMULANTS][valueLabel]
-      = m_OrganController->GetTremulant(objectIndex)->GetName();
+      = r_OrganModel.GetTremulant(objectIndex)->GetName();
     break;
 
   case GOCombinationDefinition::COMBINATION_SWITCH:
     yamlMap[SWITCHES][valueLabel]
-      = m_OrganController->GetSwitch(objectIndex)->GetName();
+      = r_OrganModel.GetSwitch(objectIndex)->GetName();
     break;
 
   case GOCombinationDefinition::COMBINATION_DIVISIONALCOUPLER:
@@ -243,48 +239,10 @@ void GODivisionalCombination::FromYamlMap(const YAML::Node &yamlMap) {
     GOCombinationDefinition::COMBINATION_SWITCH);
 }
 
-bool GODivisionalCombination::Push(ExtraElementsSet const *extraSet) {
-  bool changed = PushLocal(extraSet);
-
-  /* only use divisional couples, if not in setter mode */
-  if (!m_OrganController->GetSetter()->IsSetterActive()) {
-    for (unsigned k = 0; k < m_OrganController->GetDivisionalCouplerCount();
-         k++) {
-      GODivisionalCoupler *coupler = m_OrganController->GetDivisionalCoupler(k);
-      if (!coupler->IsEngaged())
-        continue;
-
-      for (unsigned i = 0; i < coupler->GetNumberOfManuals(); i++) {
-        if (coupler->GetManual(i) != m_odfManualNumber)
-          continue;
-
-        for (unsigned int j = i + 1; j < coupler->GetNumberOfManuals(); j++)
-          m_OrganController->GetManual(coupler->GetManual(j))
-            ->GetDivisional(m_DivisionalNumber)
-            ->Push();
-
-        if (coupler->IsBidirectional()) {
-          for (unsigned j = 0; j < coupler->GetNumberOfManuals(); j++) {
-            if (coupler->GetManual(j) == m_odfManualNumber)
-              break;
-            m_OrganController->GetManual(coupler->GetManual(j))
-              ->GetDivisional(m_DivisionalNumber)
-              ->Push();
-          }
-        }
-        break;
-      }
-    }
-  }
-  return changed;
-}
-
-wxString GODivisionalCombination::GetMidiType() { return _("Divisional"); }
-
 GODivisionalCombination *GODivisionalCombination::LoadFrom(
-  GOOrganController *organController,
+  GOOrganModel &organModel,
   GOConfigReader &cfg,
-  GOCombinationDefinition &divisionalTemplate,
+  const GOCombinationDefinition &cmbDef,
   const wxString &group,
   const wxString &readGroup,
   int manualNumber,
@@ -294,8 +252,7 @@ GODivisionalCombination *GODivisionalCombination::LoadFrom(
   bool isCmbOnReadGroup = !readGroup.IsEmpty() && isCmbOnFile(cfg, readGroup);
 
   if (isCmbOnGroup || isCmbOnReadGroup) {
-    pCmb
-      = new GODivisionalCombination(organController, divisionalTemplate, false);
+    pCmb = new GODivisionalCombination(organModel, cmbDef, false);
     pCmb->Load(
       cfg,
       isCmbOnReadGroup ? readGroup : group,
