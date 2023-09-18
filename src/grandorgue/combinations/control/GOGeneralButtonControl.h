@@ -12,23 +12,21 @@
 #include "control/GOPushbuttonControl.h"
 
 class GOConfigReader;
-class GOSetter;
+class GOOrganModel;
 
 class GOGeneralButtonControl : public GOPushbuttonControl {
 private:
-  GOSetter &r_setter;
+  GOOrganModel &r_OrganModel;
   GOGeneralCombination m_combination;
 
 public:
-  GOGeneralButtonControl(
-    GOCombinationDefinition &general_template,
-    GOOrganController *organController,
-    bool is_setter);
+  GOGeneralButtonControl(GOOrganModel &organModel, bool is_setter);
   void Load(GOConfigReader &cfg, wxString group);
   void Push() override;
   GOGeneralCombination &GetCombination();
 
-  wxString GetMidiType();
+  const wxString &GetMidiTypeCode() const override;
+  const wxString &GetMidiType() const override;
 };
 
 #endif /* GOGENERAL_H */

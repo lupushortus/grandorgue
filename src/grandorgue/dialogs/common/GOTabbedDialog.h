@@ -10,6 +10,8 @@
 
 #include <vector>
 
+#include <wx/propdlg.h>
+
 #include "GODialog.h"
 
 class wxBookCtrlBase;
@@ -17,7 +19,7 @@ class wxPanel;
 
 class GODialogTab;
 
-class GOTabbedDialog : public GODialog {
+class GOTabbedDialog : public GODialog<wxPropertySheetDialog> {
 private:
   std::vector<wxString> m_TabNames;
   wxBookCtrlBase *p_book;
@@ -27,6 +29,8 @@ protected:
     wxWindow *win,
     const wxString &name,  // not translated
     const wxString &title, // translated
+    GODialogSizeSet &dialogSizes,
+    const wxString dialogSelector,
     long addStyle = 0);
 
   void AddTab(wxPanel *tab, const wxString &tabName, const wxString &tabTitle);

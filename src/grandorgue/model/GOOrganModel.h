@@ -12,6 +12,7 @@
 
 #include "combinations/control/GOCombinationButtonSet.h"
 #include "combinations/control/GOCombinationControllerProxy.h"
+#include "combinations/model/GOCombinationDefinition.h"
 #include "midi/GOMidiSendProxy.h"
 #include "midi/dialog-creator/GOMidiDialogCreatorProxy.h"
 #include "modification/GOModificationProxy.h"
@@ -25,7 +26,6 @@ class GODivisionalCoupler;
 class GOEnclosure;
 class GOGeneralButtonControl;
 class GOManual;
-class GOOrganController;
 class GOPistonControl;
 class GORank;
 class GOSwitch;
@@ -38,9 +38,10 @@ class GOOrganModel : private GOCombinationButtonSet,
                      public GOMidiDialogCreatorProxy,
                      public GOMidiSendProxy {
 private:
-  GOModificationProxy m_ModificationProxy;
-
   GOConfig &m_config;
+
+  GOModificationProxy m_ModificationProxy;
+  GOCombinationDefinition m_GeneralTemplate;
 
   bool m_DivisionalsStoreIntermanualCouplers;
   bool m_DivisionalsStoreIntramanualCouplers;
@@ -66,7 +67,14 @@ protected:
   unsigned m_ODFManualCount;
   unsigned m_ODFRankCount;
 
-  void Load(GOConfigReader &cfg, GOOrganController *organController);
+  void Load(GOConfigReader &cfg);
+
+  /**
+   * Called after Load() and InitCmbTemplates();
+   * Init general and divisional templates
+   * Load generals and divisionals from ODF/cmb
+   */
+  void LoadCmbButtons(GOConfigReader &cfg);
 
   /**
    * Update all generals buttons light.
@@ -85,6 +93,10 @@ public:
   GOConfig &GetConfig() { return m_config; }
 
   unsigned GetRecorderElementID(const wxString &name);
+
+  const GOCombinationDefinition &GetGeneralTemplate() const {
+    return m_GeneralTemplate;
+  }
 
   /* combinations properties */
   bool DivisionalsStoreIntermanualCouplers() const {

@@ -1,3 +1,16 @@
+- Added saving dialog positions and sizes https://github.com/GrandOrgue/grandorgue/issues/1035
+- Increased maximum value of Pipe999LoopCrossfadeLength and Pipe999ReleaseCrossfadeLength. Now they are 3000 https://github.com/GrandOrgue/grandorgue/issues/1612
+# 3.12.3 (2023-08-14)
+- Fixed saving manual switches as global in yaml https://github.com/GrandOrgue/grandorgue/issues/1599
+- Fixed convolution enabling warrning in the Settings dialog https://github.com/GrandOrgue/grandorgue/issues/1617
+- Fixed "Release Length is not valid" error when applying changes for several Organ Settings objects at once https://github.com/GrandOrgue/grandorgue/issues/1601
+- Fixed saving all combinations as full
+# 3.12.2 (2023-07-23)
+- Fixed size of the Organ Settings Dialog https://github.com/GrandOrgue/grandorgue/issues/1415
+- Fixed an incorrect dialog window icon
+- Fixed absence of the Help button on the Organ Setting dialog https://github.com/GrandOrgue/grandorgue/issues/1416
+- Fixed displaying buttons if the manual is not visible https://github.com/GrandOrgue/grandorgue/issues/1566
+- Changed the default value of the CombinationsStoreNonDisplayedDrawstops ODF settings to false
 - Fixed capability of running on MacOs 11.3
 - Fixed "The device does not support requested channel count" error when using an USB audio card on MacOS https://github.com/GrandOrgue/grandorgue/issues/1550
 # 3.12.1 (2023-06-06)

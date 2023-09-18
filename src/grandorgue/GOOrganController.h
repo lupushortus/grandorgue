@@ -14,7 +14,7 @@
 
 #include "ptrvector.h"
 
-#include "combinations/model/GOCombinationDefinition.h"
+#include "config/GOConfig.h"
 #include "control/GOEventDistributor.h"
 #include "control/GOLabelControl.h"
 #include "gui/GOGUIMouseState.h"
@@ -30,10 +30,12 @@
 
 class GOGUIPanel;
 class GOGUIPanelCreator;
+class GOGUICouplerPanel;
 class GOArchive;
 class GOAudioRecorder;
 class GOButtonControl;
 class GOCache;
+class GODialogSizeSet;
 class GODivisionalSetter;
 class GOElementCreator;
 class GOMidi;
@@ -101,7 +103,6 @@ private:
 
   GOMemoryPool m_pool;
   GOBitmapCache m_bitmaps;
-  GOCombinationDefinition m_GeneralTemplate;
   GOLabelControl m_PitchLabel;
   GOLabelControl m_TemperamentLabel;
   GOMainWindowData m_MainWindowData;
@@ -136,6 +137,7 @@ public:
   void ResetOrganModified();
 
   const GOFileStore &GetFileStore() const { return m_FileStore; }
+  GODialogSizeSet &GetDialogSizeSet() { return m_config.m_DialogSizes; }
 
   /**
    * Set the organ directory without providing any odf.
@@ -185,7 +187,6 @@ public:
   void SetTemperament(wxString name);
   wxString GetTemperament();
 
-  GOCombinationDefinition &GetGeneralTemplate();
   GOLabelControl *GetPitchLabel();
   GOLabelControl *GetTemperamentLabel();
   GOMainWindowData *GetMainWindowData();

@@ -117,7 +117,6 @@ GOOrganController::GOOrganController(
     m_SampleSetId1(0),
     m_SampleSetId2(0),
     m_bitmaps(this),
-    m_GeneralTemplate(*this),
     m_PitchLabel(this),
     m_TemperamentLabel(this),
     m_MainWindowData(this, wxT("MainWindow")) {
@@ -253,21 +252,11 @@ void GOOrganController::ReadOrganFile(GOConfigReader &cfg) {
   GOOrganModel::SetCombinationController(m_setter);
   m_elementcreators.push_back(m_setter);
 
-  GOOrganModel::Load(cfg, this);
-
-  for (unsigned i = 0; i < m_enclosures.size(); i++)
-    m_enclosures[i]->SetElementID(
-      GetRecorderElementID(wxString::Format(wxT("E%d"), i)));
-
-  for (unsigned i = 0; i < m_switches.size(); i++)
-    m_switches[i]->SetElementID(
-      GetRecorderElementID(wxString::Format(wxT("S%d"), i)));
-
-  for (unsigned i = 0; i < m_tremulants.size(); i++)
-    m_tremulants[i]->SetElementID(
-      GetRecorderElementID(wxString::Format(wxT("T%d"), i)));
+  GOOrganModel::Load(cfg);
 
   m_VirtualCouplers.Init(*this, cfg);
+
+  GOOrganModel::LoadCmbButtons(cfg);
 
   m_DivisionalSetter = new GODivisionalSetter(this, m_setter->GetState());
   m_elementcreators.push_back(m_DivisionalSetter);
@@ -296,6 +285,10 @@ void GOOrganController::ReadOrganFile(GOConfigReader &cfg) {
     cfg, wxT("SetterMasterTemperament"), _("temperament"));
   m_MainWindowData.Load(cfg);
 
+  // Load dialog sizes
+  if (GODialogSizeSet::isPresentInCfg(cfg, CMBSetting))
+    m_config.m_DialogSizes.Load(cfg, CMBSetting);
+
   m_panels.resize(0);
   m_panels.push_back(new GOGUIPanel(this));
   m_panels[0]->Load(cfg, wxT(""));
@@ -313,10 +306,6 @@ void GOOrganController::ReadOrganFile(GOConfigReader &cfg) {
 
   for (unsigned i = 0; i < m_panels.size(); i++)
     m_panels[i]->Layout();
-
-  m_GeneralTemplate.InitGeneral();
-  for (unsigned i = m_FirstManual; i < m_manuals.size(); i++)
-    m_manuals[i]->GetDivisionalTemplate().InitDivisional(i);
 
   GetRootPipeConfigNode().SetName(GetChurchName());
   ReadCombinations(cfg);
@@ -828,6 +817,7 @@ bool GOOrganController::Export(const wxString &cmb) {
   cfg.WriteString(WX_ORGAN, wxT("Temperament"), m_Temperament);
 
   GOEventDistributor::Save(cfg);
+  GetDialogSizeSet().Save(cfg);
 
   wxString tmp_name = cmb + wxT(".new");
 
@@ -1033,16 +1023,16 @@ void GOOrganController::Update() {
 }
 
 void GOOrganController::ProcessMidi(const GOMidiEvent &event) {
-  if (event.GetMidiType() == MIDI_RESET) {
+  if (event.GetMidiType() == GOMidiEvent::MIDI_RESET) {
     Reset();
     return;
   }
   while (m_MidiSamplesetMatch.size() < event.GetDevice())
     m_MidiSamplesetMatch.push_back(true);
 
-  if (event.GetMidiType() == MIDI_SYSEX_GO_CLEAR)
+  if (event.GetMidiType() == GOMidiEvent::MIDI_SYSEX_GO_CLEAR)
     m_MidiSamplesetMatch[event.GetDevice()] = true;
-  else if (event.GetMidiType() == MIDI_SYSEX_GO_SAMPLESET) {
+  else if (event.GetMidiType() == GOMidiEvent::MIDI_SYSEX_GO_SAMPLESET) {
     if (
       event.GetKey() == m_SampleSetId1 && event.GetValue() == m_SampleSetId2) {
       m_MidiSamplesetMatch[event.GetDevice()] = true;
@@ -1050,7 +1040,7 @@ void GOOrganController::ProcessMidi(const GOMidiEvent &event) {
       m_MidiSamplesetMatch[event.GetDevice()] = false;
       return;
     }
-  } else if (event.GetMidiType() == MIDI_SYSEX_GO_SETUP) {
+  } else if (event.GetMidiType() == GOMidiEvent::MIDI_SYSEX_GO_SETUP) {
     if (!m_MidiSamplesetMatch[event.GetDevice()])
       return;
   }
@@ -1090,10 +1080,6 @@ wxString GOOrganController::GetTemperament() { return m_Temperament; }
 void GOOrganController::AllNotesOff() {
   for (unsigned k = GetFirstManualIndex(); k <= GetManualAndPedalCount(); k++)
     GetManual(k)->AllNotesOff();
-}
-
-GOCombinationDefinition &GOOrganController::GetGeneralTemplate() {
-  return m_GeneralTemplate;
 }
 
 GOLabelControl *GOOrganController::GetPitchLabel() { return &m_PitchLabel; }

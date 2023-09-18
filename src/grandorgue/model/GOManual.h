@@ -30,7 +30,7 @@ class GOMidiEvent;
 class GOStop;
 class GOSwitch;
 class GOTremulant;
-class GOOrganController;
+class GOOrganModel;
 
 class GOManual : private GOEventHandler,
                  private GOCombinationButtonSet,
@@ -38,13 +38,13 @@ class GOManual : private GOEventHandler,
                  private GOSoundStateHandler,
                  public GOMidiConfigurator {
 private:
+  GOOrganModel &r_OrganModel;
   GOMidiMap &r_MidiMap;
 
   wxString m_group;
   GOMidiReceiver m_midi;
   GOMidiSender m_sender;
   GOMidiSender m_division;
-  GOOrganController *m_OrganController;
   std::vector<GOCoupler *> m_InputCouplers;
   /* Keyboard state */
   std::vector<unsigned> m_KeyVelocity;
@@ -64,7 +64,9 @@ private:
   int m_MIDIInputNumber;
 
   std::vector<unsigned> m_tremulant_ids;
-  std::vector<unsigned> m_switch_ids;
+
+  // Global Switch Id is the number of switch in ODF started with 1
+  std::vector<unsigned> m_GlobalSwitchIds;
 
   wxString m_name;
 
@@ -95,15 +97,24 @@ private:
   void UpdateAllButtonsLight(
     GOButtonControl *buttonToLight, int manualIndexOnlyFor) override;
 
+protected:
+  GOMidiReceiverBase *GetMidiReceiver() override { return &m_midi; }
+  GOMidiSender *GetMidiSender() override { return &m_sender; }
+  GOMidiSender *GetDivision() override { return &m_division; }
+
 public:
-  GOManual(GOOrganController *organController);
+  GOManual(GOOrganModel &organModel);
+
+  unsigned GetManulNumber() const { return m_manual_number; }
+
   void Init(
     GOConfigReader &cfg,
     wxString group,
     int manualNumber,
     unsigned first_midi,
     unsigned keys);
-  void Load(GOConfigReader &cfg, wxString group, int manualNumber);
+  void Load(GOConfigReader &cfg, const wxString &group, int manualNumber);
+  void LoadDivisionals(GOConfigReader &cfg);
   unsigned RegisterCoupler(GOCoupler *coupler);
   void SetKey(
     unsigned note, unsigned velocity, GOCoupler *prev, unsigned couplerID);
@@ -153,7 +164,7 @@ public:
    *   if the tremulant is not found
    */
   int FindTremulantByName(const wxString &name) const;
-  unsigned GetSwitchCount() const { return m_switch_ids.size(); }
+  unsigned GetSwitchCount() const { return m_GlobalSwitchIds.size(); }
   GOSwitch *GetSwitch(unsigned index);
   /**
    * Find a switch belonging to this manual by it's name
@@ -164,12 +175,11 @@ public:
   int FindSwitchByName(const wxString &name) const;
 
   GOCombinationDefinition &GetDivisionalTemplate();
-  const wxString &GetName();
+  const wxString &GetName() const { return m_name; }
   bool IsDisplayed();
-
-  wxString GetMidiType();
-  wxString GetMidiName();
-  void ShowConfigDialog();
+  const wxString &GetMidiTypeCode() const override;
+  const wxString &GetMidiType() const override;
+  const wxString &GetMidiName() const override { return GetName(); }
 
   wxString GetElementStatus();
   std::vector<wxString> GetElementActions();

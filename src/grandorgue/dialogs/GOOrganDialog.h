@@ -9,8 +9,8 @@
 #define GOORGANDIALOG_H
 
 #include <vector>
-#include <wx/dialog.h>
 
+#include "common/GOSimpleDialog.h"
 #include "document-base/GOView.h"
 
 class GOPipeConfigNode;
@@ -28,7 +28,7 @@ class wxTreeCtrl;
 class wxTreeEvent;
 class wxTreeItemId;
 
-class GOOrganDialog : public wxDialog, public GOView {
+class GOOrganDialog : public GOSimpleDialog, public GOView {
 private:
   GOOrganController *m_OrganController;
   wxTreeCtrl *m_Tree;
@@ -67,14 +67,9 @@ private:
   wxButton *m_Default;
   wxButton *m_DefaultAll;
   wxButton *m_AudioGroupAssistant;
-  wxButton *m_Collapse;
   OrganTreeItemData *m_Last;
   unsigned m_LoadChangeCnt;
-  wxDialog *m_ModalDialog;
-  bool m_Destroying;
-  bool m_DestroyPending;
 
-  bool CloseModal();
   void FillTree();
   void Load();
   bool Changed();
@@ -83,9 +78,15 @@ private:
   void RemoveEmpty(wxChoice *choice);
   void UpdateAudioGroup(
     std::vector<wxString> audio_group, unsigned &pos, wxTreeItemId item);
-  void FillTree(wxTreeItemId parent, GOPipeConfigNode &config);
+  wxTreeItemId FillTree(wxTreeItemId parent, GOPipeConfigNode &config);
   void CloseTree(wxTreeItemId parent);
   void ResetSelectedToDefault(bool isForChildren);
+  /**
+   * Checks if all changes have been applied. If some unapplied changes are
+   * present, then display an error message.
+   * Returns if there are unapplied changes
+   */
+  bool CheckForUnapplied();
 
   void OnTreeChanging(wxTreeEvent &e);
   void OnTreeChanged(wxTreeEvent &e);
@@ -114,10 +115,7 @@ private:
   void OnEventReset(wxCommandEvent &e);
   void OnEventDefault(wxCommandEvent &e);
   void OnEventDefaultAll(wxCommandEvent &e);
-  void OnOK(wxCommandEvent &event);
-  void OnCancel(wxCommandEvent &event);
   void OnAudioGroupAssitant(wxCommandEvent &e);
-  void OnCollapse(wxCommandEvent &e);
 
 protected:
   enum {
@@ -125,7 +123,6 @@ protected:
     ID_EVENT_APPLY,
     ID_EVENT_RESET,
     ID_EVENT_AUDIO_GROUP_ASSISTANT,
-    ID_EVENT_COLLAPSE,
     ID_EVENT_DEFAULT,
     ID_EVENT_DEFAULT_ALL,
     ID_EVENT_AMPLITUDE,
@@ -150,12 +147,12 @@ protected:
     ID_EVENT_COMPRESS
   };
 
+  bool TransferDataToWindow() override;
+  bool Validate() override { return !CheckForUnapplied(); }
+
 public:
   GOOrganDialog(
     GODocumentBase *doc, wxWindow *parent, GOOrganController *organController);
-  ~GOOrganDialog();
-
-  bool Destroy();
 
   DECLARE_EVENT_TABLE()
 };

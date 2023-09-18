@@ -44,13 +44,11 @@ public:
 
 DEFINE_LOCAL_EVENT_TYPE(wxEVT_TREE_UPDATED)
 
-BEGIN_EVENT_TABLE(GOOrganDialog, wxDialog)
+BEGIN_EVENT_TABLE(GOOrganDialog, GOSimpleDialog)
 EVT_BUTTON(ID_EVENT_APPLY, GOOrganDialog::OnEventApply)
 EVT_BUTTON(ID_EVENT_RESET, GOOrganDialog::OnEventReset)
 EVT_BUTTON(ID_EVENT_DEFAULT, GOOrganDialog::OnEventDefault)
 EVT_BUTTON(ID_EVENT_DEFAULT_ALL, GOOrganDialog::OnEventDefaultAll)
-EVT_BUTTON(wxID_OK, GOOrganDialog::OnOK)
-EVT_BUTTON(wxID_CANCEL, GOOrganDialog::OnCancel)
 EVT_TREE_SEL_CHANGING(ID_EVENT_TREE, GOOrganDialog::OnTreeChanging)
 EVT_TREE_SEL_CHANGED(ID_EVENT_TREE, GOOrganDialog::OnTreeChanged)
 EVT_COMMAND(ID_EVENT_TREE, wxEVT_TREE_UPDATED, GOOrganDialog::OnTreeUpdated)
@@ -79,7 +77,6 @@ EVT_CHOICE(ID_EVENT_CHANNELS, GOOrganDialog::OnChannelsChanged)
 EVT_CHOICE(ID_EVENT_LOOP_LOAD, GOOrganDialog::OnLoopLoadChanged)
 EVT_CHOICE(ID_EVENT_ATTACK_LOAD, GOOrganDialog::OnAttackLoadChanged)
 EVT_CHOICE(ID_EVENT_RELEASE_LOAD, GOOrganDialog::OnReleaseLoadChanged)
-EVT_BUTTON(ID_EVENT_COLLAPSE, GOOrganDialog::OnCollapse)
 END_EVENT_TABLE()
 
 static const unsigned RELEASE_LENGTH_MAX = 3000;
@@ -89,141 +86,143 @@ static const unsigned RELEASE_LENGTH_MAX_INDEX
 
 GOOrganDialog::GOOrganDialog(
   GODocumentBase *doc, wxWindow *parent, GOOrganController *organController)
-  : wxDialog(
+  : GOSimpleDialog(
     parent,
-    wxID_ANY,
+    wxT("Organ settings"),
     _("Organ settings"),
-    wxDefaultPosition,
-    wxDefaultSize,
-    wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
+    organController->GetDialogSizeSet()),
     GOView(doc, this),
     m_OrganController(organController),
     m_Apply(NULL),
     m_Reset(NULL),
     m_Last(NULL),
-    m_LoadChangeCnt(0),
-    m_ModalDialog(NULL),
-    m_Destroying(false),
-    m_DestroyPending(false) {
-  wxArrayString choices;
-
-  wxBoxSizer *topSizer = new wxBoxSizer(wxVERTICAL);
-  wxBoxSizer *mainSizer = new wxBoxSizer(wxHORIZONTAL);
-
-  topSizer->Add(mainSizer, 1, wxALL | wxEXPAND, 6);
+    m_LoadChangeCnt(0) {
+  wxGridBagSizer *const mainSizer = new wxGridBagSizer(5, 5);
 
   m_Tree = new wxTreeCtrl(
     this,
     ID_EVENT_TREE,
     wxDefaultPosition,
-    wxDefaultSize,
+    wxSize(300, 100),
     wxTR_HAS_BUTTONS | wxTR_MULTIPLE);
-  wxBoxSizer *Sizer1 = new wxBoxSizer(wxVERTICAL);
-  Sizer1->Add(m_Tree, 1, wxALIGN_TOP | wxEXPAND);
+  mainSizer->Add(
+    m_Tree,
+    wxGBPosition(0, 0),
+    wxGBSpan(4, 1),
+    wxEXPAND | wxTOP | wxLEFT | wxBOTTOM,
+    5);
+  mainSizer->AddGrowableCol(0, 1);
+  mainSizer->AddGrowableRow(3, 1);
 
-  m_Collapse = new wxButton(this, ID_EVENT_COLLAPSE, _("Collapse tree"));
-  Sizer1->Add(m_Collapse);
-  m_AudioGroupAssistant = new wxButton(
-    this, ID_EVENT_AUDIO_GROUP_ASSISTANT, _("Distribute audio groups"));
-  Sizer1->Add(m_AudioGroupAssistant);
+  wxBoxSizer *box1
+    = new wxStaticBoxSizer(wxVERTICAL, this, _("Sample information"));
 
-  mainSizer->Add(Sizer1, 1, wxALIGN_LEFT | wxEXPAND);
-  mainSizer->AddSpacer(5);
+  wxFlexGridSizer *grid = new wxFlexGridSizer(2, 5, 5);
 
-  wxScrolledWindow *scroll = new wxScrolledWindow(
-    this,
-    wxID_ANY,
-    wxDefaultPosition,
-    wxDefaultSize,
-    wxVSCROLL,
-    wxT("scrolledWindow"));
+  grid->Add(
+    new wxStaticText(this, wxID_ANY, _("Memory usage:")),
+    0,
+    wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL | wxBOTTOM,
+    5);
+  m_MemoryDisplay = new wxStaticText(this, wxID_ANY, wxEmptyString);
+  grid->Add(m_MemoryDisplay);
 
-  wxBoxSizer *settingSizer = new wxBoxSizer(wxVERTICAL);
-  wxBoxSizer *box1 = new wxStaticBoxSizer(wxVERTICAL, scroll, _("Settings"));
+  grid->Add(
+    new wxStaticText(this, wxID_ANY, _("Bits per sample:")),
+    0,
+    wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL | wxBOTTOM,
+    5);
+  m_BitDisplay = new wxStaticText(this, wxID_ANY, wxEmptyString);
+  grid->Add(m_BitDisplay);
+  box1->Add(grid, 0, wxEXPAND | wxALL, 5);
+  mainSizer->Add(
+    box1, wxGBPosition(0, 1), wxGBSpan(1, 4), wxEXPAND | wxRIGHT, 5);
+
+  box1 = new wxStaticBoxSizer(wxVERTICAL, this, _("Settings"));
+
   wxGridBagSizer *gb = new wxGridBagSizer(5, 5);
 
   gb->Add(
-    new wxStaticText(scroll, wxID_ANY, _("Amplitude:")),
+    new wxStaticText(this, wxID_ANY, _("Amplitude:")),
     wxGBPosition(0, 0),
     wxDefaultSpan,
     wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL | wxBOTTOM,
     5);
-  m_Amplitude = new wxTextCtrl(scroll, ID_EVENT_AMPLITUDE, wxEmptyString);
+  m_Amplitude = new wxTextCtrl(this, ID_EVENT_AMPLITUDE, wxEmptyString);
   gb->Add(m_Amplitude, wxGBPosition(0, 1), wxDefaultSpan, wxEXPAND);
-  m_AmplitudeSpin = new wxSpinButton(scroll, ID_EVENT_AMPLITUDE_SPIN);
+  m_AmplitudeSpin = new wxSpinButton(this, ID_EVENT_AMPLITUDE_SPIN);
   m_AmplitudeSpin->SetRange(0, 1000);
   gb->Add(m_AmplitudeSpin, wxGBPosition(0, 2), wxDefaultSpan);
 
   gb->Add(
-    new wxStaticText(scroll, wxID_ANY, _("Gain (dB):")),
+    new wxStaticText(this, wxID_ANY, _("Gain (dB):")),
     wxGBPosition(1, 0),
     wxDefaultSpan,
     wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL | wxBOTTOM,
     5);
-  m_Gain = new wxTextCtrl(scroll, ID_EVENT_GAIN, wxEmptyString);
+  m_Gain = new wxTextCtrl(this, ID_EVENT_GAIN, wxEmptyString);
   gb->Add(m_Gain, wxGBPosition(1, 1), wxDefaultSpan, wxEXPAND);
-  m_GainSpin = new wxSpinButton(scroll, ID_EVENT_GAIN_SPIN);
+  m_GainSpin = new wxSpinButton(this, ID_EVENT_GAIN_SPIN);
   m_GainSpin->SetRange(-120, 40);
   gb->Add(m_GainSpin, wxGBPosition(1, 2), wxDefaultSpan);
 
   gb->Add(
-    new wxStaticText(scroll, wxID_ANY, _("Manual Tuning (Cent):")),
+    new wxStaticText(this, wxID_ANY, _("Manual Tuning (Cent):")),
     wxGBPosition(2, 0),
     wxDefaultSpan,
     wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL | wxBOTTOM,
     5);
-  m_ManualTuning
-    = new wxTextCtrl(scroll, ID_EVENT_MANUAL_TUNING, wxEmptyString);
+  m_ManualTuning = new wxTextCtrl(this, ID_EVENT_MANUAL_TUNING, wxEmptyString);
   gb->Add(m_ManualTuning, wxGBPosition(2, 1), wxDefaultSpan, wxEXPAND);
-  m_ManualTuningSpin = new wxSpinButton(scroll, ID_EVENT_MANUAL_TUNING_SPIN);
+  m_ManualTuningSpin = new wxSpinButton(this, ID_EVENT_MANUAL_TUNING_SPIN);
   m_ManualTuningSpin->SetRange(-1800, 1800);
   gb->Add(m_ManualTuningSpin, wxGBPosition(2, 2));
   gb->Add(
-    new wxStaticText(scroll, wxID_ANY, _("AutoTuning Correction (Cent):")),
+    new wxStaticText(this, wxID_ANY, _("AutoTuning Correction (Cent):")),
     wxGBPosition(3, 0),
     wxDefaultSpan,
     wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL | wxBOTTOM,
     5);
   m_AutoTuningCorrection
-    = new wxTextCtrl(scroll, ID_EVENT_AUTO_TUNING_CORRECTION, wxEmptyString);
+    = new wxTextCtrl(this, ID_EVENT_AUTO_TUNING_CORRECTION, wxEmptyString);
   gb->Add(m_AutoTuningCorrection, wxGBPosition(3, 1), wxDefaultSpan, wxEXPAND);
   m_AutoTuningCorrectionSpin
-    = new wxSpinButton(scroll, ID_EVENT_AUTO_TUNING_CORRECTION_SPIN);
+    = new wxSpinButton(this, ID_EVENT_AUTO_TUNING_CORRECTION_SPIN);
   m_AutoTuningCorrectionSpin->SetRange(-1800, 1800);
   gb->Add(m_AutoTuningCorrectionSpin, wxGBPosition(3, 2));
 
   gb->Add(
-    new wxStaticText(scroll, wxID_ANY, _("Tracker (ms):")),
+    new wxStaticText(this, wxID_ANY, _("Tracker (ms):")),
     wxGBPosition(4, 0),
     wxDefaultSpan,
     wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL | wxBOTTOM,
     5);
-  m_Delay = new wxTextCtrl(scroll, ID_EVENT_DELAY, wxEmptyString);
+  m_Delay = new wxTextCtrl(this, ID_EVENT_DELAY, wxEmptyString);
   gb->Add(m_Delay, wxGBPosition(4, 1), wxDefaultSpan, wxEXPAND);
-  m_DelaySpin = new wxSpinButton(scroll, ID_EVENT_DELAY_SPIN);
+  m_DelaySpin = new wxSpinButton(this, ID_EVENT_DELAY_SPIN);
   m_DelaySpin->SetRange(0, 10000);
   gb->Add(m_DelaySpin, wxGBPosition(4, 2), wxDefaultSpan);
 
   gb->Add(
-    new wxStaticText(scroll, wxID_ANY, _("Release Tail Length (ms):")),
+    new wxStaticText(this, wxID_ANY, _("Release Tail Length (ms):")),
     wxGBPosition(5, 0),
     wxDefaultSpan,
     wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL | wxBOTTOM,
     5);
   m_ReleaseLength
-    = new wxTextCtrl(scroll, ID_EVENT_RELEASE_LENGTH, wxEmptyString);
+    = new wxTextCtrl(this, ID_EVENT_RELEASE_LENGTH, wxEmptyString);
   gb->Add(m_ReleaseLength, wxGBPosition(5, 1), wxDefaultSpan, wxEXPAND);
-  m_ReleaseLengthSpin = new wxSpinButton(scroll, ID_EVENT_RELEASE_LENGTH_SPIN);
+  m_ReleaseLengthSpin = new wxSpinButton(this, ID_EVENT_RELEASE_LENGTH_SPIN);
   m_ReleaseLengthSpin->SetRange(0, RELEASE_LENGTH_MAX_INDEX);
   gb->Add(m_ReleaseLengthSpin, wxGBPosition(5, 2), wxDefaultSpan);
 
   gb->Add(
-    new wxStaticText(scroll, wxID_ANY, _("Audio group:")),
+    new wxStaticText(this, wxID_ANY, _("Audio group:")),
     wxGBPosition(6, 0),
     wxDefaultSpan,
     wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL | wxBOTTOM,
     5);
-  m_AudioGroup = new wxComboBox(scroll, ID_EVENT_AUDIO_GROUP, wxEmptyString);
+  m_AudioGroup = new wxComboBox(this, ID_EVENT_AUDIO_GROUP, wxEmptyString);
   m_AudioGroup->Append(wxEmptyString);
   std::vector<wxString> audio_groups
     = m_OrganController->GetSettings().GetAudioGroups();
@@ -235,41 +234,36 @@ GOOrganDialog::GOOrganDialog(
 
   gb->Add(
     m_IgnorePitch = new wxCheckBox(
-      scroll,
+      this,
       ID_EVENT_IGNORE_PITCH,
       _("Ignore pitch info in organ samples wav files")),
     wxGBPosition(7, 0),
     wxGBSpan(1, 2),
     wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL,
     5);
-  if (m_OrganController->GetRootPipeConfigNode().GetEffectiveIgnorePitch())
-    m_IgnorePitch->SetValue(true);
 
   gb->AddGrowableCol(1, 1);
-
   box1->Add(gb, 0, wxEXPAND | wxALL, 5);
-  settingSizer->Add(box1, 0, wxEXPAND | wxALL, 5);
+  mainSizer->Add(
+    box1, wxGBPosition(1, 1), wxGBSpan(1, 4), wxEXPAND | wxRIGHT, 5);
 
-  box1 = new wxStaticBoxSizer(wxVERTICAL, scroll, _("Sample Loading"));
-  wxFlexGridSizer *grid = new wxFlexGridSizer(2, 5, 5);
+  box1 = new wxStaticBoxSizer(wxVERTICAL, this, _("Sample Loading"));
+  grid = new wxFlexGridSizer(2, 5, 5);
 
   grid->AddGrowableCol(1, 1);
 
-  choices.clear();
+  wxArrayString choices;
+
   choices.push_back(_("Parent default"));
   for (unsigned i = 8; i <= 24; i++)
     choices.push_back(wxString::Format(_("%d bits"), i));
   grid->Add(
-    new wxStaticText(scroll, wxID_ANY, _("Sample Size:")),
+    new wxStaticText(this, wxID_ANY, _("Sample Size:")),
     0,
     wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL | wxBOTTOM,
     5);
   m_BitsPerSample = new wxChoice(
-    scroll,
-    ID_EVENT_BITS_PER_SAMPLE,
-    wxDefaultPosition,
-    wxDefaultSize,
-    choices);
+    this, ID_EVENT_BITS_PER_SAMPLE, wxDefaultPosition, wxDefaultSize, choices);
   grid->Add(m_BitsPerSample, 1, wxEXPAND);
 
   choices.clear();
@@ -277,12 +271,12 @@ GOOrganDialog::GOOrganDialog(
   choices.push_back(_("Disabled"));
   choices.push_back(_("Enabled"));
   grid->Add(
-    new wxStaticText(scroll, wxID_ANY, _("Lossless compression:")),
+    new wxStaticText(this, wxID_ANY, _("Lossless compression:")),
     0,
     wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL | wxBOTTOM,
     5);
   m_Compress = new wxChoice(
-    scroll, ID_EVENT_COMPRESS, wxDefaultPosition, wxDefaultSize, choices);
+    this, ID_EVENT_COMPRESS, wxDefaultPosition, wxDefaultSize, choices);
   grid->Add(m_Compress, 1, wxEXPAND);
 
   choices.clear();
@@ -291,12 +285,12 @@ GOOrganDialog::GOOrganDialog(
   choices.push_back(_("Mono"));
   choices.push_back(_("Stereo"));
   grid->Add(
-    new wxStaticText(scroll, wxID_ANY, _("Sample channels:")),
+    new wxStaticText(this, wxID_ANY, _("Sample channels:")),
     0,
     wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL | wxBOTTOM,
     5);
   m_Channels = new wxChoice(
-    scroll, ID_EVENT_CHANNELS, wxDefaultPosition, wxDefaultSize, choices);
+    this, ID_EVENT_CHANNELS, wxDefaultPosition, wxDefaultSize, choices);
   grid->Add(m_Channels, 1, wxEXPAND);
 
   choices.clear();
@@ -305,12 +299,12 @@ GOOrganDialog::GOOrganDialog(
   choices.push_back(_("Longest loop"));
   choices.push_back(_("All loops"));
   grid->Add(
-    new wxStaticText(scroll, wxID_ANY, _("Loop loading:")),
+    new wxStaticText(this, wxID_ANY, _("Loop loading:")),
     0,
     wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL | wxBOTTOM,
     5);
   m_LoopLoad = new wxChoice(
-    scroll, ID_EVENT_LOOP_LOAD, wxDefaultPosition, wxDefaultSize, choices);
+    this, ID_EVENT_LOOP_LOAD, wxDefaultPosition, wxDefaultSize, choices);
   grid->Add(m_LoopLoad, 1, wxEXPAND);
 
   choices.clear();
@@ -318,12 +312,12 @@ GOOrganDialog::GOOrganDialog(
   choices.push_back(_("Single attack"));
   choices.push_back(_("All"));
   grid->Add(
-    new wxStaticText(scroll, wxID_ANY, _("Attack loading:")),
+    new wxStaticText(this, wxID_ANY, _("Attack loading:")),
     0,
     wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL | wxBOTTOM,
     5);
   m_AttackLoad = new wxChoice(
-    scroll, ID_EVENT_ATTACK_LOAD, wxDefaultPosition, wxDefaultSize, choices);
+    this, ID_EVENT_ATTACK_LOAD, wxDefaultPosition, wxDefaultSize, choices);
   grid->Add(m_AttackLoad, 1, wxEXPAND);
 
   choices.clear();
@@ -331,12 +325,12 @@ GOOrganDialog::GOOrganDialog(
   choices.push_back(_("Single release"));
   choices.push_back(_("All"));
   grid->Add(
-    new wxStaticText(scroll, wxID_ANY, _("Release loading:")),
+    new wxStaticText(this, wxID_ANY, _("Release loading:")),
     0,
     wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL | wxBOTTOM,
     5);
   m_ReleaseLoad = new wxChoice(
-    scroll, ID_EVENT_RELEASE_LOAD, wxDefaultPosition, wxDefaultSize, choices);
+    this, ID_EVENT_RELEASE_LOAD, wxDefaultPosition, wxDefaultSize, choices);
   grid->Add(m_ReleaseLoad, 1, wxEXPAND);
 
   m_LastIgnorePitch = false;
@@ -353,79 +347,28 @@ GOOrganDialog::GOOrganDialog(
   m_ReleaseLoad->SetSelection(wxNOT_FOUND);
   m_LastReleaseLoad = m_ReleaseLoad->GetSelection();
   box1->Add(grid, 0, wxEXPAND | wxALL, 5);
-  settingSizer->Add(box1, 0, wxEXPAND | wxALL, 5);
+  mainSizer->Add(
+    box1, wxGBPosition(2, 1), wxGBSpan(1, 4), wxEXPAND | wxRIGHT, 5);
 
-  wxBoxSizer *buttons = new wxBoxSizer(wxHORIZONTAL);
-  m_Apply = new wxButton(scroll, ID_EVENT_APPLY, _("Apply"));
-  m_Reset = new wxButton(scroll, ID_EVENT_RESET, _("Reset"));
-  m_Default = new wxButton(scroll, ID_EVENT_DEFAULT, _("Default"));
-  m_DefaultAll
-    = new wxButton(scroll, ID_EVENT_DEFAULT_ALL, _("Default for All"));
-  buttons->Add(m_Default);
-  buttons->Add(m_DefaultAll);
-  buttons->Add(m_Reset);
-  buttons->Add(m_Apply);
-  settingSizer->Add(buttons);
+  m_AudioGroupAssistant = new wxButton(
+    this, ID_EVENT_AUDIO_GROUP_ASSISTANT, _("Distribute audio groups"));
+  mainSizer->Add(
+    m_AudioGroupAssistant, wxGBPosition(4, 0), wxDefaultSpan, wxLEFT, 5);
+  m_Default = new wxButton(this, ID_EVENT_DEFAULT, _("Default"));
+  mainSizer->Add(m_Default, wxGBPosition(4, 1));
+  m_DefaultAll = new wxButton(this, ID_EVENT_DEFAULT_ALL, _("Default for All"));
+  mainSizer->Add(m_DefaultAll, wxGBPosition(4, 2));
+  m_Reset = new wxButton(this, ID_EVENT_RESET, _("Reset"));
+  mainSizer->Add(m_Reset, wxGBPosition(4, 3));
+  m_Apply = new wxButton(this, ID_EVENT_APPLY, _("Apply"));
+  mainSizer->Add(m_Apply, wxGBPosition(4, 4), wxDefaultSpan, wxRIGHT, 5);
 
-  box1 = new wxStaticBoxSizer(wxVERTICAL, scroll, _("Sample information"));
-  grid = new wxFlexGridSizer(2, 5, 5);
-  box1->Add(grid, 0, wxEXPAND | wxALL, 5);
+  LayoutWithInnerSizer(mainSizer);
+}
 
-  grid->Add(
-    new wxStaticText(scroll, wxID_ANY, _("Memory usage:")),
-    0,
-    wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL | wxBOTTOM,
-    5);
-  m_MemoryDisplay = new wxStaticText(scroll, wxID_ANY, wxEmptyString);
-  grid->Add(m_MemoryDisplay);
-
-  grid->Add(
-    new wxStaticText(scroll, wxID_ANY, _("Bits per sample:")),
-    0,
-    wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL | wxBOTTOM,
-    5);
-  m_BitDisplay = new wxStaticText(scroll, wxID_ANY, wxEmptyString);
-  grid->Add(m_BitDisplay);
-
-  settingSizer->Add(box1, 0, wxEXPAND | wxALL, 5);
-
-  scroll->SetSizer(settingSizer);
-  scroll->SetScrollbars(0, 5, 0, 15);
-  mainSizer->Add(scroll, 1, wxALIGN_RIGHT | wxEXPAND);
-
-  topSizer->Add(new wxStaticLine(this), 0, wxEXPAND | wxALL, 5);
-  topSizer->Add(
-    CreateButtonSizer(wxOK | wxCANCEL), 0, wxALIGN_RIGHT | wxALL, 5);
-  topSizer->AddSpacer(5);
+bool GOOrganDialog::TransferDataToWindow() {
   FillTree();
-  Load();
-  SetSizerAndFit(topSizer);
-}
-
-GOOrganDialog::~GOOrganDialog() {}
-
-bool GOOrganDialog::CloseModal() {
-  if (m_DestroyPending) {
-    wxDialog::Destroy();
-    return true;
-  }
-  if (m_ModalDialog) {
-    wxDialog *dlg = m_ModalDialog;
-    m_ModalDialog = NULL;
-    dlg->EndModal(wxID_CANCEL);
-    if (m_Destroying)
-      m_DestroyPending = true;
-    return true;
-  }
-  return false;
-}
-
-bool GOOrganDialog::Destroy() {
-  Hide();
-  m_Destroying = true;
-  if (CloseModal())
-    return true;
-  return wxDialog::Destroy();
+  return true;
 }
 
 void GOOrganDialog::SetEmpty(wxChoice *choice) {
@@ -568,6 +511,7 @@ void GOOrganDialog::Load() {
     m_Apply->Disable();
     m_Reset->Disable();
     m_Default->Disable();
+    m_DefaultAll->Disable();
     m_AudioGroupAssistant->Disable();
     return;
   }
@@ -651,6 +595,7 @@ void GOOrganDialog::Load() {
   m_AttackLoad->Enable();
   m_ReleaseLoad->Enable();
   m_Default->Enable();
+  m_DefaultAll->Enable();
   m_Reset->Disable();
 
   float amplitude = m_Last->config->GetAmplitude();
@@ -876,7 +821,8 @@ void GOOrganDialog::Modified() {
     m_Apply->Enable();
 }
 
-void GOOrganDialog::FillTree(wxTreeItemId parent, GOPipeConfigNode &config) {
+wxTreeItemId GOOrganDialog::FillTree(
+  wxTreeItemId parent, GOPipeConfigNode &config) {
   wxTreeItemData *data = new OrganTreeItemData(config);
   wxTreeItemId e;
   if (!parent.IsOk())
@@ -885,12 +831,15 @@ void GOOrganDialog::FillTree(wxTreeItemId parent, GOPipeConfigNode &config) {
     e = m_Tree->AppendItem(parent, config.GetName(), -1, -1, data);
   for (unsigned i = 0; i < config.GetChildCount(); i++)
     FillTree(e, *config.GetChild(i));
-  m_Tree->Expand(e);
+  return e;
 }
 
 void GOOrganDialog::FillTree() {
   wxTreeItemId id_root;
-  FillTree(id_root, m_OrganController->GetRootPipeConfigNode());
+
+  id_root = FillTree(id_root, m_OrganController->GetRootPipeConfigNode());
+  m_Tree->Expand(id_root);
+  m_Tree->SelectItem(id_root, true);
 }
 
 void GOOrganDialog::OnEventApply(wxCommandEvent &e) {
@@ -943,7 +892,12 @@ void GOOrganDialog::OnEventApply(wxCommandEvent &e) {
     return;
   }
 
-  if (!str_to_release_length(m_ReleaseLength->GetValue(), releaseLength)) {
+  const wxString releaseLengthStr = m_ReleaseLength->GetValue();
+  const bool isReleaseLengthPresent = !releaseLengthStr.IsEmpty();
+
+  if (
+    isReleaseLengthPresent
+    && !str_to_release_length(releaseLengthStr, releaseLength)) {
     GOMessageBox(
       _("Release Length is invalid"), _("Error"), wxOK | wxICON_ERROR, this);
     return;
@@ -966,7 +920,7 @@ void GOOrganDialog::OnEventApply(wxCommandEvent &e) {
       e->config->SetAutoTuningCorrection(autoTuningCorrection);
     if (m_Delay->IsModified())
       e->config->SetDelay(delay);
-    if (m_ReleaseLength->IsModified()) {
+    if (isReleaseLengthPresent && m_ReleaseLength->IsModified()) {
       long parentReleaseLength = parent ? parent->GetEffectiveReleaseTail() : 0;
       bool isLessThanParent = releaseLength > 0
         && (!parentReleaseLength || releaseLength < parentReleaseLength);
@@ -1120,12 +1074,18 @@ void GOOrganDialog::OnEventDefaultAll(wxCommandEvent &e) {
   ResetSelectedToDefault(true);
 }
 
-void GOOrganDialog::OnTreeChanging(wxTreeEvent &e) {
-  if (Changed()) {
+bool GOOrganDialog::CheckForUnapplied() {
+  bool res = Changed();
+
+  if (res)
     GOMessageBox(
       _("Please apply changes first"), _("Error"), wxOK | wxICON_ERROR, this);
+  return res;
+}
+
+void GOOrganDialog::OnTreeChanging(wxTreeEvent &e) {
+  if (CheckForUnapplied())
     e.Veto();
-  }
 }
 
 void GOOrganDialog::OnTreeChanged(wxTreeEvent &e) {
@@ -1166,27 +1126,6 @@ void GOOrganDialog::OnTreeChanged(wxTreeEvent &e) {
 
 void GOOrganDialog::OnTreeUpdated(wxCommandEvent &e) { Load(); }
 
-void GOOrganDialog::OnOK(wxCommandEvent &event) {
-  if (Changed()) {
-    GOMessageBox(
-      _("Please apply changes first"), _("Error"), wxOK | wxICON_ERROR, this);
-    return;
-  }
-  GOPipeConfig &rootPipeConfig(
-    m_OrganController->GetRootPipeConfigNode().GetPipeConfig());
-  bool newIgnorePitch = m_IgnorePitch->GetValue();
-
-  // for avoiding modification of rootPipeConfig when it is non necessary
-  if (newIgnorePitch != (rootPipeConfig.IsIgnorePitch() > 0))
-    m_OrganController->GetRootPipeConfigNode().GetPipeConfig().SetIgnorePitch(
-      newIgnorePitch);
-  m_OrganController->SetTemperament(m_OrganController->GetTemperament());
-  m_OrganController->SetOrganModified();
-  Destroy();
-}
-
-void GOOrganDialog::OnCancel(wxCommandEvent &event) { Destroy(); }
-
 void GOOrganDialog::UpdateAudioGroup(
   std::vector<wxString> audio_group, unsigned &pos, wxTreeItemId item) {
   OrganTreeItemData *e = (OrganTreeItemData *)m_Tree->GetItemData(item);
@@ -1206,11 +1145,8 @@ void GOOrganDialog::UpdateAudioGroup(
 }
 
 void GOOrganDialog::OnAudioGroupAssitant(wxCommandEvent &e) {
-  if (Changed()) {
-    GOMessageBox(
-      _("Please apply changes first"), _("Error"), wxOK | wxICON_ERROR, this);
+  if (CheckForUnapplied())
     return;
-  }
   wxArrayString strs;
   std::vector<wxString> group_list
     = m_OrganController->GetSettings().GetAudioGroups();
@@ -1219,13 +1155,10 @@ void GOOrganDialog::OnAudioGroupAssitant(wxCommandEvent &e) {
 
   wxMultiChoiceDialog dlg(
     this, _("Select audio groups to distribute:"), _("Organ dialog"), strs);
-  m_ModalDialog = &dlg;
   if (dlg.ShowModal() != wxID_OK) {
-    CloseModal();
     return;
   }
   wxArrayInt sel = dlg.GetSelections();
-  CloseModal();
   if (sel.Count() == 0) {
     GOMessageBox(
       _("No audio group selected"), _("Error"), wxOK | wxICON_ERROR, this);
@@ -1250,13 +1183,4 @@ void GOOrganDialog::CloseTree(wxTreeItemId parent) {
   for (wxTreeItemId child = m_Tree->GetFirstChild(parent, it); child.IsOk();
        child = m_Tree->GetNextChild(parent, it))
     CloseTree(child);
-}
-
-void GOOrganDialog::OnCollapse(wxCommandEvent &e) {
-  if (Changed()) {
-    GOMessageBox(
-      _("Please apply changes first"), _("Error"), wxOK | wxICON_ERROR, this);
-    return;
-  }
-  CloseTree(m_Tree->GetRootItem());
 }
