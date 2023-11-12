@@ -1,3 +1,17 @@
+- Fixed crash on closing an organ https://github.com/GrandOrgue/grandorgue/issues/1678
+# 3.13.1 (2023-11-05)
+- Fixed the maximal value of the "SYSEX Hauptwerk 32 Byte LCD" midi send events https://github.com/GrandOrgue/grandorgue/issues/1686
+- Fixed discard in the Organ Settings dialog when multiple objects are selected https://github.com/GrandOrgue/grandorgue/issues/1674
+- Moved all Organ Settings dialog buttons to the single button row https://github.com/GrandOrgue/grandorgue/issues/1674
+- Decreased number of decimal digits in the Organ Settings dialog https://github.com/GrandOrgue/grandorgue/issues/1627
+- Added a confirmation box when restoring Organ Settings to default https://github.com/GrandOrgue/grandorgue/issues/1674
+- Replaced the Cancel and OK buttons in the Organ Settings dialog with the single Close button https://github.com/GrandOrgue/grandorgue/issues/1674
+- Fixed change tracking and enableing/disabling the Discard and Apply buttons in the Organ Settings dialog https://github.com/GrandOrgue/grandorgue/issues/1674
+- Renamed the Reset button to Discard in the Organ Settings dialog https://github.com/GrandOrgue/grandorgue/issues/1674
+- Adopted the build instruction and the build scripts to new ubuntu versions https://github.com/GrandOrgue/grandorgue/issues/1673
+- Improved concurrency handling
+- Added deregistering organs in the temporary directory that do not more exist https://github.com/GrandOrgue/grandorgue/issues/1660
+- Fixed error messages after multiple runs of GrandOrgue ftom Appimage with a demo organ https://github.com/GrandOrgue/grandorgue/issues/1660
 # 3.13.0 (2023-10-11)
 - Implemented option to send MIDI Note Off as 0x8X or 0x9X with velocity 0 https://github.com/GrandOrgue/grandorgue/issues/1640
 - Added capability of control buttons with Control Change MIDI events with different keys but same values using "Bx Ctrl Change Fixed On Value Toggle" and "Bx Ctrl Change Fixed Off Value Toggle" https://github.com/GrandOrgue/grandorgue/issues/1392

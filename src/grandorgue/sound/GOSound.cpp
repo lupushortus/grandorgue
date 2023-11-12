@@ -240,8 +240,17 @@ void GOSound::AssignOrganFile(GOOrganController *organController) {
     multi.Add(m_AudioOutputs[i].mutex);
 
   if (m_OrganController) {
+    // ensure pointers to work items are not held by threads
+    m_SoundEngine.GetScheduler().PauseGivingWork();
+    for (GOSoundThread *thread : m_Threads)
+      thread->WaitForIdle();
+
     m_OrganController->Abort();
+    // now work items are safe to be deleted
     m_SoundEngine.ClearSetup();
+
+    // resume processing of work items
+    m_SoundEngine.GetScheduler().ResumeGivingWork();
   }
 
   m_OrganController = organController;
@@ -319,7 +328,7 @@ bool GOSound::AudioCallback(
   GOSoundOutput *device = &m_AudioOutputs[dev_index];
   GOMutexLocker locker(device->mutex);
 
-  if (device->wait && device->waiting)
+  while (device->wait && device->waiting)
     device->condition.Wait();
 
   unsigned cnt = m_CalcCount.fetch_add(1);

@@ -8,9 +8,12 @@
 #ifndef GOSOUNDRELEASEWORKITEM_H
 #define GOSOUNDRELEASEWORKITEM_H
 
-#include "ptrvector.h"
+#include <atomic>
+
 #include "sound/GOSoundSimpleSamplerList.h"
 #include "sound/scheduler/GOSoundWorkItem.h"
+
+#include "ptrvector.h"
 
 class GOSoundEngine;
 class GOSoundGroupWorkItem;
@@ -21,9 +24,9 @@ private:
   GOSoundEngine &m_engine;
   ptr_vector<GOSoundGroupWorkItem> &m_AudioGroups;
   GOSoundSimpleSamplerList m_List;
-  atomic_uint m_WaitCnt;
-  atomic_uint m_Cnt;
-  volatile bool m_Stop;
+  std::atomic_uint m_WaitCnt;
+  std::atomic_uint m_Cnt;
+  std::atomic_bool m_Stop;
 
 public:
   GOSoundReleaseWorkItem(
