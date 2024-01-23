@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2024 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -33,8 +33,9 @@ unsigned GOSoundProviderWave::GetBytesPerSample(unsigned bits_per_sample) {
     return 3;
 }
 
-void GOSoundProviderWave::CreateAttack(
+void GOSoundProviderWave::AddAttackSection(
   GOMemoryPool &pool,
+  const GOLoaderFilename &loaderFilename,
   const char *data,
   GOWave &wave,
   int attack_start,
@@ -43,10 +44,10 @@ void GOSoundProviderWave::CreateAttack(
   unsigned bits_per_sample,
   unsigned channels,
   bool compress,
-  loop_load_type loop_mode,
+  LoopLoadType loop_mode,
   bool percussive,
   unsigned min_attack_velocity,
-  unsigned loop_crossfade_length,
+  unsigned loop_crossfade_length, // in samples
   unsigned max_released_time) {
   std::vector<GOWaveLoop> waveLoops;
   std::vector<GOWaveLoop> loops;
@@ -120,6 +121,8 @@ void GOSoundProviderWave::CreateAttack(
   GOAudioSection *section = new GOAudioSection(pool);
   m_Attack.push_back(section);
   section->Setup(
+    p_ObjectFor,
+    &loaderFilename,
     data + attack_pos * GetBytesPerSample(bits_per_sample) * channels,
     (GOWave::SAMPLE_FORMAT)bits_per_sample,
     channels,
@@ -130,8 +133,9 @@ void GOSoundProviderWave::CreateAttack(
     loop_crossfade_length);
 }
 
-void GOSoundProviderWave::CreateRelease(
+void GOSoundProviderWave::AddReleaseSection(
   GOMemoryPool &pool,
+  const GOLoaderFilename &loaderFilename,
   const char *data,
   GOWave &wave,
   int sample_group,
@@ -163,6 +167,8 @@ void GOSoundProviderWave::CreateRelease(
   GOAudioSection *section = new GOAudioSection(pool);
   m_Release.push_back(section);
   section->Setup(
+    p_ObjectFor,
+    &loaderFilename,
     data + release_offset * GetBytesPerSample(bits_per_sample) * channels,
     (GOWave::SAMPLE_FORMAT)bits_per_sample,
     channels,
@@ -181,9 +187,10 @@ void GOSoundProviderWave::LoadPitch(GOOpenedFile *file) {
   m_MidiPitchFract = wave.GetPitchFract();
 }
 
-void GOSoundProviderWave::ProcessFile(
+void GOSoundProviderWave::LoadFromOneFile(
+  const GOFileStore &fileStore,
   GOMemoryPool &pool,
-  GOOpenedFile *file,
+  const GOLoaderFilename &loaderFilename,
   const std::vector<GOWaveLoop> *loops,
   bool is_attack,
   bool is_release,
@@ -195,74 +202,96 @@ void GOSoundProviderWave::ProcessFile(
   unsigned bits_per_sample,
   int load_channels,
   bool compress,
-  loop_load_type loop_mode,
+  LoopLoadType loop_mode,
   bool percussive,
   unsigned min_attack_velocity,
   bool use_pitch,
   unsigned loop_crossfade_length,
   unsigned max_released_time) {
-  GOWave wave;
+  // if an exception occurs during Open(), it already contains the file name
+  std::unique_ptr<GOOpenedFile> openedFilePtr = loaderFilename.Open(fileStore);
 
-  wave.Open(file);
+  // catch a possible exception and rethrow it prefixed with the filename
+  wxString excText;
 
-  /* allocate data to work with */
-  unsigned totalDataSize = wave.GetLength() * GetBytesPerSample(bits_per_sample)
-    * wave.GetChannels();
-  GOBuffer<char> data(totalDataSize);
+  try {
+    GOWave wave;
 
-  if (use_pitch) {
-    m_MidiKeyNumber = wave.GetMidiNote();
-    m_MidiPitchFract = wave.GetPitchFract();
-  }
+    wave.Open(openedFilePtr.get());
+    /* allocate data to work with */
+    unsigned totalDataSize = wave.GetLength()
+      * GetBytesPerSample(bits_per_sample) * wave.GetChannels();
+    GOBuffer<char> data(totalDataSize);
 
-  unsigned channels = wave.GetChannels();
-  if (load_channels == 1)
-    channels = 1;
-  unsigned wave_channels = channels;
-  if (load_channels < 0 && (unsigned)-load_channels <= wave.GetChannels()) {
-    wave_channels = load_channels;
-    channels = 1;
-  }
-  if (bits_per_sample > wave.GetBitsPerSample())
-    bits_per_sample = wave.GetBitsPerSample();
+    if (use_pitch) {
+      m_MidiKeyNumber = wave.GetMidiNote();
+      m_MidiPitchFract = wave.GetPitchFract();
+    }
 
-  wave.ReadSamples(
-    data.get(),
-    (GOWave::SAMPLE_FORMAT)bits_per_sample,
-    wave.GetSampleRate(),
-    wave_channels);
+    unsigned channels = wave.GetChannels();
 
-  if (is_attack)
-    CreateAttack(
-      pool,
+    if (load_channels == 1)
+      channels = 1;
+
+    unsigned wave_channels = channels;
+
+    if (load_channels < 0 && (unsigned)-load_channels <= wave.GetChannels()) {
+      wave_channels = load_channels;
+      channels = 1;
+    }
+    if (bits_per_sample > wave.GetBitsPerSample())
+      bits_per_sample = wave.GetBitsPerSample();
+
+    wave.ReadSamples(
       data.get(),
-      wave,
-      attack_start,
-      loops,
-      sample_group,
-      bits_per_sample,
-      channels,
-      compress,
-      loop_mode,
-      percussive,
-      min_attack_velocity,
-      loop_crossfade_length,
-      max_released_time);
+      (GOWave::SAMPLE_FORMAT)bits_per_sample,
+      wave.GetSampleRate(),
+      wave_channels);
 
-  if (
-    is_release
-    && (!is_attack || (wave.GetNbLoops() > 0 && wave.HasReleaseMarker() && !percussive)))
-    CreateRelease(
-      pool,
-      data.get(),
-      wave,
-      sample_group,
-      max_playback_time,
-      cue_point,
-      release_end,
-      bits_per_sample,
-      channels,
-      compress);
+    if (is_attack)
+      AddAttackSection(
+        pool,
+        loaderFilename,
+        data.get(),
+        wave,
+        attack_start,
+        loops,
+        sample_group,
+        bits_per_sample,
+        channels,
+        compress,
+        loop_mode,
+        percussive,
+        min_attack_velocity,
+        loop_crossfade_length,
+        max_released_time);
+
+    if (
+      is_release
+      && (!is_attack || (wave.GetNbLoops() > 0 && wave.HasReleaseMarker() && !percussive)))
+      AddReleaseSection(
+        pool,
+        loaderFilename,
+        data.get(),
+        wave,
+        sample_group,
+        max_playback_time,
+        cue_point,
+        release_end,
+        bits_per_sample,
+        channels,
+        compress);
+  } catch (GOOutOfMemory e) {
+    throw e;
+  } catch (const wxString &error) {
+    excText = error;
+  } catch (const std::exception &e) {
+    excText = e.what();
+  } catch (...) { // We must not allow unhandled exceptions here
+    excText = _("Unknown exception");
+  }
+  if (!excText.IsEmpty())
+    throw loaderFilename.GenerateMessage(excText);
 }
 
 unsigned GOSoundProviderWave::GetFaderLength(unsigned MidiKeyNumber) {
@@ -278,17 +307,17 @@ unsigned GOSoundProviderWave::GetFaderLength(unsigned MidiKeyNumber) {
   return fade_length;
 }
 
-void GOSoundProviderWave::LoadFromFile(
+void GOSoundProviderWave::LoadFromMultipleFiles(
   const GOFileStore &fileStore,
   GOMemoryPool &pool,
-  std::vector<attack_load_info> attacks,
-  std::vector<release_load_info> releases,
+  std::vector<AttackFileInfo> attacks,
+  std::vector<ReleaseFileInfo> releases,
   unsigned bits_per_sample,
   int load_channels,
   bool compress,
-  loop_load_type loop_mode,
-  unsigned attack_load,
-  unsigned release_load,
+  LoopLoadType loop_mode,
+  bool isToLoadAttacks,
+  bool isToLoadReleases,
   unsigned loop_crossfade_length,
   unsigned release_crossfase_length) {
   ClearData();
@@ -297,7 +326,7 @@ void GOSoundProviderWave::LoadFromFile(
 
   bool load_first_attack = true;
 
-  if (!release_load)
+  if (!isToLoadReleases)
     for (int k = -1; k < 2; k++) {
       unsigned longest = 0;
       for (unsigned i = 0; i < attacks.size(); i++)
@@ -334,7 +363,7 @@ void GOSoundProviderWave::LoadFromFile(
         }
     }
 
-  if (!attack_load)
+  if (!isToLoadAttacks)
     for (int k = -1; k < 2; k++) {
       int best_idx = -1;
       unsigned min_velocity = 0xff;
@@ -375,42 +404,44 @@ void GOSoundProviderWave::LoadFromFile(
     }
 
   try {
-    for (unsigned i = 0; i < attacks.size(); i++) {
-      ProcessFile(
+    for (const auto &a : attacks) {
+      LoadFromOneFile(
+        fileStore,
         pool,
-        attacks[i].filename.Open(fileStore).get(),
-        &attacks[i].loops,
+        a.filename,
+        &a.loops,
         true,
-        attacks[i].load_release,
-        attacks[i].sample_group,
-        attacks[i].max_playback_time,
-        attacks[i].attack_start,
-        attacks[i].cue_point,
-        attacks[i].release_end,
+        a.load_release,
+        a.sample_group,
+        a.max_playback_time,
+        a.attack_start,
+        a.cue_point,
+        a.release_end,
         bits_per_sample,
         load_channels,
         compress,
         loop_mode,
-        attacks[i].percussive,
-        attacks[i].min_attack_velocity,
+        a.percussive,
+        a.min_attack_velocity,
         load_first_attack,
         loop_crossfade_length,
-        attacks[i].max_released_time);
+        a.max_released_time);
       load_first_attack = false;
     }
 
-    for (unsigned i = 0; i < releases.size(); i++) {
-      ProcessFile(
+    for (const auto &r : releases) {
+      LoadFromOneFile(
+        fileStore,
         pool,
-        releases[i].filename.Open(fileStore).get(),
+        r.filename,
         nullptr,
         false,
         true,
-        releases[i].sample_group,
-        releases[i].max_playback_time,
+        r.sample_group,
+        r.max_playback_time,
         0,
-        releases[i].cue_point,
-        releases[i].release_end,
+        r.cue_point,
+        r.release_end,
         bits_per_sample,
         load_channels,
         compress,

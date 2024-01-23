@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2024 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -353,16 +353,27 @@ void GOSoundEngine::SetupReverb(GOConfig &settings) {
       m_AudioOutputs[i]->SetupReverb(settings);
 }
 
+unsigned GOSoundEngine::GetBufferSizeFor(
+  unsigned outputIndex, unsigned nFrames) {
+  return sizeof(float) * nFrames
+    * m_AudioOutputs[outputIndex + 1]->GetChannels();
+}
+
+void GOSoundEngine::GetEmptyAudioOutput(
+  unsigned outputIndex, unsigned nFrames, float *pOutputBuffer) {
+  memset(pOutputBuffer, 0, GetBufferSizeFor(outputIndex, nFrames));
+}
+
 void GOSoundEngine::GetAudioOutput(
   float *output_buffer, unsigned n_frames, unsigned audio_output, bool last) {
-  size_t const nBytes = sizeof(float) * n_frames
-    * m_AudioOutputs[audio_output + 1]->GetChannels();
-
   if (m_HasBeenSetup.load()) {
     m_AudioOutputs[audio_output + 1]->Finish(last);
-    memcpy(output_buffer, m_AudioOutputs[audio_output + 1]->m_Buffer, nBytes);
+    memcpy(
+      output_buffer,
+      m_AudioOutputs[audio_output + 1]->m_Buffer,
+      GetBufferSizeFor(audio_output, n_frames));
   } else
-    memset(output_buffer, 0, nBytes);
+    GetEmptyAudioOutput(audio_output, n_frames, output_buffer);
 }
 
 void GOSoundEngine::NextPeriod() {
@@ -433,8 +444,8 @@ void GOSoundEngine::SwitchAttackSampler(GOSoundSampler *handle) {
 
     float gain_target = this_pipe->GetGain() * section->GetNormGain();
     unsigned cross_fade_len = this_pipe->GetReleaseCrossfadeLength();
-    handle->fader.NewAttacking(gain_target, cross_fade_len, m_SampleRate);
 
+    handle->fader.NewAttacking(gain_target, cross_fade_len, m_SampleRate);
     section->InitAlignedStream(&handle->stream, &new_sampler->stream);
     handle->is_release = false;
     new_sampler->is_release = true;
@@ -458,11 +469,13 @@ void GOSoundEngine::CreateReleaseSampler(GOSoundSampler *handle) {
    * which will decay this portion of the pipe. The sampler will
    * automatically be placed back in the pool when the fade restores to
    * zero. */
+  const GOSoundProvider *this_pipe = handle->pipe;
+  const GOAudioSection *release_section = this_pipe->GetRelease(
+    &handle->stream, ((double)(m_CurrentTime - handle->time)) / m_SampleRate);
   unsigned cross_fade_len = handle->pipe->GetReleaseCrossfadeLength();
   handle->fader.StartDecay(cross_fade_len, m_SampleRate);
   handle->is_release = true;
 
-  const GOSoundProvider *this_pipe = handle->pipe;
   float vol = (handle->sampler_group_id < 0)
     ? 1.0f
     : m_Windchests[handle->sampler_group_id]->GetWindchestVolume();
@@ -470,12 +483,7 @@ void GOSoundEngine::CreateReleaseSampler(GOSoundSampler *handle) {
   // FIXME: this is wrong... the intention is to not create a release for a
   // sample being played back with zero amplitude but this is a comparison
   // against a double. We should test against a minimum level.
-  if (vol) {
-    const GOAudioSection *release_section = this_pipe->GetRelease(
-      &handle->stream, ((double)(m_CurrentTime - handle->time)) / m_SampleRate);
-    if (!release_section)
-      return;
-
+  if (vol && release_section) {
     GOSoundSampler *new_sampler = m_SamplerPool.GetSampler();
     if (new_sampler != NULL) {
       new_sampler->pipe = this_pipe;
@@ -547,7 +555,6 @@ void GOSoundEngine::CreateReleaseSampler(GOSoundSampler *handle) {
         }
       }
 
-      unsigned cross_fade_len = this_pipe->GetReleaseCrossfadeLength();
       const unsigned releaseLength = this_pipe->GetReleaseTail();
 
       new_sampler->fader.NewAttacking(

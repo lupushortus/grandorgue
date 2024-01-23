@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2024 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -112,14 +112,14 @@ float GOPipeConfigNode::GetEffectiveAutoTuningCorection() const {
   return cents;
 }
 
-unsigned GOPipeConfigNode::GetEffectiveDelay() {
+unsigned GOPipeConfigNode::GetEffectiveDelay() const {
   if (m_parent)
     return m_PipeConfig.GetDelay() + m_parent->GetEffectiveDelay();
   else
     return m_PipeConfig.GetDelay();
 }
 
-wxString GOPipeConfigNode::GetEffectiveAudioGroup() {
+wxString GOPipeConfigNode::GetEffectiveAudioGroup() const {
   if (m_PipeConfig.GetAudioGroup() != wxEmptyString)
     return m_PipeConfig.GetAudioGroup();
   if (m_parent)
@@ -128,7 +128,7 @@ wxString GOPipeConfigNode::GetEffectiveAudioGroup() {
     return wxEmptyString;
 }
 
-unsigned GOPipeConfigNode::GetEffectiveBitsPerSample() {
+unsigned GOPipeConfigNode::GetEffectiveBitsPerSample() const {
   if (m_PipeConfig.GetBitsPerSample() != -1)
     return m_PipeConfig.GetBitsPerSample();
   if (m_parent)
@@ -137,7 +137,7 @@ unsigned GOPipeConfigNode::GetEffectiveBitsPerSample() {
     return m_config.BitsPerSample();
 }
 
-bool GOPipeConfigNode::GetEffectiveCompress() {
+bool GOPipeConfigNode::GetEffectiveCompress() const {
   if (m_PipeConfig.GetCompress() != -1)
     return m_PipeConfig.GetCompress() ? true : false;
   if (m_parent)
@@ -146,7 +146,7 @@ bool GOPipeConfigNode::GetEffectiveCompress() {
     return m_config.LosslessCompression();
 }
 
-unsigned GOPipeConfigNode::GetEffectiveLoopLoad() {
+unsigned GOPipeConfigNode::GetEffectiveLoopLoad() const {
   if (m_PipeConfig.GetLoopLoad() != -1)
     return m_PipeConfig.GetLoopLoad();
   if (m_parent)
@@ -155,25 +155,23 @@ unsigned GOPipeConfigNode::GetEffectiveLoopLoad() {
     return m_config.LoopLoad();
 }
 
-unsigned GOPipeConfigNode::GetEffectiveAttackLoad() {
-  if (m_PipeConfig.GetAttackLoad() != -1)
-    return m_PipeConfig.GetAttackLoad();
-  if (m_parent)
-    return m_parent->GetEffectiveAttackLoad();
-  else
-    return m_config.AttackLoad();
+bool GOPipeConfigNode::GetEffectiveAttackLoad() const {
+  const int thisConfigValue = m_PipeConfig.GetAttackLoad();
+
+  return thisConfigValue != -1 ? (bool)thisConfigValue
+    : m_parent                 ? m_parent->GetEffectiveAttackLoad()
+                               : m_config.AttackLoad();
 }
 
-unsigned GOPipeConfigNode::GetEffectiveReleaseLoad() {
-  if (m_PipeConfig.GetReleaseLoad() != -1)
-    return m_PipeConfig.GetReleaseLoad();
-  if (m_parent)
-    return m_parent->GetEffectiveReleaseLoad();
-  else
-    return m_config.ReleaseLoad();
+bool GOPipeConfigNode::GetEffectiveReleaseLoad() const {
+  const int thisConfigValue = m_PipeConfig.GetReleaseLoad();
+
+  return thisConfigValue != -1 ? (bool)thisConfigValue
+    : m_parent                 ? m_parent->GetEffectiveReleaseLoad()
+                               : m_config.ReleaseLoad();
 }
 
-unsigned GOPipeConfigNode::GetEffectiveChannels() {
+unsigned GOPipeConfigNode::GetEffectiveChannels() const {
   if (m_PipeConfig.GetChannels() != -1)
     return m_PipeConfig.GetChannels();
   if (m_parent)
@@ -182,7 +180,7 @@ unsigned GOPipeConfigNode::GetEffectiveChannels() {
     return m_config.LoadChannels();
 }
 
-GOSampleStatistic GOPipeConfigNode::GetStatistic() {
+GOSampleStatistic GOPipeConfigNode::GetStatistic() const {
   if (m_StatisticCallback)
     return m_StatisticCallback->GetStatistic();
   return GOSampleStatistic();

@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2024 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -29,8 +29,8 @@ private:
   uint64_t m_LastStop;
   int m_Instances;
   bool m_Tremulant;
-  std::vector<attack_load_info> m_AttackInfo;
-  std::vector<release_load_info> m_ReleaseInfo;
+  std::vector<GOSoundProviderWave::AttackFileInfo> m_AttackFileInfos;
+  std::vector<GOSoundProviderWave::ReleaseFileInfo> m_ReleaseFileInfos;
   wxString m_Filename;
 
   /* states which windchest this pipe belongs to, see
@@ -54,7 +54,16 @@ private:
   GOPipeConfigNode m_PipeConfigNode;
 
   // internal functions
-  void LoadAttack(GOConfigReader &cfg, wxString group, wxString prefix);
+  /* Read one attack file info from the odf keys with the prefix specified and
+   * add it to m_AttackFileInfos
+   */
+  void LoadAttackFileInfo(
+    GOConfigReader &cfg, const wxString &group, const wxString &prefix);
+  /* Read one release file info from the odf keys with the prefix specified and
+   * add it to m_AttackFileInfos
+   */
+  void LoadReleaseFileInfo(
+    GOConfigReader &cfg, const wxString &group, const wxString &prefix);
   /**
    * Calculate a pitch offset for manual tuning
    * @return pitch offset in cents
@@ -69,12 +78,12 @@ private:
   void Validate();
 
   // Callbacks for GOCacheObject
-  const wxString &GetLoadTitle() override { return m_Filename; }
+  const wxString &GetLoadTitle() const override { return m_Filename; }
   void Initialize() override {}
   void LoadData(const GOFileStore &fileStore, GOMemoryPool &pool) override;
   bool LoadCache(GOMemoryPool &pool, GOCache &cache) override;
-  bool SaveCache(GOCacheWriter &cache) override;
-  void UpdateHash(GOHash &hash) override;
+  bool SaveCache(GOCacheWriter &cache) const override;
+  void UpdateHash(GOHash &hash) const override;
 
   // Callbacks from GOPipeConfigNode
   void UpdateAmplitude() override;
@@ -113,7 +122,10 @@ public:
     bool retune);
 
   void Init(
-    GOConfigReader &cfg, wxString group, wxString prefix, wxString filename);
+    GOConfigReader &cfg,
+    const wxString &group,
+    const wxString &prefix,
+    const wxString &filename);
   void Load(GOConfigReader &cfg, wxString group, wxString prefix);
 };
 

@@ -46,6 +46,8 @@
 #include "gui/GOGUISequencerPanel.h"
 #include "loader/GOLoadThread.h"
 #include "loader/GOLoaderFilename.h"
+#include "loader/cache/GOCache.h"
+#include "loader/cache/GOCacheWriter.h"
 #include "midi/GOMidi.h"
 #include "midi/GOMidiEvent.h"
 #include "midi/GOMidiPlayer.h"
@@ -68,8 +70,6 @@
 
 #include "GOAudioRecorder.h"
 #include "GOBuffer.h"
-#include "GOCache.h"
-#include "GOCacheWriter.h"
 #include "GODocument.h"
 #include "GOEvent.h"
 #include "GOHash.h"
@@ -374,7 +374,7 @@ wxString GOOrganController::Load(
   GOConfigFileReader odf_ini_file;
 
   if (!odf_ini_file.Read(odf_name.Open(m_FileStore).get())) {
-    errMsg.Printf(_("Unable to read '%s'"), odf_name.GetTitle().c_str());
+    errMsg.Printf(_("Unable to read '%s'"), odf_name.GetPath().c_str());
     return errMsg;
   }
 
@@ -517,10 +517,7 @@ wxString GOOrganController::Load(
       if (cache_ok) {
         while ((obj = objectDistributor.FetchNext())) {
           if (!obj->LoadFromCacheWithoutExc(m_pool, reader)) {
-            wxLogWarning(
-              _("Cache load failure: Failed to read %s from cache: %s"),
-              obj->GetLoadTitle(),
-              obj->GetLoadError());
+            wxLogWarning(_("Cache load failure: %s"), obj->GetLoadError());
             break;
           }
           if (!dlg->Update(objectDistributor.GetPos(), obj->GetLoadTitle()))
@@ -568,13 +565,13 @@ wxString GOOrganController::Load(
       if (wereExceptions) {
         for (auto obj : GetCacheObjects()) {
           if (!obj->IsReady())
-            wxLogError(
-              _("Unable to load %s: %s"),
-              obj->GetLoadTitle(),
-              obj->GetLoadError());
+            wxLogError(obj->GetLoadError());
         }
-        errMsg.Printf(
-          _("There are errors while loading the organ. See Log Messages."));
+        GOMessageBox(
+          _("There are errors while loading the organ. See Log Messages."),
+          _("Load error"),
+          wxOK | wxICON_ERROR,
+          NULL);
       } else {
         if (objectDistributor.IsComplete())
           m_Cacheable = true;

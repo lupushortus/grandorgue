@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2024 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -8,10 +8,15 @@
 #include "GOSoundAudioSection.h"
 
 #include <wx/intl.h>
+#include <wx/log.h>
+
+#include "loader/cache/GOCache.h"
+#include "loader/cache/GOCacheWriter.h"
+
+#include "loader/GOLoaderFilename.h"
+#include "model/GOCacheObject.h"
 
 #include "GOAlloc.h"
-#include "GOCache.h"
-#include "GOCacheWriter.h"
 #include "GOMemoryPool.h"
 #include "GOSampleStatistic.h"
 #include "GOSoundCompress.h"
@@ -636,6 +641,8 @@ void GOAudioSection::DoCrossfade(
 }
 
 void GOAudioSection::Setup(
+  const GOCacheObject *pObjectFor,
+  const GOLoaderFilename *pLoaderFilename,
   const void *pcm_data,
   const GOWave::SAMPLE_FORMAT pcm_data_format,
   const unsigned pcm_data_channels,
@@ -654,6 +661,7 @@ void GOAudioSection::Setup(
   assert(pcm_data_nb_samples > 0);
 
   const unsigned bytes_per_sample = wave_bytes_per_sample(pcm_data_format);
+
   m_BytesPerSample = bytes_per_sample * pcm_data_channels;
 
   unsigned total_alloc_samples = pcm_data_nb_samples;
@@ -668,11 +676,13 @@ void GOAudioSection::Setup(
     /* Setup the loops and find the amount of data we need to store in the
      * main block. */
     unsigned min_reqd_samples = 0;
+
     for (unsigned i = 0; i < loop_points->size(); i++) {
       audio_start_data_segment start_seg;
       audio_end_data_segment end_seg;
       const GOWaveLoop &loop = (*loop_points)[i];
       unsigned fade_len = crossfade_length;
+
       if (loop.m_EndPosition + 1 > min_reqd_samples)
         min_reqd_samples = loop.m_EndPosition + 1;
 
@@ -681,75 +691,88 @@ void GOAudioSection::Setup(
       end_seg.next_start_segment_index = i + 1;
       const unsigned loop_length
         = 1 + end_seg.end_offset - start_seg.start_offset;
-      unsigned end_length;
+      wxString loopError;
 
-      if (end_seg.end_offset - start_seg.start_offset > SHORT_LOOP_LENGTH) {
-        if (fade_len > end_seg.end_offset - start_seg.start_offset)
-          throw(wxString) _("Loop too short for crossfade");
+      if (fade_len > loop_length - 1)
+        loopError = wxString::Format(
+          _("The loop %u is ignored: it is too short for crossfade"), i + 1);
+      else if (start_seg.start_offset < fade_len)
+        loopError = wxString::Format(
+          _("The loop %u is ignored: not enough samples for crossfade before "
+            "it's start"),
+          i + 1);
 
-        if (start_seg.start_offset < fade_len)
-          throw(wxString) _("Not enough samples for a crossfade");
+      if (loopError.IsEmpty()) {
+        unsigned end_length;
 
-        end_seg.transition_offset
-          = end_seg.end_offset - MAX_READAHEAD - fade_len + 1;
-        end_seg.read_end = end_seg.end_offset - fade_len;
-        end_length = 2 * MAX_READAHEAD + fade_len;
-      } else {
-        if (fade_len > end_seg.end_offset - start_seg.start_offset)
-          throw(wxString) _("Loop too short for crossfade");
+        // calculate the fade segment size and offsets
+        if (end_seg.end_offset - start_seg.start_offset > SHORT_LOOP_LENGTH) {
+          end_seg.transition_offset
+            = end_seg.end_offset - MAX_READAHEAD - fade_len + 1;
+          end_seg.read_end = end_seg.end_offset - fade_len;
+          end_length = 2 * MAX_READAHEAD + fade_len;
+        } else {
+          end_seg.transition_offset = start_seg.start_offset;
+          end_seg.read_end = end_seg.end_offset;
+          end_length = SHORT_LOOP_LENGTH + MAX_READAHEAD;
+          if (
+            end_length < MAX_READAHEAD
+              + (SHORT_LOOP_LENGTH / loop_length) * SHORT_LOOP_LENGTH
+              + fade_len)
+            end_length = MAX_READAHEAD
+              + (SHORT_LOOP_LENGTH / loop_length) * SHORT_LOOP_LENGTH
+              + fade_len;
+        }
+        end_seg.end_size = end_length * m_BytesPerSample;
 
-        if (start_seg.start_offset < fade_len)
-          throw(wxString) _("Not enough samples for a crossfade");
+        // Allocate the fade segment
+        end_seg.end_data
+          = (unsigned char *)m_Pool.Alloc(end_seg.end_size, true);
+        if (!end_seg.end_data)
+          throw GOOutOfMemory();
+        end_seg.end_ptr
+          = end_seg.end_data - m_BytesPerSample * end_seg.transition_offset;
 
-        end_seg.transition_offset = start_seg.start_offset;
-        end_seg.read_end = end_seg.end_offset;
-        end_length = SHORT_LOOP_LENGTH + MAX_READAHEAD;
-        if (
-          end_length < MAX_READAHEAD
-            + (SHORT_LOOP_LENGTH / loop_length) * SHORT_LOOP_LENGTH + fade_len)
-          end_length = MAX_READAHEAD
-            + (SHORT_LOOP_LENGTH / loop_length) * SHORT_LOOP_LENGTH + fade_len;
-      }
-      end_seg.end_size = end_length * m_BytesPerSample;
-      end_seg.end_data = (unsigned char *)m_Pool.Alloc(end_seg.end_size, true);
-      end_seg.end_ptr
-        = end_seg.end_data - m_BytesPerSample * end_seg.transition_offset;
+        const unsigned copy_len
+          = 1 + end_seg.end_offset - end_seg.transition_offset;
 
-      if (!end_seg.end_data)
-        throw GOOutOfMemory();
-
-      const unsigned copy_len
-        = 1 + end_seg.end_offset - end_seg.transition_offset;
-
-      memcpy(
-        end_seg.end_data,
-        ((const unsigned char *)pcm_data)
-          + end_seg.transition_offset * m_BytesPerSample,
-        copy_len * m_BytesPerSample);
-      loop_memcpy(
-        ((unsigned char *)end_seg.end_data) + copy_len * m_BytesPerSample,
-        ((const unsigned char *)pcm_data)
-          + loop.m_StartPosition * m_BytesPerSample,
-        loop_length * m_BytesPerSample,
-        (end_length - copy_len) * m_BytesPerSample);
-      if (fade_len > 0)
-        DoCrossfade(
+        // Fill the fade seg with transition data, then with the loop start data
+        memcpy(
           end_seg.end_data,
-          MAX_READAHEAD,
-          (const unsigned char *)pcm_data,
-          start_seg.start_offset - fade_len,
-          pcm_data_channels,
-          m_BitsPerSample,
-          fade_len,
-          loop_length,
-          end_length);
+          ((const unsigned char *)pcm_data)
+            + end_seg.transition_offset * m_BytesPerSample,
+          copy_len * m_BytesPerSample);
+        loop_memcpy(
+          ((unsigned char *)end_seg.end_data) + copy_len * m_BytesPerSample,
+          ((const unsigned char *)pcm_data)
+            + loop.m_StartPosition * m_BytesPerSample,
+          loop_length * m_BytesPerSample,
+          (end_length - copy_len) * m_BytesPerSample);
+        if (fade_len > 0)
+          // TODO: reduce the number of parameters of DoCrossfade that the call
+          // would be easy readable without additional comments
+          DoCrossfade(
+            end_seg.end_data,
+            MAX_READAHEAD,
+            (const unsigned char *)pcm_data,
+            start_seg.start_offset - fade_len,
+            pcm_data_channels,
+            m_BitsPerSample,
+            fade_len,
+            loop_length,
+            end_length);
 
-      end_seg.end_loop_length = loop_length;
-      end_seg.end_pos = end_length + end_seg.transition_offset;
-      assert(end_length >= MAX_READAHEAD);
+        end_seg.end_loop_length = loop_length;
+        end_seg.end_pos = end_length + end_seg.transition_offset;
+        assert(end_length >= MAX_READAHEAD);
 
-      m_StartSegments.push_back(start_seg);
-      m_EndSegments.push_back(end_seg);
+        m_StartSegments.push_back(start_seg);
+        m_EndSegments.push_back(end_seg);
+      } else
+        wxLogWarning(GOCacheObject::generateMessage(
+          pObjectFor, pLoaderFilename, loopError));
+      if (!m_EndSegments.size())
+        throw(wxString) _("No valid loops exist in the file");
     }
 
     /* There is no need to store any samples after the end of the last loop. */

@@ -9,8 +9,9 @@
 
 #include <wx/intl.h>
 
-#include "GOCache.h"
-#include "GOCacheWriter.h"
+#include "loader/cache/GOCache.h"
+#include "loader/cache/GOCacheWriter.h"
+
 #include "GOMemoryPool.h"
 #include "GOSampleStatistic.h"
 #include "GOSoundAudioSection.h"
@@ -90,7 +91,7 @@ void GOSoundProvider::UseSampleGroup(unsigned sample_group) {
   m_SampleGroup = sample_group;
 }
 
-bool GOSoundProvider::SaveCache(GOCacheWriter &cache) {
+bool GOSoundProvider::SaveCache(GOCacheWriter &cache) const {
   if (!cache.Write(&m_MidiKeyNumber, sizeof(m_MidiKeyNumber)))
     return false;
   if (!cache.Write(&m_MidiPitchFract, sizeof(m_MidiPitchFract)))

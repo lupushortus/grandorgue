@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2024 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -17,52 +17,58 @@
 #include "GOSoundProvider.h"
 #include "GOWaveLoop.h"
 
+class GOCacheObject;
 class GOWave;
 
-typedef enum {
-  /* Only the first loop with the earliest endpoint is loaded. This will
-   * result in the minimal amount of memory being loaded for the sample.
-   */
-  LOOP_LOAD_CONSERVATIVE = 0,
-
-  /* Only the longest loop will be loaded. This only provides a benefit if
-   * the longest loop is not the last loop found.
-   */
-  LOOP_LOAD_LONGEST = 1,
-
-  /* Stores all samples up to the very last loop end-point. Uses the most
-   * memory and should achieve best realism.
-   */
-  LOOP_LOAD_ALL = 2
-} loop_load_type;
-
-typedef struct {
-  GOLoaderFilename filename;
-  int sample_group;
-  bool load_release;
-  bool percussive;
-  unsigned min_attack_velocity;
-  unsigned max_released_time;
-  int max_playback_time;
-  int attack_start;
-  int cue_point;
-  int release_end;
-  std::vector<GOWaveLoop> loops;
-} attack_load_info;
-
-typedef struct {
-  GOLoaderFilename filename;
-  int sample_group;
-  int max_playback_time;
-  int cue_point;
-  int release_end;
-} release_load_info;
-
 class GOSoundProviderWave : public GOSoundProvider {
+public:
+  enum LoopLoadType {
+    /* Only the first loop with the earliest endpoint is loaded. This will
+     * result in the minimal amount of memory being loaded for the sample.
+     */
+    LOOP_LOAD_CONSERVATIVE = 0,
+
+    /* Only the longest loop will be loaded. This only provides a benefit if
+     * the longest loop is not the last loop found.
+     */
+    LOOP_LOAD_LONGEST = 1,
+
+    /* Stores all samples up to the very last loop end-point. Uses the most
+     * memory and should achieve best realism.
+     */
+    LOOP_LOAD_ALL = 2
+  };
+
+  struct AttackFileInfo {
+    GOLoaderFilename filename;
+    int sample_group;
+    bool load_release;
+    bool percussive;
+    unsigned min_attack_velocity;
+    unsigned max_released_time;
+    int max_playback_time;
+    int attack_start;
+    int cue_point;
+    int release_end;
+    std::vector<GOWaveLoop> loops;
+  };
+
+  struct ReleaseFileInfo {
+    GOLoaderFilename filename;
+    int sample_group;
+    int max_playback_time;
+    int cue_point;
+    int release_end;
+  };
+
+private:
+  // Used for error messages
+  GOCacheObject *p_ObjectFor;
   unsigned GetBytesPerSample(unsigned bits_per_sample);
 
-  void CreateAttack(
+  void AddAttackSection(
     GOMemoryPool &pool,
+    const GOLoaderFilename &loaderFilename,
     const char *data,
     GOWave &wave,
     int attack_start,
@@ -71,14 +77,15 @@ class GOSoundProviderWave : public GOSoundProvider {
     unsigned bits_per_sample,
     unsigned channels,
     bool compress,
-    loop_load_type loop_mode,
+    LoopLoadType loop_mode,
     bool percussive,
     unsigned min_attack_velocity,
     unsigned loop_crossfade_length,
     unsigned max_released_time);
 
-  void CreateRelease(
+  void AddReleaseSection(
     GOMemoryPool &pool,
+    const GOLoaderFilename &loaderFilename,
     const char *data,
     GOWave &wave,
     int sample_group,
@@ -89,9 +96,13 @@ class GOSoundProviderWave : public GOSoundProvider {
     unsigned channels,
     bool compress);
 
-  void ProcessFile(
+  /*
+   * Load attack and/or release samples from one wav file or from an archive
+   */
+  void LoadFromOneFile(
+    const GOFileStore &fileStore,
     GOMemoryPool &pool,
-    GOOpenedFile *file,
+    const GOLoaderFilename &loaderFilename,
     const std::vector<GOWaveLoop> *loops,
     bool is_attack,
     bool is_release,
@@ -103,7 +114,7 @@ class GOSoundProviderWave : public GOSoundProvider {
     unsigned bits_per_sample,
     int load_channels,
     bool compress,
-    loop_load_type loop_mode,
+    LoopLoadType loop_mode,
     bool percussive,
     unsigned min_attack_velocity,
     bool use_pitch,
@@ -114,17 +125,24 @@ class GOSoundProviderWave : public GOSoundProvider {
   unsigned GetFaderLength(unsigned MidiKeyNumber);
 
 public:
-  void LoadFromFile(
+  GOSoundProviderWave(GOCacheObject *pObjectFor = nullptr)
+    : p_ObjectFor(pObjectFor) {}
+
+  /*
+   * Load all attack and release samples from corresponding .wav files or from
+   * an archive
+   */
+  void LoadFromMultipleFiles(
     const GOFileStore &fileStore,
     GOMemoryPool &pool,
-    std::vector<attack_load_info> attacks,
-    std::vector<release_load_info> releases,
+    std::vector<AttackFileInfo> attacks,
+    std::vector<ReleaseFileInfo> releases,
     unsigned bits_per_sample,
     int channels,
     bool compress,
-    loop_load_type loop_mode,
-    unsigned attack_load,
-    unsigned release_load,
+    LoopLoadType loop_mode,
+    bool isToLoadAttacks,
+    bool isToLoadReleases,
     unsigned loop_crossfade_length,
     unsigned release_crossfase_length);
   void SetAmplitude(float fixed_amplitude, float gain);

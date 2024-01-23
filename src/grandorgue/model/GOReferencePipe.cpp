@@ -27,6 +27,7 @@ GOReferencePipe::GOReferencePipe(
 
 void GOReferencePipe::Load(
   GOConfigReader &cfg, wxString group, wxString prefix) {
+  SetGroupAndPrefix(group, prefix);
   m_model->RegisterCacheObject(this);
   m_Filename = cfg.ReadStringTrim(ODFSetting, group, prefix);
   if (!m_Filename.StartsWith(wxT("REF:")))
@@ -55,10 +56,6 @@ void GOReferencePipe::Initialize() {
       pipe - 1);
   m_ReferenceID = m_Reference->RegisterReference(this);
 }
-
-void GOReferencePipe::UpdateHash(GOHash &hash) {}
-
-const wxString &GOReferencePipe::GetLoadTitle() { return m_Filename; }
 
 void GOReferencePipe::VelocityChanged(
   unsigned velocity, unsigned old_velocity) {
