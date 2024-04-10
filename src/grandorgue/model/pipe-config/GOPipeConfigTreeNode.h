@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2024 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "GOPipeConfigNode.h"
+#include "GOPipeUpdateCallback.h"
 
 class GOPipeConfigTreeNode : public GOPipeConfigNode,
                              private GOPipeUpdateCallback {
@@ -29,10 +30,12 @@ public:
     GOOrganModel *organModel,
     GOPipeUpdateCallback *callback);
 
-  void AddChild(GOPipeConfigNode *node);
-  unsigned GetChildCount();
-  GOPipeConfigNode *GetChild(unsigned index);
-  GOSampleStatistic GetStatistic() const;
+  void AddChild(GOPipeConfigNode *node) override { m_Childs.push_back(node); }
+  unsigned GetChildCount() const override { return m_Childs.size(); }
+  GOPipeConfigNode *GetChild(unsigned index) const override {
+    return m_Childs[index];
+  }
+  GOSampleStatistic GetStatistic() const override;
 };
 
 #endif

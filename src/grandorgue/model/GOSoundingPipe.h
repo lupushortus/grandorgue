@@ -9,6 +9,7 @@
 #define GOSOUNDINGPIPE_H
 
 #include "pipe-config/GOPipeConfigNode.h"
+#include "pipe-config/GOPipeUpdateCallback.h"
 #include "sound/GOSoundProviderWave.h"
 
 #include "GOCacheObject.h"
@@ -26,6 +27,7 @@ class GOSoundingPipe : public GOPipe,
 private:
   GOOrganModel *p_OrganModel;
   GOSoundSampler *m_Sampler;
+  uint64_t m_LastStart;
   uint64_t m_LastStop;
   int m_Instances;
   bool m_Tremulant;
@@ -37,11 +39,8 @@ private:
    * GOSoundEngine::StartSampler */
   int m_SamplerGroupID;
   unsigned m_AudioGroupID;
-  bool m_Percussive;
   float m_TemperamentOffset;
   unsigned m_HarmonicNumber;
-  unsigned m_LoopCrossfadeLength;
-  unsigned m_ReleaseCrossfadeLength;
   float m_MinVolume;
   float m_MaxVolume;
   int m_OdfMidiKeyNumber;
@@ -58,7 +57,10 @@ private:
    * add it to m_AttackFileInfos
    */
   void LoadAttackFileInfo(
-    GOConfigReader &cfg, const wxString &group, const wxString &prefix);
+    GOConfigReader &cfg,
+    const wxString &group,
+    const wxString &prefix,
+    bool isMain);
   /* Read one release file info from the odf keys with the prefix specified and
    * add it to m_AttackFileInfos
    */
@@ -111,9 +113,8 @@ private:
 
 public:
   GOSoundingPipe(
-    GOOrganModel *organController,
+    GOOrganModel *pOrganModel,
     GORank *rank,
-    bool percussive,
     int sampler_group_id,
     unsigned midi_key_number,
     unsigned harmonic_number,
@@ -126,7 +127,8 @@ public:
     const wxString &group,
     const wxString &prefix,
     const wxString &filename);
-  void Load(GOConfigReader &cfg, wxString group, wxString prefix);
+  void Load(GOConfigReader &cfg, const wxString &group, const wxString &prefix)
+    override;
 };
 
 #endif

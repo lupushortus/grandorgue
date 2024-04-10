@@ -1,3 +1,18 @@
+# 3.14.0 (2024-03-29)
+- Fixed crash on loading an organ without a pedal but wit a unison-off coupler https://github.com/GrandOrgue/grandorgue/issues/1846
+- Changed displaying of the right part of paths https://github.com/GrandOrgue/grandorgue/issues/1663
+- Added automatic update checking at startup (configurable) and the ability to check for updates from Help menu  
+- Increased maximum value of allowed size to 32000 https://github.com/GrandOrgue/grandorgue/issues/1840
+- Added capability of specifying AmplitudeLevel, Gain, PitchTuning, PitchCorrection and TrackerDelay, Percussive, HasIndependentRelease at the WindchestGroup level of ODF
+- Added capability of specifying Percussive and HasIndependentRelease at the Organ level of ODF
+- Added capability of playing release of percussive pipes with Pipe999HasIndependentRelease=Y https://github.com/GrandOrgue/grandorgue/issues/1385
+- Fixed different encoding of combination .yaml files on Windows, Linux and MacOS https://github.com/GrandOrgue/grandorgue/issues/1818
+- Added support of "Couple Through" mode of Virtual Couplers https://github.com/GrandOrgue/grandorgue/issues/1657
+- Added capability of loading only GUI panels without audio samples by specifying the "-g" switch from the command line https://github.com/GrandOrgue/grandorgue/issues/1602
+- Removed support of MacOS 11 https://github.com/GrandOrgue/grandorgue/issues/1791
+- Fixed crash on loading an organ with a crescendo in Add mode https://github.com/GrandOrgue/grandorgue/issues/1772
+- Fixed crash with rtaudio/asio https://github.com/GrandOrgue/grandorgue/issues/1772
+- Added support of specifying different crossfade length for additional attack and release files https://github.com/GrandOrgue/grandorgue/issues/1760
 - Fixed wrong filename of the midi recorder file with Hungarian language settings https://github.com/GrandOrgue/grandorgue/issues/1644
 - Fixed unability to select the Hungarian language in the Organ Settings dialog
 - Eliminated resetting audio group with the Default button of Organ Settings dialog https://github.com/GrandOrgue/grandorgue/issues/731

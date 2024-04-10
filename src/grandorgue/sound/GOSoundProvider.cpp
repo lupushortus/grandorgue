@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2024 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -12,6 +12,7 @@
 #include "loader/cache/GOCache.h"
 #include "loader/cache/GOCacheWriter.h"
 
+#include "GOHash.h"
 #include "GOMemoryPool.h"
 #include "GOSampleStatistic.h"
 #include "GOSoundAudioSection.h"
@@ -25,11 +26,16 @@
     }                                                                          \
   } while (0)
 
+void GOSoundProvider::UpdateCacheHash(GOHash &hash) {
+  hash.Update(sizeof(AttackSelector));
+  hash.Update(sizeof(ReleaseSelector));
+}
+
 GOSoundProvider::GOSoundProvider()
   : m_MidiKeyNumber(0),
     m_MidiPitchFract(0),
     m_Tuning(1),
-    m_SampleGroup(0),
+    m_SampleGroup(false),
     m_ReleaseTail(0),
     m_Attack(),
     m_AttackInfo(),
@@ -37,7 +43,7 @@ GOSoundProvider::GOSoundProvider()
     m_ReleaseInfo(),
     m_VelocityVolumeBase(1),
     m_VelocityVolumeIncrement(0),
-    m_ReleaseCrossfadeLength(184) {
+    m_AttackSwitchCrossfadeLength(184) {
   m_Gain = 0.0f;
 }
 
@@ -55,18 +61,19 @@ bool GOSoundProvider::LoadCache(GOMemoryPool &pool, GOCache &cache) {
     return false;
   if (!cache.Read(&m_MidiPitchFract, sizeof(m_MidiPitchFract)))
     return false;
-  if (!cache.Read(&m_ReleaseCrossfadeLength, sizeof(m_ReleaseCrossfadeLength)))
+  if (!cache.Read(
+        &m_AttackSwitchCrossfadeLength, sizeof(m_AttackSwitchCrossfadeLength)))
     return false;
 
   unsigned attacks;
   if (!cache.Read(&attacks, sizeof(attacks)))
     return false;
   for (unsigned i = 0; i < attacks; i++) {
-    attack_section_info info;
+    AttackSelector info;
     if (!cache.Read(&info, sizeof(info)))
       return false;
     m_AttackInfo.push_back(info);
-    m_Attack.push_back(new GOAudioSection(pool));
+    m_Attack.push_back(new GOSoundAudioSection(pool));
     if (!m_Attack[i]->LoadCache(cache))
       return false;
   }
@@ -75,11 +82,11 @@ bool GOSoundProvider::LoadCache(GOMemoryPool &pool, GOCache &cache) {
   if (!cache.Read(&releases, sizeof(releases)))
     return false;
   for (unsigned i = 0; i < releases; i++) {
-    release_section_info info;
+    ReleaseSelector info;
     if (!cache.Read(&info, sizeof(info)))
       return false;
     m_ReleaseInfo.push_back(info);
-    m_Release.push_back(new GOAudioSection(pool));
+    m_Release.push_back(new GOSoundAudioSection(pool));
     if (!m_Release[i]->LoadCache(cache))
       return false;
   }
@@ -87,16 +94,13 @@ bool GOSoundProvider::LoadCache(GOMemoryPool &pool, GOCache &cache) {
   return true;
 }
 
-void GOSoundProvider::UseSampleGroup(unsigned sample_group) {
-  m_SampleGroup = sample_group;
-}
-
 bool GOSoundProvider::SaveCache(GOCacheWriter &cache) const {
   if (!cache.Write(&m_MidiKeyNumber, sizeof(m_MidiKeyNumber)))
     return false;
   if (!cache.Write(&m_MidiPitchFract, sizeof(m_MidiPitchFract)))
     return false;
-  if (!cache.Write(&m_ReleaseCrossfadeLength, sizeof(m_ReleaseCrossfadeLength)))
+  if (!cache.Write(
+        &m_AttackSwitchCrossfadeLength, sizeof(m_AttackSwitchCrossfadeLength)))
     return false;
 
   unsigned attacks = m_Attack.size();
@@ -123,7 +127,7 @@ bool GOSoundProvider::SaveCache(GOCacheWriter &cache) const {
 }
 
 void GOSoundProvider::ComputeReleaseAlignmentInfo() {
-  std::vector<const GOAudioSection *> sections;
+  std::vector<const GOSoundAudioSection *> sections;
   for (int k = -1; k < 2; k++) {
     sections.clear();
     for (unsigned i = 0; i < m_Attack.size(); i++)
@@ -167,10 +171,6 @@ unsigned GOSoundProvider::GetMidiKeyNumber() const { return m_MidiKeyNumber; }
 
 float GOSoundProvider::GetMidiPitchFract() const { return m_MidiPitchFract; }
 
-unsigned GOSoundProvider::GetReleaseCrossfadeLength() const {
-  return m_ReleaseCrossfadeLength;
-}
-
 void GOSoundProvider::SetVelocityParameter(float min_volume, float max_volume) {
   if (min_volume == max_volume) {
     m_VelocityVolumeBase = min_volume / 100;
@@ -185,19 +185,20 @@ float GOSoundProvider::GetVelocityVolume(unsigned velocity) const {
   return m_VelocityVolumeBase + (velocity * m_VelocityVolumeIncrement);
 }
 
-const GOAudioSection *GOSoundProvider::GetAttack(
-  unsigned velocity, unsigned released_time) const {
+const GOSoundAudioSection *GOSoundProvider::GetAttack(
+  unsigned velocity, unsigned releasedDurationMs) const {
   const unsigned x = abs(rand());
   int best_match = -1;
+
   for (unsigned i = 0; i < m_Attack.size(); i++) {
     const unsigned idx = (i + x) % m_Attack.size();
     if (
       m_AttackInfo[idx].sample_group != -1
-      && m_AttackInfo[idx].sample_group != m_SampleGroup)
+      && m_AttackInfo[idx].sample_group != (int8_t)m_SampleGroup)
       continue;
     if (m_AttackInfo[idx].min_attack_velocity > velocity)
       continue;
-    if (m_AttackInfo[idx].max_released_time < released_time)
+    if (m_AttackInfo[idx].max_released_time < releasedDurationMs)
       continue;
     if (best_match == -1)
       best_match = idx;
@@ -214,23 +215,16 @@ const GOAudioSection *GOSoundProvider::GetAttack(
   return NULL;
 }
 
-const GOAudioSection *GOSoundProvider::GetRelease(
-  const audio_section_stream *handle, double playback_time) const {
-  unsigned attack_idx = 0;
-  unsigned time = std::min(playback_time, 3600.0) * 1000;
-  for (unsigned i = 0; i < m_Attack.size(); i++) {
-    if (handle->audio_section == m_Attack[i])
-      attack_idx = i;
-  }
-
+const GOSoundAudioSection *GOSoundProvider::GetRelease(
+  int8_t sampleGroup, unsigned playbackDurationMs) const {
   const unsigned x = abs(rand());
   int best_match = -1;
+
   for (unsigned i = 0; i < m_Release.size(); i++) {
     const unsigned idx = (i + x) % m_Release.size();
-    if (
-      m_ReleaseInfo[idx].sample_group != m_AttackInfo[attack_idx].sample_group)
+    if (m_ReleaseInfo[idx].sample_group != sampleGroup)
       continue;
-    if (m_ReleaseInfo[idx].max_playback_time < time)
+    if (m_ReleaseInfo[idx].max_playback_time < playbackDurationMs)
       continue;
     if (best_match == -1)
       best_match = idx;

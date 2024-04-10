@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2024 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -40,23 +40,25 @@ GOCombination::GOCombination(
 GOCombination::~GOCombination() {}
 
 void GOCombination::Clear() {
-  UpdateState();
-  for (unsigned i = 0; i < m_State.size(); i++)
-    m_State[i] = -1;
+  EnsureElementStatesAllocated();
+  for (unsigned i = 0; i < m_ElementStates.size(); i++)
+    m_ElementStates[i] = BOOL3_DEFAULT;
   m_IsFull = false;
   m_HasScope = false;
 }
 
-void GOCombination::Copy(GOCombination *combination) {
+void GOCombination::Copy(const GOCombination *combination) {
   assert(&m_Template == &combination->m_Template);
-  m_State = combination->m_State;
-  UpdateState();
+  m_ElementStates = combination->m_ElementStates;
+  EnsureElementStatesAllocated();
 }
 
 bool GOCombination::IsEmpty() const {
   return std::find_if(
-           m_State.begin(), m_State.end(), [](int i) { return i >= 0; })
-    == m_State.end();
+           m_ElementStates.begin(),
+           m_ElementStates.end(),
+           [](GOBool3 v) { return v >= BOOL3_FALSE; })
+    == m_ElementStates.end();
 }
 
 void GOCombination::SetLoadedState(
@@ -68,12 +70,13 @@ void GOCombination::SetLoadedState(
     = m_Template.FindElement(elementType, manualNumber, abs(elementNumber));
 
   if (pos >= 0) {
-    int &state = m_State[pos];
+    GOBool3 &state = m_ElementStates[pos];
 
     // when loading scope/scoped cmb from yaml, the same element may be read
     // twice: for the scope and for the regular cmb
-    if (state < 0 || (m_HasScope && state == 0)) // has not yet been set
-      state = (elementNumber > 0) ? 1 : 0;
+    if (state == BOOL3_DEFAULT || (m_HasScope && state == BOOL3_FALSE))
+      // has not yet been set
+      state = to_bool3(elementNumber > 0);
     else // has already been set
       wxLogError(
         _("Duplicate combination entry %s in %s"), elementName, m_group);
@@ -213,9 +216,12 @@ void GOCombination::SetStatesFromYaml(
 void GOCombination::GetExtraSetState(
   GOCombination::ExtraElementsSet &extraSet) {
   extraSet.clear();
+  // May be called from init a crescendo before init combinations
+  EnsureElementStatesAllocated();
   for (unsigned i = 0; i < r_ElementDefinitions.size(); i++) {
     if (
-      m_State[i] == 0 && r_ElementDefinitions[i].control->GetCombinationState())
+      m_ElementStates[i] == BOOL3_FALSE
+      && r_ElementDefinitions[i].control->GetCombinationState())
       extraSet.insert(i);
   }
 }
@@ -224,21 +230,21 @@ void GOCombination::GetEnabledElements(
   GOCombination::ExtraElementsSet &enabledElements) {
   enabledElements.clear();
   for (unsigned i = 0; i < r_ElementDefinitions.size(); i++) {
-    if (m_State[i] > 0)
+    if (to_bool(m_ElementStates[i]))
       enabledElements.insert(i);
   }
 }
 
-void GOCombination::UpdateState() {
+void GOCombination::EnsureElementStatesAllocated() {
   unsigned defSize = r_ElementDefinitions.size();
 
-  if (m_State.size() > defSize)
-    m_State.resize(defSize);
-  else if (m_State.size() < defSize) {
-    unsigned current = m_State.size();
-    m_State.resize(defSize);
+  if (m_ElementStates.size() > defSize)
+    m_ElementStates.resize(defSize);
+  else if (m_ElementStates.size() < defSize) {
+    unsigned current = m_ElementStates.size();
+    m_ElementStates.resize(defSize);
     while (current < defSize)
-      m_State[current++] = -1;
+      m_ElementStates[current++] = BOOL3_DEFAULT;
   }
 }
 
@@ -318,9 +324,9 @@ const char *const FULL = "full";
 const char *const SCOPE = "scope";
 
 void GOCombination::PutElementsToYaml(
-  YAML::Node &yamlMap, int stateFrom) const {
+  YAML::Node &yamlMap, GOBool3 stateFrom) const {
   for (unsigned i = 0; i < r_ElementDefinitions.size(); i++)
-    if (GetState(i) >= stateFrom) {
+    if (GetElementState(i) >= stateFrom) {
       const auto &e = r_ElementDefinitions[i];
       unsigned value = e.index;
 
@@ -331,11 +337,11 @@ void GOCombination::PutElementsToYaml(
 }
 
 void GOCombination::ToYaml(YAML::Node &yamlMap) const {
-  PutElementsToYaml(yamlMap, 1);
+  PutElementsToYaml(yamlMap, BOOL3_TRUE);
   if (m_HasScope) {
     YAML::Node scopeNode(YAML::NodeType::Map);
 
-    PutElementsToYaml(scopeNode, 0);
+    PutElementsToYaml(scopeNode, BOOL3_FALSE);
     yamlMap[SCOPE] = scopeNode;
   }
   if (m_IsFull)
@@ -354,7 +360,11 @@ void GOCombination::FromYaml(const YAML::Node &yamlNode) {
       if (m_HasScope) {
         // set state to 0 for the scope
         FromYamlMap(scopeNode);
-        std::replace(m_State.begin(), m_State.end(), 1, 0);
+        std::replace(
+          m_ElementStates.begin(),
+          m_ElementStates.end(),
+          BOOL3_TRUE,
+          BOOL3_FALSE);
       }
 
       FromYamlMap(yamlNode);
@@ -364,12 +374,12 @@ void GOCombination::FromYaml(const YAML::Node &yamlNode) {
       // this combination is switched on
       if (!m_HasScope) {
         for (unsigned l = r_ElementDefinitions.size(), i = 0; i < l; i++) {
-          auto &state = m_State[i];
+          auto &state = m_ElementStates[i];
 
           if (
-            state < 0
+            state == BOOL3_DEFAULT
             && (r_ElementDefinitions[i].store_unconditional || m_IsFull))
-            state = 0;
+            state = BOOL3_FALSE;
           // else the element is not visible so it shouldn't be touched by the
           // combination
         }
@@ -382,7 +392,7 @@ bool GOCombination::FillWithCurrent(
   GOSetterState::SetterType setterType, bool isToStoreInvisibleObjects) {
   bool used = false;
 
-  UpdateState();
+  EnsureElementStatesAllocated();
   m_IsFull = isToStoreInvisibleObjects;
   switch (setterType) {
   case GOSetterState::SETTER_REGULAR:
@@ -391,12 +401,12 @@ bool GOCombination::FillWithCurrent(
       if (
         !isToStoreInvisibleObjects
         && !r_ElementDefinitions[i].store_unconditional)
-        m_State[i] = -1;
+        m_ElementStates[i] = BOOL3_DEFAULT;
       else if (r_ElementDefinitions[i].control->GetCombinationState()) {
-        m_State[i] = 1;
+        m_ElementStates[i] = BOOL3_TRUE;
         used |= 1;
       } else
-        m_State[i] = 0;
+        m_ElementStates[i] = BOOL3_FALSE;
     }
     break;
   case GOSetterState::SETTER_SCOPE:
@@ -405,23 +415,23 @@ bool GOCombination::FillWithCurrent(
       if (
         !isToStoreInvisibleObjects
         && !r_ElementDefinitions[i].store_unconditional)
-        m_State[i] = -1;
+        m_ElementStates[i] = BOOL3_DEFAULT;
       else if (r_ElementDefinitions[i].control->GetCombinationState()) {
-        m_State[i] = 1;
+        m_ElementStates[i] = BOOL3_TRUE;
         used |= 1;
       } else
-        m_State[i] = -1;
+        m_ElementStates[i] = BOOL3_DEFAULT;
     }
     break;
   case GOSetterState::SETTER_SCOPED:
     m_HasScope = true;
     for (unsigned i = 0; i < r_ElementDefinitions.size(); i++)
-      if (m_State[i] != -1) {
+      if (m_ElementStates[i] != BOOL3_DEFAULT) {
         if (r_ElementDefinitions[i].control->GetCombinationState()) {
-          m_State[i] = 1;
+          m_ElementStates[i] = BOOL3_TRUE;
           used |= 1;
         } else
-          m_State[i] = 0;
+          m_ElementStates[i] = BOOL3_FALSE;
       }
     break;
   }
@@ -439,13 +449,14 @@ bool GOCombination::Push(
         setterState.m_SetterType, setterState.m_IsStoreInvisible);
     }
   } else {
-    UpdateState();
+    EnsureElementStatesAllocated();
     for (unsigned i = 0; i < r_ElementDefinitions.size(); i++) {
       if (
-        m_State[i] != -1
+        m_ElementStates[i] != BOOL3_DEFAULT
         && (!extraSet || extraSet->find(i) == extraSet->end())) {
-        r_ElementDefinitions[i].control->SetCombination(m_State[i] == 1);
-        used |= m_State[i] == 1;
+        r_ElementDefinitions[i].control->SetCombination(
+          to_bool(m_ElementStates[i]));
+        used |= to_bool(m_ElementStates[i]);
       }
     }
   }

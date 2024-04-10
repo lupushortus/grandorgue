@@ -3,7 +3,7 @@
 <book lang="en">
 <!--
 Copyright 2006 Milan Digital Audio LLC
-Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
+Copyright 2009-2024 GrandOrgue contributors (see AUTHORS)
 License GPL-2.0 or later (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
 -->
   <title>GrandOrgue Help</title>
@@ -652,6 +652,36 @@ program will jump directly to the appropriate topic.
             <primary>About</primary>
           </indexterm>
           <para>Displays the splash screen.</para>
+        </sect3>
+        <sect3>
+          <title>Check for updates</title>
+          <indexterm>
+            <primary>updates</primary>
+          </indexterm>
+          <para>
+            Check if a newer version of GrandOrgue is available. If there is one,
+            GrandOrgue will show you <link linkend="update-changelog">what changed</link> in the new version.
+          </para>
+        </sect3>
+      </sect2>
+      <sect2 id="update-available">
+        <title>Update available!</title>
+        <para>That menu appears only if update checking at startup is enabled and a new update is available.</para>
+        <indexterm>
+          <primary>updates</primary>
+        </indexterm>
+        <sect3>
+          <title>Show changelog</title>
+          <para>Opens a window that shows what changed between the installed version and the newest one.</para>
+          <mediaobject id="update-changelog">
+            <imageobject>
+              <imagedata fileref="images/update_changelog.png"/>
+            </imageobject>
+          </mediaobject>
+        </sect3>
+        <sect3>
+          <title>Download</title>
+          <para>Opens the GrandOrgue releases page in the browser.</para>
         </sect3>
       </sect2>
     </sect1>
@@ -5732,6 +5762,10 @@ keyboard, etc.
               <entry><emphasis role="strong">MEL</emphasis></entry>
               <entry>"Melody" coupler. The upper note in any chord played on the "master" keyboard is "pulled" on the target key/pedal board.</entry>
             </row>
+            <row valign="top">
+              <entry><emphasis role="strong">Couple Through</emphasis></entry>
+              <entry>When it is engaged, any source manual key pressing is transfering to all engaged target manual further couplers for all couplers in this row</entry>
+            </row>
           </tbody>
         </tgroup>
       </informaltable>
@@ -6257,6 +6291,13 @@ closed with changed metronome settings.
         </note>
       </sect2>
     </sect1>
+    <sect1 id="update-checking">
+      <title>Updates</title>
+      <sect2>
+        <title>Check for updates at startup</title>
+        <para>Check the checkbox here if you would like GrandOrgue to notify you when a new version of GrandOrgue is available. If there is one, GrandOrgue will create a new menu <link linkend="update-available">Update available!</link>.</para>
+      </sect2>
+    </sect1>
     <sect1 id="masterControls">
       <title>Master Controls</title>
       <mediaobject><imageobject><imagedata fileref="images/master_controls.png" /></imageobject></mediaobject>
@@ -6529,7 +6570,7 @@ or an integer number between 1 and 50.
       </para>
       <para>
 A panel size can be one of the following values: SMALL, MEDIUM, MEDIUM LARGE, LARGE
-or an integer number between 100 and 4000.
+or an integer number between 100 and 32000.
       </para>
       <para>
 The following image formats are supported: bmp, gif, jpg, ico, png
@@ -7284,7 +7325,7 @@ number of cents.
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term>PitchTuning</term>
+          <term>PitchCorrection</term>
           <listitem>
             <para>
 (float -1800 - 1800, default: 0) Correction factor in cent for the pitch
@@ -7300,6 +7341,28 @@ temperaments.
 (integer 0 - 10000, default: 0) Delay introduced by the tracker applied to
 the whole organ.
      </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>Percussive</term>
+          <listitem>
+            <para>
+	      (boolean, default false) If true, the samples are played as is
+	      (without any loop/release handling).
+	    </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>HasIndependentRelease</term>
+          <listitem>
+            <para>
+	      (boolean, default false). If true, releases are played
+	      independently of the attacks.
+	    </para>
+            <para>
+	      If HasIndependentRelease is true then Percussive must also be set
+	      to true.
+	    </para>
           </listitem>
         </varlistentry>
       </variablelist>
@@ -9909,9 +9972,22 @@ on which the pipes of the are placed.
           <term>Percussive</term>
           <listitem>
             <para>
-(boolean, required) If false, the samples are played as is (without
-any loop/release handling)
-     </para>
+	      (boolean, default inherited from the Windchest section) If true,
+	      the samples are played as is (without any loop/release handling).
+	    </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>HasIndependentRelease</term>
+          <listitem>
+            <para>
+	      (boolean, default inherited from the Windchest section). If true,
+	      releases are played independently of the attacks.
+	    </para>
+            <para>
+	      If HasIndependentRelease is true then Percussive must also be set
+	      to true.
+	    </para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -9951,12 +10027,36 @@ attributes are:
       </para>
       <variablelist>
         <varlistentry>
+          <term>Pipe999</term>
+          <listitem>
+            <para>
+(string, required) Relative path to the sample WAV file of the first
+attack. It may be listed as REF:aa:bb:cc too. In that case, it means
+that this pipe is borrowed from manual aa, first rank of stop bb, the pipe cc.
+It may contain DUMMY, which defines a non-sounding placeholder.
+     </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term>Pipe999Percussive</term>
           <listitem>
             <para>
-(boolean, default: rank percussive setting) If false, the samples are
-played as is (without any loop/release handling)
-     </para>
+	      (boolean, default: rank Percussive setting) If true, the samples
+	      are played as is (without any loop/release handling)
+	    </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>Pipe999HasIndependentRelease</term>
+          <listitem>
+            <para>
+	      (boolean, default: rank HasIndependentRelease setting). If true,
+	      releases are played independently of attacks in this pipe.
+	    </para>
+            <para>
+	      If HasIndependentRelease is true then Pipe999Percussive must be
+	      also true and Pipe999ReleaseCount must be greater than 0.
+	    </para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -9964,7 +10064,7 @@ played as is (without any loop/release handling)
           <listitem>
             <para>
 (float 0 - 1000, default: 100) Linear amplitude scale factor applied to
-the pipe (in addition to the organ/rank factor). 100 means no change.
+the pipe (in addition to the organ/windchest/rank factor). 100 means no change.
      </para>
           </listitem>
         </varlistentry>
@@ -9973,7 +10073,7 @@ the pipe (in addition to the organ/rank factor). 100 means no change.
           <listitem>
             <para>
 (float -120 - 40, default: 0) Amplitude scale factor in dB applied to
-the pipe (in addition to the organ/rank factor). 0 means no change.
+the pipe (in addition to the organ/windchest/rank factor). 0 means no change.
      </para>
           </listitem>
         </varlistentry>
@@ -9982,7 +10082,7 @@ the pipe (in addition to the organ/rank factor). 0 means no change.
           <listitem>
             <para>
 (float -1800 - 1800, default: 0) Retune this pipe the specified
-number of cents (in addition to the organ/rank factor).
+number of cents (in addition to the organ/windchest/rank factor).
      </para>
           </listitem>
         </varlistentry>
@@ -9992,17 +10092,6 @@ number of cents (in addition to the organ/rank factor).
             <para>
 (integer 0 - 10000, default: 0) Delay introduced by the tracker for
 that pipe.
-     </para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term>Pipe999</term>
-          <listitem>
-            <para>
-(string, required) Relative path to the sample WAV file of the first
-attack. It may be listed as REF:aa:bb:cc too. In that case, it means
-that this pipe is borrowed from manual aa, first rank of stop bb, the pipe cc.
-It may contain DUMMY, which defines a non-sounding placeholder.
      </para>
           </listitem>
         </varlistentry>
@@ -10371,8 +10460,25 @@ specified in samples.
           <term>Pipe999LoopCrossfadeLength</term>
           <listitem>
             <para>
-(integer 0 - 3000, default: 0) Crossfade length in ms between loop start and loop
-end. A cross fade requires enough samples before the start of the loop.
+	      (integer 0 - 3000, default: 0) Crossfade length in ms between loop
+	      end and loop start for all loops loaded from the file specified in
+	      the Pipe999 parameter. A cross fade requires enough samples before
+	      the start of the loop.
+            </para>
+            <para>
+	      This parameter is not inherited by loops loaded from additional
+	      attack files specified in the Pipe999Attack999 parameters
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>Pipe999Attack999LoopCrossfadeLength</term>
+          <listitem>
+            <para>
+	      (integer 0 - 3000, default: 0) Crossfade length in ms between loop
+	      end and loop start for all loops loaded from the file
+	      Pipe999Attack999. A cross fade requires enough samples before the
+	      start of the loop.
             </para>
           </listitem>
         </varlistentry>
@@ -10380,8 +10486,40 @@ end. A cross fade requires enough samples before the start of the loop.
           <term>Pipe999ReleaseCrossfadeLength</term>
           <listitem>
             <para>
-(integer 0 - 3000, default: 0) Crossfade length in ms between loop and the
-release (or other attacks). 0 means automatic selection.
+	      (integer 0 - 3000, default: 0). 0 means automatic selection.
+            </para>
+            <para>
+	      Crossfade length in ms between loop and the release loaded from
+	      the file specified in the Pipe999 parameter or between different
+	      attack samples if Pipe999AttackCount > 0.
+            </para>
+            <para>
+	      This parameter is not inherited by the releases loaded from
+	      additional attack and release files specified in the
+	      Pipe999Attack999 and Pipe999Release999 parameters that should be
+	      specified with the
+	      Pipe999Attack999ReleaseCrossfadeLength and 
+	      Pipe999Release999ReleaseCrossfadeLength parameters.
+            </para>
+          </listitem>
+          <term>Pipe999Attack999ReleaseCrossfadeLength</term>
+          <listitem>
+            <para>
+	      (integer 0 - 3000, default: 0). 0 means automatic selection.
+            </para>
+            <para>
+	      Crossfade length in ms between loop and the release loaded from
+	      the file specified in the Pipe999Attack999 parameter.
+            </para>
+          </listitem>
+          <term>Pipe999Release999ReleaseCrossfadeLength</term>
+          <listitem>
+            <para>
+	      (integer 0 - 3000, default: 0). 0 means automatic selection.
+            </para>
+            <para>
+	      Crossfade length in ms between loop and the release loaded from
+	      the file specified in the Pipe999Release999 parameter.
             </para>
           </listitem>
         </varlistentry>
@@ -10625,6 +10763,80 @@ influences this windchest.
 (integer 1 - tremulant count, required) Number of a tremulant, which
 influences this windchest.
      </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>AmplitudeLevel</term>
+          <listitem>
+            <para>
+	      (float 0 - 1000, default: 100) Linear amplitude scale factor in
+	      percents applied to the windchest. It is multilied to the
+	      AmplitudeLevel value of the Organ section. 100 means no change.
+	    </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>Gain</term>
+          <listitem>
+            <para>
+	      (float -120 - 40, default: 0) Amplitude scale factor in dB applied
+	      to the windchest. It is added to the Gain value of the Organ
+	      section. 0 means no change.
+	    </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>PitchTuning</term>
+          <listitem>
+            <para>
+	      (float -1800 - 1800, default: 0) Retune the windchest by the
+	      specified number of cents. It is added to the PitchTuning value of
+	      the Organ section. 0 means no change. This setting is used only
+	      for the original temperament.
+	    </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>PitchCorrection</term>
+          <listitem>
+            <para>
+	      (float -1800 - 1800, default: 0) Correction factor in cent for the
+	      pitch of the windchest. It is added to the PitchTuning value of
+	      the Organ section. 0 means no change. This setting is used for
+	      retuning to other temperaments.
+	    </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>TrackerDelay</term>
+          <listitem>
+            <para>
+	      (integer 0 - 10000, default: 0) Delay in miliseconds introduced by
+	      the tracker applied to the windchest. It is added to the
+	      TrackerDelay value of the Organ section.
+	    </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>Percussive</term>
+          <listitem>
+            <para>
+	      (boolean, default inherited from the Organ section) If true, the
+	      samples are played as is (without any loop/release handling).
+	    </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>HasIndependentRelease</term>
+          <listitem>
+            <para>
+	      (boolean, default inherited from the Organ section). If true,
+	      releases are played independently of the attacks.
+	    </para>
+            <para>
+	      If HasIndependentRelease is true then Percussive must also be set
+	      to true.
+	    </para>
           </listitem>
         </varlistentry>
       </variablelist>

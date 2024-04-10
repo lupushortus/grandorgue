@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2024 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -17,10 +17,11 @@
 #include "midi/GOMidiCallback.h"
 #include "midi/GOMidiListener.h"
 #include "modification/GOModificationListener.h"
+#include "size/GOResizable.h"
 #include "threading/GOMutex.h"
+#include "updater/GOUpdateChecker.h"
 
 #include "GOEvent.h"
-#include "GOResizable.h"
 
 class GOApp;
 class GOAudioGauge;
@@ -69,6 +70,9 @@ private:
   wxString m_Label;
   bool m_MidiMonitor;
   bool m_isMeterReady;
+  bool m_IsGuiOnly;
+  std::unique_ptr<GOThread> m_UpdateCheckerThread;
+  GOUpdateChecker::Result m_StartupUpdateCheckerResult;
 
   // to avoid event processing when the settings dialog is open
   bool m_InSettings;
@@ -161,6 +165,11 @@ private:
   void OnMsgBox(wxMsgBoxEvent &event);
   void OnRenameFile(wxRenameFileEvent &event);
 
+  void OnUpdateCheckingRequested(wxCommandEvent &event);
+  void OnUpdateCheckingCompletion(GOUpdateChecker::CompletionEvent &event);
+  void OnNewReleaseInfoRequested(wxCommandEvent &event);
+  void OnNewReleaseDownload(wxCommandEvent &event);
+
   bool CloseOrgan(bool isForce = false);
   bool CloseProgram(bool isForce = false);
   void Open(const GOOrgan &organ);
@@ -182,7 +191,7 @@ public:
     GOSound &sound);
   virtual ~GOFrame(void);
 
-  void Init(wxString filename);
+  void Init(const wxString &filename, bool isGuiOnly);
 
   void DoSplash(bool timeout = true);
 

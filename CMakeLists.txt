@@ -1,5 +1,5 @@
 # Copyright 2006 Milan Digital Audio LLC
-# Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
+# Copyright 2009-2024 GrandOrgue contributors (see AUTHORS)
 # License GPL-2.0 or later
 # (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
 
@@ -30,6 +30,15 @@ elseif(NOT BUILD_VERSION)
 endif()
 
 set(FULL_VERSION "${PROJECT_VERSION}-${BUILD_VERSION}")
+
+# Set GITHUB_PROJECT variable that is used to configure update checking
+if (NOT DEFINED GITHUB_PROJECT)
+  set(GITHUB_PROJECT "GrandOrgue/grandorgue")
+endif()
+
+# Define a c++ standard
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_STANDARD 17 CACHE STRING "The C++ standard whose features are requested to build this project")
 
 # Build configuration options
 option(RTAUDIO_USE_CORE       "Enable RtAudio support for Core Audio (Rt and PortAudio - OS X only)" ON)
@@ -67,8 +76,6 @@ include(${CMAKE_SOURCE_DIR}/cmake/AddCXXOption.cmake)
 include(${CMAKE_SOURCE_DIR}/cmake/FindTools.cmake)
 include(${CMAKE_SOURCE_DIR}/cmake/BuildLibrary.cmake)
 include(${CMAKE_SOURCE_DIR}/cmake/BuildExecutable.cmake)
-
-add_cxx_option(-std=c++11)
 
 IF (APPLE)
   set(BININSTDIR "${PROJECT_NAME}.app/Contents/MacOS")
@@ -183,6 +190,10 @@ else()
   set(ZITACONVOLVER_INCLUDE_DIRS "")
   set(ZITACONVOLVER_LIBRARIES zita-convolver)
 endif()
+
+# include libcurl for automatic cheking for updates
+# exports CURL::libcurl that can be used in target_link_libraries
+find_package(CURL REQUIRED)
 
 # include FFTW
 pkg_check_modules(FFTW REQUIRED fftw3f)

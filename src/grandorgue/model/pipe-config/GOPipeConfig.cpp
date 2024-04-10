@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2024 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -9,44 +9,66 @@
 
 #include "config/GOConfigReader.h"
 #include "config/GOConfigWriter.h"
-#include "model/GOOrganModel.h"
 
 GOPipeConfig::GOPipeConfig(
-  GOOrganModel *organModel, GOPipeUpdateCallback *callback)
-  : m_OrganModel(organModel),
+  GOPipeConfigListener &listener, GOPipeUpdateCallback *callback)
+  : r_listener(listener),
     m_Callback(callback),
     m_Group(),
     m_NamePrefix(),
     m_AudioGroup(),
-    m_Amplitude(0),
     m_DefaultAmplitude(0),
+    m_Amplitude(0),
     m_DefaultGain(0),
+    m_Gain(0),
     m_PitchTuning(0),
     m_PitchCorrection(0),
-    m_Gain(0),
     m_ManualTuning(0),
     m_AutoTuningCorrection(0),
-    m_Delay(0),
     m_DefaultDelay(0),
+    m_Delay(0),
+    m_ReleaseTail(0),
     m_BitsPerSample(-1),
-    m_Compress(-1),
     m_Channels(-1),
     m_LoopLoad(-1),
-    m_AttackLoad(-1),
-    m_ReleaseLoad(-1),
-    m_IgnorePitch(-1),
-    m_ReleaseTail(0) {}
+    m_Percussive(BOOL3_DEFAULT),
+    m_IndependentRelease(BOOL3_DEFAULT),
+    m_Compress(BOOL3_DEFAULT),
+    m_AttackLoad(BOOL3_DEFAULT),
+    m_ReleaseLoad(BOOL3_DEFAULT),
+    m_IgnorePitch(BOOL3_DEFAULT) {}
 
 static const wxString WX_TUNING = wxT("Tuning");
 static const wxString WX_MANUAL_TUNING = wxT("ManualTuning");
 static const wxString WX_AUTO_TUNING_CORRECTION = wxT("AutoTuningCorrection");
 
-void GOPipeConfig::ReadTuning(
-  GOConfigReader &cfg, wxString group, wxString prefix) {
+void GOPipeConfig::LoadFromCmb(
+  GOConfigReader &cfg, const wxString &group, const wxString &prefix) {
+  m_Group = group;
+  m_NamePrefix = prefix;
+  m_AudioGroup
+    = cfg.ReadString(CMBSetting, group, prefix + wxT("AudioGroup"), false);
+  m_Amplitude = cfg.ReadFloat(
+    CMBSetting,
+    group,
+    prefix + wxT("Amplitude"),
+    0,
+    1000,
+    false,
+    m_DefaultAmplitude);
+  m_Gain = cfg.ReadFloat(
+    CMBSetting,
+    group,
+    prefix + wxT("UserGain"),
+    -120,
+    40,
+    false,
+    m_DefaultGain);
   // m_PitchTuning must be read before calling GOPipeConfig::ReadTuning
   float legacyTuning = cfg.ReadFloat(
     CMBSetting, group, prefix + WX_TUNING, -1800, 1800, false, m_PitchTuning);
 
+  // m_PitchTuning must be read before calling GOPipeConfig::ReadTuning
   m_ManualTuning = cfg.ReadFloat(
     CMBSetting,
     group,
@@ -63,38 +85,9 @@ void GOPipeConfig::ReadTuning(
     1800,
     false,
     0);
-}
-
-void GOPipeConfig::Init(GOConfigReader &cfg, wxString group, wxString prefix) {
-  m_Group = group;
-  m_NamePrefix = prefix;
-  m_AudioGroup
-    = cfg.ReadString(CMBSetting, group, prefix + wxT("AudioGroup"), false);
-  m_DefaultAmplitude = 100;
-  m_Amplitude = cfg.ReadFloat(
-    CMBSetting,
-    group,
-    prefix + wxT("Amplitude"),
-    0,
-    1000,
-    false,
-    m_DefaultAmplitude);
-  m_DefaultGain = 0;
-  m_Gain = cfg.ReadFloat(
-    CMBSetting,
-    group,
-    prefix + wxT("UserGain"),
-    -120,
-    40,
-    false,
-    m_DefaultGain);
-  m_PitchTuning = 0;
-  m_PitchCorrection = 0;
-  ReadTuning(cfg, group, prefix);
-  m_DefaultDelay = 0;
-  m_Delay = cfg.ReadInteger(
+  m_Delay = (uint16_t)cfg.ReadInteger(
     CMBSetting, group, prefix + wxT("Delay"), 0, 10000, false, m_DefaultDelay);
-  m_BitsPerSample = cfg.ReadInteger(
+  m_BitsPerSample = (int8_t)cfg.ReadInteger(
     CMBSetting,
     m_Group,
     m_NamePrefix + wxT("BitsPerSample"),
@@ -104,89 +97,61 @@ void GOPipeConfig::Init(GOConfigReader &cfg, wxString group, wxString prefix) {
     -1);
   if (m_BitsPerSample < 8 || m_BitsPerSample > 24)
     m_BitsPerSample = -1;
-  m_Compress = cfg.ReadInteger(
-    CMBSetting, m_Group, m_NamePrefix + wxT("Compress"), -1, 1, false, -1);
-  m_Channels = cfg.ReadInteger(
+  m_Channels = (int8_t)cfg.ReadInteger(
     CMBSetting, m_Group, m_NamePrefix + wxT("Channels"), -1, 2, false, -1);
-  m_LoopLoad = cfg.ReadInteger(
+  m_LoopLoad = (int8_t)cfg.ReadInteger(
     CMBSetting, m_Group, m_NamePrefix + wxT("LoopLoad"), -1, 2, false, -1);
-  m_AttackLoad = cfg.ReadInteger(
-    CMBSetting, m_Group, m_NamePrefix + wxT("AttackLoad"), -1, 1, false, -1);
-  m_ReleaseLoad = cfg.ReadInteger(
-    CMBSetting, m_Group, m_NamePrefix + wxT("ReleaseLoad"), -1, 1, false, -1);
+  m_Compress = cfg.ReadBool3FromInt(
+    CMBSetting, m_Group, m_NamePrefix + wxT("Compress"), false);
+  m_AttackLoad = cfg.ReadBool3FromInt(
+    CMBSetting, m_Group, m_NamePrefix + wxT("AttackLoad"), false);
+  m_ReleaseLoad = cfg.ReadBool3FromInt(
+    CMBSetting, m_Group, m_NamePrefix + wxT("ReleaseLoad"), false);
   m_IgnorePitch = cfg.ReadBooleanTriple(
     CMBSetting, m_Group, m_NamePrefix + wxT("IgnorePitch"), false);
-  m_ReleaseTail = (unsigned)cfg.ReadInteger(
-    CMBSetting, group, m_NamePrefix + wxT("ReleaseTail"), 0, 3000, false, 0);
-
-  m_Callback->UpdateAmplitude();
-  m_Callback->UpdateTuning();
-  m_Callback->UpdateAudioGroup();
-}
-
-void GOPipeConfig::Load(GOConfigReader &cfg, wxString group, wxString prefix) {
-  m_Group = group;
-  m_NamePrefix = prefix;
-  m_AudioGroup
-    = cfg.ReadString(CMBSetting, group, prefix + wxT("AudioGroup"), false);
-  m_DefaultAmplitude = cfg.ReadFloat(
-    ODFSetting, group, prefix + wxT("AmplitudeLevel"), 0, 1000, false, 100);
-  m_Amplitude = cfg.ReadFloat(
-    CMBSetting,
-    group,
-    prefix + wxT("Amplitude"),
-    0,
-    1000,
-    false,
-    m_DefaultAmplitude);
-  m_DefaultGain = cfg.ReadFloat(
-    ODFSetting, group, prefix + wxT("Gain"), -120, 40, false, 0);
-  m_Gain = cfg.ReadFloat(
-    CMBSetting,
-    group,
-    prefix + wxT("UserGain"),
-    -120,
-    40,
-    false,
-    m_DefaultGain);
-  m_PitchTuning = cfg.ReadFloat(
-    ODFSetting, group, prefix + wxT("PitchTuning"), -1800, 1800, false, 0);
-  m_PitchCorrection = cfg.ReadFloat(
-    ODFSetting, group, prefix + wxT("PitchCorrection"), -1800, 1800, false, 0);
-  ReadTuning(cfg, group, prefix);
-  m_DefaultDelay = cfg.ReadInteger(
-    ODFSetting, group, prefix + wxT("TrackerDelay"), 0, 10000, false, 0);
-  m_Delay = cfg.ReadInteger(
-    CMBSetting, group, prefix + wxT("Delay"), 0, 10000, false, m_DefaultDelay);
-  m_BitsPerSample = cfg.ReadInteger(
-    CMBSetting,
-    m_Group,
-    m_NamePrefix + wxT("BitsPerSample"),
-    -1,
-    24,
-    false,
-    -1);
-  if (m_BitsPerSample < 8 || m_BitsPerSample > 24)
-    m_BitsPerSample = -1;
-  m_Compress = cfg.ReadInteger(
-    CMBSetting, m_Group, m_NamePrefix + wxT("Compress"), -1, 1, false, -1);
-  m_Channels = cfg.ReadInteger(
-    CMBSetting, m_Group, m_NamePrefix + wxT("Channels"), -1, 2, false, -1);
-  m_LoopLoad = cfg.ReadInteger(
-    CMBSetting, m_Group, m_NamePrefix + wxT("LoopLoad"), -1, 2, false, -1);
-  m_AttackLoad = cfg.ReadInteger(
-    CMBSetting, m_Group, m_NamePrefix + wxT("AttackLoad"), -1, 1, false, -1);
-  m_ReleaseLoad = cfg.ReadInteger(
-    CMBSetting, m_Group, m_NamePrefix + wxT("ReleaseLoad"), -1, 1, false, -1);
-  m_IgnorePitch = cfg.ReadBooleanTriple(
-    CMBSetting, m_Group, m_NamePrefix + wxT("IgnorePitch"), false);
-  m_ReleaseTail = (unsigned)cfg.ReadInteger(
+  m_ReleaseTail = (uint16_t)cfg.ReadInteger(
     CMBSetting, group, m_NamePrefix + wxT("ReleaseTail"), 0, 3000, false, 0);
 
   m_Callback->UpdateAmplitude();
   m_Callback->UpdateTuning();
   m_Callback->UpdateAudioGroup();
   m_Callback->UpdateReleaseTail();
+}
+
+void GOPipeConfig::Init(
+  GOConfigReader &cfg, const wxString &group, const wxString &prefix) {
+  m_DefaultAmplitude = 100;
+  m_DefaultGain = 0;
+  m_PitchTuning = 0;
+  m_PitchCorrection = 0;
+  m_DefaultDelay = 0;
+  m_Percussive = BOOL3_DEFAULT;
+  m_IndependentRelease = BOOL3_DEFAULT;
+  LoadFromCmb(cfg, group, prefix);
+}
+
+void GOPipeConfig::Load(
+  GOConfigReader &cfg,
+  const wxString &group,
+  const wxString &prefix,
+  bool isParentPercussive) {
+  m_DefaultAmplitude = cfg.ReadFloat(
+    ODFSetting, group, prefix + wxT("AmplitudeLevel"), 0, 1000, false, 100);
+  m_DefaultGain = cfg.ReadFloat(
+    ODFSetting, group, prefix + wxT("Gain"), -120, 40, false, 0);
+  m_PitchTuning = cfg.ReadFloat(
+    ODFSetting, group, prefix + wxT("PitchTuning"), -1800, 1800, false, 0);
+  m_PitchCorrection = cfg.ReadFloat(
+    ODFSetting, group, prefix + wxT("PitchCorrection"), -1800, 1800, false, 0);
+  m_DefaultDelay = cfg.ReadInteger(
+    ODFSetting, group, prefix + wxT("TrackerDelay"), 0, 10000, false, 0);
+  m_Percussive = cfg.ReadBooleanTriple(
+    ODFSetting, group, prefix + wxT("Percussive"), false);
+  m_IndependentRelease = to_bool(m_Percussive, isParentPercussive)
+    ? cfg.ReadBooleanTriple(
+      ODFSetting, group, prefix + wxT("HasIndependentRelease"), false)
+    : BOOL3_DEFAULT;
+  LoadFromCmb(cfg, group, prefix);
 }
 
 void GOPipeConfig::Save(GOConfigWriter &cfg) {
@@ -210,96 +175,10 @@ void GOPipeConfig::Save(GOConfigWriter &cfg) {
     m_Group, m_NamePrefix + wxT("ReleaseTail"), (int)m_ReleaseTail);
 }
 
-GOPipeUpdateCallback *GOPipeConfig::GetCallback() { return m_Callback; }
-
-void GOPipeConfig::SetAudioGroup(const wxString &str) {
-  m_AudioGroup = str;
-  m_Callback->UpdateAudioGroup();
-  m_OrganModel->SetOrganModelModified();
-}
-
-float GOPipeConfig::GetAmplitude() { return m_Amplitude; }
-
-float GOPipeConfig::GetDefaultAmplitude() { return m_DefaultAmplitude; }
-
-void GOPipeConfig::SetAmplitude(float amp) {
-  m_Amplitude = amp;
-  m_Callback->UpdateAmplitude();
-  m_OrganModel->SetOrganModelModified();
-}
-
-float GOPipeConfig::GetGain() { return m_Gain; }
-
-float GOPipeConfig::GetDefaultGain() { return m_DefaultGain; }
-
-void GOPipeConfig::SetGain(float gain) {
-  m_Gain = gain;
-  m_Callback->UpdateAmplitude();
-  m_OrganModel->SetOrganModelModified();
-}
-
-void GOPipeConfig::SetManualTuning(float cent) {
-  if (cent < -1800)
-    cent = -1800;
-  if (cent > 1800)
-    cent = 1800;
-  m_ManualTuning = cent;
-  m_Callback->UpdateTuning();
-  m_OrganModel->SetOrganModelModified();
-}
-
-void GOPipeConfig::SetAutoTuningCorrection(float cent) {
-  if (cent < -1800)
-    cent = -1800;
-  if (cent > 1800)
-    cent = 1800;
-  m_AutoTuningCorrection = cent;
-  m_Callback->UpdateTuning();
-  m_OrganModel->SetOrganModelModified();
-}
-
-void GOPipeConfig::SetDelay(unsigned delay) {
-  m_Delay = delay;
-  m_OrganModel->SetOrganModelModified();
-}
-
-void GOPipeConfig::SetBitsPerSample(int value) {
-  m_BitsPerSample = value;
-  m_OrganModel->SetOrganModelModified();
-}
-
-void GOPipeConfig::SetCompress(int value) {
-  m_Compress = value;
-  m_OrganModel->SetOrganModelModified();
-}
-
-void GOPipeConfig::SetChannels(int value) {
-  m_Channels = value;
-  m_OrganModel->SetOrganModelModified();
-}
-
-void GOPipeConfig::SetLoopLoad(int value) {
-  m_LoopLoad = value;
-  m_OrganModel->SetOrganModelModified();
-}
-
-void GOPipeConfig::SetAttackLoad(int value) {
-  m_AttackLoad = value;
-  m_OrganModel->SetOrganModelModified();
-}
-
-void GOPipeConfig::SetReleaseLoad(int value) {
-  m_ReleaseLoad = value;
-  m_OrganModel->SetOrganModelModified();
-}
-
-void GOPipeConfig::SetIgnorePitch(int value) {
-  m_IgnorePitch = value;
-  m_OrganModel->SetOrganModelModified();
-}
-
-void GOPipeConfig::SetReleaseTail(unsigned releaseTail) {
-  m_ReleaseTail = releaseTail;
-  m_Callback->UpdateReleaseTail();
-  m_OrganModel->SetOrganModelModified();
+void GOPipeConfig::SetPitchMember(float cents, float &member) {
+  if (cents < -1800)
+    cents = -1800;
+  if (cents > 1800)
+    cents = 1800;
+  SetSmallMember(cents, member, &GOPipeUpdateCallback::UpdateTuning);
 }

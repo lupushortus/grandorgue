@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2024 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -11,9 +11,10 @@
 #include <unordered_set>
 #include <vector>
 
+#include "config/GOConfigReader.h"
 #include "yaml/GOSaveableToYaml.h"
 
-#include "config/GOConfigReader.h"
+#include "GOBool3.h"
 
 #include "GOCombinationDefinition.h"
 #include "GOSaveableObject.h"
@@ -33,12 +34,12 @@ private:
 
   /**
    *  States of the elements.
-   *  1 - enabled
-   *  0 - disabled
-   *  -1 - not to touch. Usually this state is used for invisible elements that
-   *    are not stored in the combination normally.
+   *  BOOL3_TRUE - enabled
+   *  BOOL3_FALSE - disabled
+   *  BOOL3_DEFAULT - not to touch. Usually this state is used for invisible
+   *    elements that are not stored in the combination normally.
    */
-  std::vector<int> m_State;
+  std::vector<GOBool3> m_ElementStates;
 
   /**
    * Whether the combination has been captured when `Full` was engaged or not
@@ -52,13 +53,13 @@ private:
    */
   bool m_HasScope;
 
-  void PutElementsToYaml(YAML::Node &yamlMap, int stateFrom) const;
+  void PutElementsToYaml(YAML::Node &yamlMap, GOBool3 stateFrom) const;
 
 protected:
   const std::vector<GOCombinationDefinition::Element> &r_ElementDefinitions;
   bool m_Protected;
 
-  void UpdateState();
+  void EnsureElementStatesAllocated();
 
   // Read the NumberOfStops key from the given config source
   unsigned ReadNumberOfStops(
@@ -135,11 +136,11 @@ public:
   virtual ~GOCombination();
 
   bool IsEmpty() const;
-  int GetState(unsigned no) const { return m_State[no]; }
+  GOBool3 GetElementState(unsigned no) const { return m_ElementStates[no]; }
   void GetExtraSetState(ExtraElementsSet &extraSet);
   void GetEnabledElements(GOCombination::ExtraElementsSet &enabledElements);
 
-  void Copy(GOCombination *combination);
+  void Copy(const GOCombination *combination);
   void Clear();
 
   // if present, read from CMB, else read from ODF, else clear

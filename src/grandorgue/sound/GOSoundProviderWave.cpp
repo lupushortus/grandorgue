@@ -113,12 +113,12 @@ void GOSoundProviderWave::AddAttackSection(
     }
   }
 
-  attack_section_info attack_info;
+  AttackSelector attack_info;
   attack_info.sample_group = sample_group;
   attack_info.min_attack_velocity = min_attack_velocity;
   attack_info.max_released_time = max_released_time;
   m_AttackInfo.push_back(attack_info);
-  GOAudioSection *section = new GOAudioSection(pool);
+  GOSoundAudioSection *section = new GOSoundAudioSection(pool);
   m_Attack.push_back(section);
   section->Setup(
     p_ObjectFor,
@@ -129,8 +129,10 @@ void GOSoundProviderWave::AddAttackSection(
     wave.GetSampleRate(),
     wave.GetLength(),
     &loops,
+    sample_group,
     compress,
-    loop_crossfade_length);
+    loop_crossfade_length,
+    0);
 }
 
 void GOSoundProviderWave::AddReleaseSection(
@@ -144,7 +146,8 @@ void GOSoundProviderWave::AddReleaseSection(
   int release_end,
   unsigned bits_per_sample,
   unsigned channels,
-  bool compress) {
+  bool compress,
+  unsigned releaseCrossfadeLength) {
   unsigned release_offset
     = wave.HasReleaseMarker() ? wave.GetReleaseMarkerPosition() : 0;
   if (cue_point != -1)
@@ -160,11 +163,11 @@ void GOSoundProviderWave::AddReleaseSection(
   if (release_offset >= release_end_marker)
     throw(wxString) _("Invalid release position");
 
-  release_section_info release_info;
+  ReleaseSelector release_info;
   release_info.sample_group = sample_group;
   release_info.max_playback_time = max_playback_time;
   m_ReleaseInfo.push_back(release_info);
-  GOAudioSection *section = new GOAudioSection(pool);
+  GOSoundAudioSection *section = new GOSoundAudioSection(pool);
   m_Release.push_back(section);
   section->Setup(
     p_ObjectFor,
@@ -175,8 +178,10 @@ void GOSoundProviderWave::AddReleaseSection(
     wave.GetSampleRate(),
     release_samples,
     NULL,
+    sample_group,
     compress,
-    0);
+    0,
+    releaseCrossfadeLength);
 }
 
 void GOSoundProviderWave::LoadPitch(GOOpenedFile *file) {
@@ -185,6 +190,19 @@ void GOSoundProviderWave::LoadPitch(GOOpenedFile *file) {
   wave.Open(file);
   m_MidiKeyNumber = wave.GetMidiNote();
   m_MidiPitchFract = wave.GetPitchFract();
+}
+
+static unsigned get_fader_length(unsigned midiKeyNumber) {
+  unsigned fade_length = 46;
+  if (midiKeyNumber > 0 && midiKeyNumber < 133) {
+    fade_length
+      = 184 - (int)((((float)midiKeyNumber - 42.0f) / 44.0f) * 178.0f);
+    if (midiKeyNumber < 42)
+      fade_length = 184;
+    if (midiKeyNumber > 86)
+      fade_length = 6;
+  }
+  return fade_length;
 }
 
 void GOSoundProviderWave::LoadFromOneFile(
@@ -207,6 +225,7 @@ void GOSoundProviderWave::LoadFromOneFile(
   unsigned min_attack_velocity,
   bool use_pitch,
   unsigned loop_crossfade_length,
+  unsigned releaseCrossfadeLength,
   unsigned max_released_time) {
   // if an exception occurs during Open(), it already contains the file name
   std::unique_ptr<GOOpenedFile> openedFilePtr = loaderFilename.Open(fileStore);
@@ -218,6 +237,7 @@ void GOSoundProviderWave::LoadFromOneFile(
     GOWave wave;
 
     wave.Open(openedFilePtr.get());
+
     /* allocate data to work with */
     unsigned totalDataSize = wave.GetLength()
       * GetBytesPerSample(bits_per_sample) * wave.GetChannels();
@@ -227,6 +247,13 @@ void GOSoundProviderWave::LoadFromOneFile(
       m_MidiKeyNumber = wave.GetMidiNote();
       m_MidiPitchFract = wave.GetPitchFract();
     }
+
+    unsigned midiKeyCrossfadeLength = get_fader_length(m_MidiKeyNumber);
+
+    if (use_pitch)
+      m_AttackSwitchCrossfadeLength = releaseCrossfadeLength
+        ? releaseCrossfadeLength
+        : midiKeyCrossfadeLength;
 
     unsigned channels = wave.GetChannels();
 
@@ -280,7 +307,9 @@ void GOSoundProviderWave::LoadFromOneFile(
         release_end,
         bits_per_sample,
         channels,
-        compress);
+        compress,
+        releaseCrossfadeLength ? releaseCrossfadeLength
+                               : midiKeyCrossfadeLength);
   } catch (GOOutOfMemory e) {
     throw e;
   } catch (const wxString &error) {
@@ -294,19 +323,6 @@ void GOSoundProviderWave::LoadFromOneFile(
     throw loaderFilename.GenerateMessage(excText);
 }
 
-unsigned GOSoundProviderWave::GetFaderLength(unsigned MidiKeyNumber) {
-  unsigned fade_length = 46;
-  if (MidiKeyNumber > 0 && MidiKeyNumber < 133) {
-    fade_length
-      = 184 - (int)((((float)MidiKeyNumber - 42.0f) / 44.0f) * 178.0f);
-    if (MidiKeyNumber < 42)
-      fade_length = 184;
-    if (MidiKeyNumber > 86)
-      fade_length = 6;
-  }
-  return fade_length;
-}
-
 void GOSoundProviderWave::LoadFromMultipleFiles(
   const GOFileStore &fileStore,
   GOMemoryPool &pool,
@@ -317,9 +333,7 @@ void GOSoundProviderWave::LoadFromMultipleFiles(
   bool compress,
   LoopLoadType loop_mode,
   bool isToLoadAttacks,
-  bool isToLoadReleases,
-  unsigned loop_crossfade_length,
-  unsigned release_crossfase_length) {
+  bool isToLoadReleases) {
   ClearData();
   if (!load_channels)
     return;
@@ -424,7 +438,8 @@ void GOSoundProviderWave::LoadFromMultipleFiles(
         a.percussive,
         a.min_attack_velocity,
         load_first_attack,
-        loop_crossfade_length,
+        a.m_LoopCrossfadeLength,
+        a.m_ReleaseCrossfadeLength,
         a.max_released_time);
       load_first_attack = false;
     }
@@ -449,15 +464,12 @@ void GOSoundProviderWave::LoadFromMultipleFiles(
         true,
         0,
         false,
-        loop_crossfade_length,
+        0,
+        r.m_ReleaseCrossfadeLength,
         0);
     }
 
     ComputeReleaseAlignmentInfo();
-    if (release_crossfase_length)
-      m_ReleaseCrossfadeLength = release_crossfase_length;
-    else
-      m_ReleaseCrossfadeLength = GetFaderLength(m_MidiKeyNumber);
   } catch (...) {
     ClearData();
     throw;
