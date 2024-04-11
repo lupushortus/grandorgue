@@ -25,7 +25,4 @@ cmake_install.cmake
 Makefile
 /_CPack_Packages/
 
-
-/.vscode/
-/src/.vscode/
-/src/grandorgue/goSrc.code-workspace
+.DS_Store
