@@ -330,7 +330,7 @@ GOFrame::GOFrame(
     wxDefaultSize,
     choices);
   m_ToolBar->AddControl(m_ReleaseLength);
-  UpdateReleaseLength(m_config.ReleaseLength());
+  UpdateReleaseLength(0);
 
   m_ToolBar->AddTool(
     ID_TRANSPOSE,
@@ -492,8 +492,6 @@ void GOFrame::UpdateReleaseLength(unsigned releaseLength) {
 
   if (organController && organController->GetReleaseTail() != releaseLength)
     organController->SetReleaseTail(releaseLength);
-  if (m_config.ReleaseLength() != releaseLength)
-    m_config.ReleaseLength(releaseLength);
   if (m_ReleaseLength->GetSelection() != releaseLengthIndex)
     m_ReleaseLength->SetSelection(releaseLengthIndex);
 }
@@ -542,13 +540,16 @@ void GOFrame::Init(const wxString &filename, bool isGuiOnly) {
     GetEventHandler()->AddPendingEvent(event);
   }
 
-  // Remove demo organs that have been registered from temporary (appimage)
-  // directories and they are not more valid
-  m_config.RemoveInvalidTmpOrgans();
-
   GOArchiveManager manager(m_config, m_config.OrganCachePath());
+
   manager.RegisterPackageDirectory(m_config.GetPackageDirectory());
   manager.RegisterPackageDirectory(m_config.OrganPackagePath());
+
+  // Remove demo organs that have been registered from temporary (appimage)
+  // directories and they are not more valid
+  m_config.AddOrgansFromArchives();
+  m_config.RemoveInvalidTmpOrgans();
+
   if (!filename.IsEmpty())
     SendLoadFile(filename);
   else

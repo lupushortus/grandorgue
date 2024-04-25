@@ -1,3 +1,10 @@
+- Fixed the order of sending midi events from an On indicator. Now they are sent after sending all events from other controls https://github.com/GrandOrgue/grandorgue/issues/1762
+# 3.14.1 (2024-04-17)
+- Fixed changing sound of a playing pipe without Pipe999IsTremulant when a wave tremulant state is changed https://github.com/GrandOrgue/grandorgue/issues/1855
+- Fixed crash on opening a very old config https://github.com/GrandOrgue/grandorgue/discussions/1869
+- Fixed ignoring initial midi setup when loading an organ with a preset without midi events configured https://github.com/GrandOrgue/grandorgue/issues/1785
+- Fixed saving Max release tail to the organ preset https://github.com/GrandOrgue/grandorgue/issues/1804
+- Fixed required package names in the BUILD.md file https://github.com/GrandOrgue/grandorgue/issues/1799
 - Added support of macOS on Apple silicon. GrandOrgue for macOS on Apple silicon requires macOS 14 or higher. GrandOrgue for macOS on Intel requires macOS 12.1 or higher. https://github.com/GrandOrgue/grandorgue/discussions/1153
 - Added ad-hoc code signing of GrandOrgue for macOS https://github.com/GrandOrgue/grandorgue/issues/1835
 - Fixed an error that occurred when trying to install the GrandOrgue RPM package https://github.com/GrandOrgue/grandorgue/issues/1859
