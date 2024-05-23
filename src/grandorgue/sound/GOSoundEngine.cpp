@@ -11,12 +11,12 @@
 
 #include "model/GOPipe.h"
 #include "model/GOWindchest.h"
-#include "sound/scheduler/GOSoundGroupWorkItem.h"
-#include "sound/scheduler/GOSoundOutputWorkItem.h"
-#include "sound/scheduler/GOSoundReleaseWorkItem.h"
-#include "sound/scheduler/GOSoundTouchWorkItem.h"
-#include "sound/scheduler/GOSoundTremulantWorkItem.h"
-#include "sound/scheduler/GOSoundWindchestWorkItem.h"
+#include "sound/scheduler/GOSoundGroupTask.h"
+#include "sound/scheduler/GOSoundOutputTask.h"
+#include "sound/scheduler/GOSoundReleaseTask.h"
+#include "sound/scheduler/GOSoundTouchTask.h"
+#include "sound/scheduler/GOSoundTremulantTask.h"
+#include "sound/scheduler/GOSoundWindchestTask.h"
 
 #include "GOEvent.h"
 #include "GOOrganController.h"
@@ -50,7 +50,7 @@ GOSoundEngine::GOSoundEngine()
   memset(&m_ResamplerCoefs, 0, sizeof(m_ResamplerCoefs));
   m_SamplerPool.SetUsageLimit(2048);
   m_PolyphonySoftLimit = (m_SamplerPool.GetUsageLimit() * 3) / 4;
-  m_ReleaseProcessor = new GOSoundReleaseWorkItem(*this, m_AudioGroupTasks);
+  m_ReleaseProcessor = new GOSoundReleaseTask(*this, m_AudioGroupTasks);
   Reset();
 }
 
@@ -131,7 +131,7 @@ void GOSoundEngine::SetAudioGroupCount(unsigned groups) {
   m_AudioGroupTasks.clear();
   for (unsigned i = 0; i < m_AudioGroupCount; i++)
     m_AudioGroupTasks.push_back(
-      new GOSoundGroupWorkItem(*this, m_SamplesPerBuffer));
+      new GOSoundGroupTask(*this, m_SamplesPerBuffer));
 }
 
 unsigned GOSoundEngine::GetAudioGroupCount() { return m_AudioGroupCount; }
@@ -199,15 +199,15 @@ void GOSoundEngine::Setup(
   m_TremulantTasks.clear();
   for (unsigned i = 0; i < organController->GetTremulantCount(); i++)
     m_TremulantTasks.push_back(
-      new GOSoundTremulantWorkItem(*this, m_SamplesPerBuffer));
+      new GOSoundTremulantTask(*this, m_SamplesPerBuffer));
   m_WindchestTasks.clear();
   // a special windchest task for detached releases
-  m_WindchestTasks.push_back(new GOSoundWindchestWorkItem(*this, NULL));
+  m_WindchestTasks.push_back(new GOSoundWindchestTask(*this, NULL));
   for (unsigned i = 0; i < organController->GetWindchestCount(); i++)
     m_WindchestTasks.push_back(
-      new GOSoundWindchestWorkItem(*this, organController->GetWindchest(i)));
-  m_TouchTask = std::unique_ptr<GOSoundTouchWorkItem>(
-    new GOSoundTouchWorkItem(organController->GetMemoryPool()));
+      new GOSoundWindchestTask(*this, organController->GetWindchest(i)));
+  m_TouchTask = std::unique_ptr<GOSoundTouchTask>(
+    new GOSoundTouchTask(organController->GetMemoryPool()));
   m_HasBeenSetup.store(true);
   Reset();
 }
@@ -241,6 +241,8 @@ bool GOSoundEngine::ProcessSampler(
       sampler->p_SoundProvider = NULL;
 
     sampler->fader.Process(n_frames, temp, volume);
+    if (sampler->toneBalanceFilterState.IsToApply())
+      sampler->toneBalanceFilterState.ProcessBuffer(n_frames, temp);
 
     /* Add these samples to the current output buffer shifting
      * right by the necessary amount to bring the sample gain back
@@ -295,7 +297,7 @@ void GOSoundEngine::SetAudioOutput(
       scale_factors[i * 4 + 3] = 1;
     }
     m_AudioOutputTasks.push_back(
-      new GOSoundOutputWorkItem(2, scale_factors, m_SamplesPerBuffer));
+      new GOSoundOutputTask(2, scale_factors, m_SamplesPerBuffer));
   }
   unsigned channels = 0;
   for (unsigned i = 0; i < audio_outputs.size(); i++) {
@@ -313,7 +315,7 @@ void GOSoundEngine::SetAudioOutput(
           factor = 0;
         scale_factors[j * m_AudioGroupCount * 2 + k] = factor;
       }
-    m_AudioOutputTasks.push_back(new GOSoundOutputWorkItem(
+    m_AudioOutputTasks.push_back(new GOSoundOutputTask(
       audio_outputs[i].channels, scale_factors, m_SamplesPerBuffer));
     channels += audio_outputs[i].channels;
   }
@@ -426,6 +428,8 @@ GOSoundSampler *GOSoundEngine::CreateTaskSample(
       sampler->time = start_time;
       sampler->fader.SetVelocityVolume(
         sampler->p_SoundProvider->GetVelocityVolume(sampler->velocity));
+      sampler->toneBalanceFilterState.Init(
+        sampler->p_SoundProvider->GetToneBalance()->GetFilter());
       sampler->is_release = isRelease;
       sampler->m_SamplerTaskId = samplerTaskId;
       sampler->m_AudioGroupId = audioGroup;
@@ -468,6 +472,9 @@ void GOSoundEngine::SwitchToAnotherAttack(GOSoundSampler *pSampler) {
 
         pSampler->fader.NewAttacking(gain_target, cross_fade_len, m_SampleRate);
         pSampler->is_release = false;
+
+        new_sampler->toneBalanceFilterState.Init(
+          new_sampler->p_SoundProvider->GetToneBalance()->GetFilter());
 
         StartSampler(new_sampler);
       }
@@ -616,6 +623,8 @@ void GOSoundEngine::CreateReleaseSampler(GOSoundSampler *handle) {
       new_sampler->m_AudioGroupId = handle->m_AudioGroupId;
       new_sampler->fader.SetVelocityVolume(
         new_sampler->p_SoundProvider->GetVelocityVolume(new_sampler->velocity));
+      new_sampler->toneBalanceFilterState.Init(
+        new_sampler->p_SoundProvider->GetToneBalance()->GetFilter());
       StartSampler(new_sampler);
       handle->time = m_CurrentTime;
     }
