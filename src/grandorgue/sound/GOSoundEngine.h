@@ -65,11 +65,14 @@ private:
   std::unique_ptr<GOSoundTouchTask> m_TouchTask;
   GOSoundScheduler m_Scheduler;
 
-  struct resampler_coefs_s m_ResamplerCoefs;
+  GOSoundResample m_resample;
+  GOSoundResample::InterpolationType m_interpolation;
 
   std::atomic_bool m_HasBeenSetup;
 
-  unsigned SamplesDiffToMs(uint64_t fromSamples, uint64_t toSamples);
+  unsigned MsToSamples(unsigned ms) const { return m_SampleRate * ms / 1000; }
+
+  unsigned SamplesDiffToMs(uint64_t fromSamples, uint64_t toSamples) const;
 
   /* samplerTaskId:
      -1 .. -n Tremulants

@@ -47,7 +47,6 @@ GOSoundEngine::GOSoundEngine()
     m_AudioRecorder(NULL),
     m_TouchTask(),
     m_HasBeenSetup(false) {
-  memset(&m_ResamplerCoefs, 0, sizeof(m_ResamplerCoefs));
   m_SamplerPool.SetUsageLimit(2048);
   m_PolyphonySoftLimit = (m_SamplerPool.GetUsageLimit() * 3) / 4;
   m_ReleaseProcessor = new GOSoundReleaseTask(*this, m_AudioGroupTasks);
@@ -101,12 +100,10 @@ void GOSoundEngine::SetSamplesPerBuffer(unsigned samples_per_buffer) {
 
 void GOSoundEngine::SetSampleRate(unsigned sample_rate) {
   m_SampleRate = sample_rate;
-  resampler_coefs_init(
-    &m_ResamplerCoefs, m_SampleRate, m_ResamplerCoefs.interpolation);
 }
 
 void GOSoundEngine::SetInterpolationType(unsigned type) {
-  m_ResamplerCoefs.interpolation = (interpolation_type)type;
+  m_interpolation = (GOSoundResample::InterpolationType)type;
 }
 
 unsigned GOSoundEngine::GetSampleRate() { return m_SampleRate; }
@@ -226,8 +223,7 @@ bool GOSoundEngine::ProcessSampler(
           m_SamplerPool.UsedSamplerCount() >= m_PolyphonySoftLimit &&
           m_CurrentTime - sampler->time > 172 * 16) ||
          sampler->drop_counter > 1))
-      sampler->fader.StartDecay(
-        370, m_SampleRate); /* Approx 0.37s at 44.1kHz */
+      sampler->fader.StartDecreasingVolume(MsToSamples(370));
 
     /* The decoded sampler frame will contain values containing
      * sampler->pipe_section->sample_bits worth of significant bits.
@@ -237,7 +233,7 @@ bool GOSoundEngine::ProcessSampler(
      *
      *     playback gain * (2 ^ -sampler->pipe_section->sample_bits)
      */
-    if (!GOSoundAudioSection::ReadBlock(&sampler->stream, temp, n_frames))
+    if (!sampler->stream.ReadBlock(temp, n_frames))
       sampler->p_SoundProvider = NULL;
 
     sampler->fader.Process(n_frames, temp, volume);
@@ -383,7 +379,7 @@ void GOSoundEngine::NextPeriod() {
 }
 
 unsigned GOSoundEngine::SamplesDiffToMs(
-  uint64_t fromSamples, uint64_t toSamples) {
+  uint64_t fromSamples, uint64_t toSamples) const {
   return (unsigned)std::min(
     (toSamples - fromSamples) * 1000 / m_SampleRate, (uint64_t)UINT_MAX);
 }
@@ -415,19 +411,19 @@ GOSoundSampler *GOSoundEngine::CreateTaskSample(
       sampler->p_SoundProvider = pSoundProvider;
       sampler->m_WaveTremulantStateFor = section->GetWaveTremulantStateFor();
       sampler->velocity = velocity;
-      section->InitStream(
-        &m_ResamplerCoefs,
-        &sampler->stream,
+      sampler->stream.InitStream(
+        &m_resample,
+        section,
+        m_interpolation,
         GetRandomFactor() * pSoundProvider->GetTuning() / (float)m_SampleRate);
 
       const float playback_gain
         = pSoundProvider->GetGain() * section->GetNormGain();
 
-      sampler->fader.NewConstant(playback_gain);
+      sampler->fader.Setup(
+        playback_gain, pSoundProvider->GetVelocityVolume(velocity));
       sampler->delay = delay_samples;
       sampler->time = start_time;
-      sampler->fader.SetVelocityVolume(
-        sampler->p_SoundProvider->GetVelocityVolume(sampler->velocity));
       sampler->toneBalanceFilterState.Init(
         sampler->p_SoundProvider->GetToneBalance()->GetFilter());
       sampler->is_release = isRelease;
@@ -451,7 +447,8 @@ void GOSoundEngine::SwitchToAnotherAttack(GOSoundSampler *pSampler) {
 
       if (new_sampler != NULL) {
         float gain_target = pProvider->GetGain() * section->GetNormGain();
-        unsigned cross_fade_len = pProvider->GetAttackSwitchCrossfadeLength();
+        unsigned crossFadeSamples
+          = MsToSamples(pProvider->GetAttackSwitchCrossfadeLength());
 
         // copy old sampler to the new one
         *new_sampler = *pSampler;
@@ -459,18 +456,19 @@ void GOSoundEngine::SwitchToAnotherAttack(GOSoundSampler *pSampler) {
         // start decay in the new sampler
         new_sampler->is_release = true;
         new_sampler->time = m_CurrentTime;
-        new_sampler->fader.StartDecay(cross_fade_len, m_SampleRate);
-        new_sampler->fader.SetVelocityVolume(
-          new_sampler->p_SoundProvider->GetVelocityVolume(
-            new_sampler->velocity));
+        new_sampler->fader.StartDecreasingVolume(crossFadeSamples);
 
         // start new section stream in the old sampler
         pSampler->m_WaveTremulantStateFor = section->GetWaveTremulantStateFor();
-        section->InitAlignedStream(&pSampler->stream, &new_sampler->stream);
+        pSampler->stream.InitAlignedStream(
+          section, m_interpolation, &new_sampler->stream);
         pSampler->p_SoundProvider = pProvider;
         pSampler->time = m_CurrentTime + 1;
 
-        pSampler->fader.NewAttacking(gain_target, cross_fade_len, m_SampleRate);
+        pSampler->fader.Setup(
+          gain_target,
+          new_sampler->fader.GetVelocityVolume(),
+          crossFadeSamples);
         pSampler->is_release = false;
 
         new_sampler->toneBalanceFilterState.Init(
@@ -496,11 +494,11 @@ void GOSoundEngine::CreateReleaseSampler(GOSoundSampler *handle) {
   const GOSoundAudioSection *release_section = this_pipe->GetRelease(
     handle->m_WaveTremulantStateFor,
     SamplesDiffToMs(handle->time, m_CurrentTime));
-  unsigned cross_fade_len = release_section
-    ? release_section->GetReleaseCrossfadeLength()
-    : this_pipe->GetAttackSwitchCrossfadeLength();
+  unsigned crossFadeSamples = MsToSamples(
+    release_section ? release_section->GetReleaseCrossfadeLength()
+                    : this_pipe->GetAttackSwitchCrossfadeLength());
 
-  handle->fader.StartDecay(cross_fade_len, m_SampleRate);
+  handle->fader.StartDecreasingVolume(crossFadeSamples);
   handle->is_release = true;
 
   int taskId = handle->m_SamplerTaskId;
@@ -516,7 +514,6 @@ void GOSoundEngine::CreateReleaseSampler(GOSoundSampler *handle) {
     if (new_sampler != NULL) {
       new_sampler->p_SoundProvider = this_pipe;
       new_sampler->time = m_CurrentTime + 1;
-      new_sampler->velocity = handle->velocity;
       new_sampler->m_WaveTremulantStateFor
         = release_section->GetWaveTremulantStateFor();
 
@@ -588,8 +585,8 @@ void GOSoundEngine::CreateReleaseSampler(GOSoundSampler *handle) {
 
       const unsigned releaseLength = this_pipe->GetReleaseTail();
 
-      new_sampler->fader.NewAttacking(
-        gain_target, cross_fade_len, m_SampleRate);
+      new_sampler->fader.Setup(
+        gain_target, handle->fader.GetVelocityVolume(), crossFadeSamples);
 
       if (
         releaseLength > 0
@@ -597,17 +594,19 @@ void GOSoundEngine::CreateReleaseSampler(GOSoundSampler *handle) {
         gain_decay_length = releaseLength;
 
       if (gain_decay_length > 0)
-        new_sampler->fader.StartDecay(gain_decay_length, m_SampleRate);
+        new_sampler->fader.StartDecreasingVolume(
+          MsToSamples(gain_decay_length));
 
       if (
         m_ReleaseAlignmentEnabled
         && release_section->SupportsStreamAlignment()) {
-        release_section->InitAlignedStream(
-          &new_sampler->stream, &handle->stream);
+        new_sampler->stream.InitAlignedStream(
+          release_section, m_interpolation, &handle->stream);
       } else {
-        release_section->InitStream(
-          &m_ResamplerCoefs,
-          &new_sampler->stream,
+        new_sampler->stream.InitStream(
+          &m_resample,
+          release_section,
+          m_interpolation,
           this_pipe->GetTuning() / (float)m_SampleRate);
       }
       new_sampler->is_release = true;
@@ -621,8 +620,6 @@ void GOSoundEngine::CreateReleaseSampler(GOSoundSampler *handle) {
          * means it will still be affected by tremulants - yuck). */
         : handle->m_SamplerTaskId;
       new_sampler->m_AudioGroupId = handle->m_AudioGroupId;
-      new_sampler->fader.SetVelocityVolume(
-        new_sampler->p_SoundProvider->GetVelocityVolume(new_sampler->velocity));
       new_sampler->toneBalanceFilterState.Init(
         new_sampler->p_SoundProvider->GetToneBalance()->GetFilter());
       StartSampler(new_sampler);
@@ -673,7 +670,7 @@ void GOSoundEngine::UpdateVelocity(
     // SetVelocityVolume but we don't want to lock it because this functionality
     // is not so important Concurrent update possible, as it just update a float
     handle->velocity = velocity;
-    handle->fader.SetVelocityVolume(pipe->GetVelocityVolume(handle->velocity));
+    handle->fader.SetVelocityVolume(pipe->GetVelocityVolume(velocity));
   }
 }
 
