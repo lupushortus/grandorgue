@@ -22,6 +22,8 @@ public:
 
 private:
   static const struct IniFileEnumEntry m_coupler_types[];
+
+  bool m_IsVirtual;
   bool m_UnisonOff;
   bool m_CoupleToSubsequentUnisonIntermanualCouplers;
   bool m_CoupleToSubsequentUpwardIntermanualCouplers;
@@ -49,14 +51,16 @@ private:
   void ChangeKey(int note, unsigned velocity);
   void SetOut(int note, unsigned velocity);
   unsigned GetInternalState(int note);
-  void ChangeState(bool on);
+  void OnDrawstopStateChanged(bool on) override;
   void SetupIsToStoreInCmb() override;
 
-  void PreparePlayback();
+  void PreparePlayback() override;
 
 public:
-  GOCoupler(GOOrganModel &organModel, unsigned sourceManual);
+  GOCoupler(
+    GOOrganModel &organModel, unsigned sourceManual, bool isVirtual = false);
 
+  bool IsVirtual() const { return m_IsVirtual; }
   bool IsRecursive() const {
     return m_CoupleToSubsequentUnisonIntermanualCouplers;
   }

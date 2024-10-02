@@ -174,14 +174,17 @@ bool GOApp::OnInit() {
   return true;
 }
 
+#ifdef __WXMAC__
 void GOApp::MacOpenFile(const wxString &filename) {
   if (m_Frame)
     m_Frame->SendLoadFile(filename);
 }
+#endif
 
 int GOApp::OnRun() { return wxApp::OnRun(); }
 
 int GOApp::OnExit() {
+  wxLog::FlushActive();
   wxLog::SetActiveTarget(NULL);
 
   int rc = wxApp::OnExit();

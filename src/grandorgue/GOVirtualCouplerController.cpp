@@ -28,7 +28,7 @@ void load_coupler(
   const wxString &recorderNameFmt,
   const wxString &couplerLabel) {
   GOManual *pSrcManual = organModel.GetManual(srcManualN);
-  GOCoupler *pCoupler = new GOCoupler(organModel, srcManualN);
+  GOCoupler *pCoupler = new GOCoupler(organModel, srcManualN, true);
 
   pCoupler->Init(
     cfg,
@@ -149,7 +149,7 @@ void GOVirtualCouplerController::Load(
     bool isCoupleThrough = cfg.ReadBoolean(
       CMBSetting, pCoupleThrough->GetGroup(), WX_COUPLE_THROUGH, false, false);
 
-    pCoupleThrough->Set(isCoupleThrough);
+    pCoupleThrough->SetButtonState(isCoupleThrough);
   }
 }
 

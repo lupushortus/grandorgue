@@ -28,23 +28,11 @@
 #include "size/GOLogicalRect.h"
 #include "temperaments/GOTemperamentList.h"
 
+#include "GOAudioDeviceConfig.h"
 #include "GOMidiDeviceConfigList.h"
 #include "GOOrganList.h"
 #include "GOPortsConfig.h"
 #include "ptrvector.h"
-
-typedef struct {
-  wxString name;
-  float left;
-  float right;
-} GOAudioGroupOutputConfig;
-
-typedef struct {
-  wxString name;
-  unsigned channels;
-  unsigned desired_latency;
-  std::vector<std::vector<GOAudioGroupOutputConfig>> scale_factors;
-} GOAudioDeviceConfig;
 
 typedef struct {
   GOMidiReceiverType type;
@@ -196,7 +184,9 @@ public:
     m_SoundPortsConfig = portsConfig;
   }
 
-  const std::vector<GOAudioDeviceConfig> &GetAudioDeviceConfig();
+  std::vector<GOAudioDeviceConfig> &GetAudioDeviceConfig() {
+    return m_AudioDeviceConfig;
+  }
   const unsigned GetTotalAudioChannels() const;
   void SetAudioDeviceConfig(const std::vector<GOAudioDeviceConfig> &config);
   unsigned GetDefaultLatency();

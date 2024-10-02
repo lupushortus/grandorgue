@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2024 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -130,7 +130,7 @@ void GOStop::SetKey(unsigned note, unsigned velocity) {
     SetRankKey(note, m_KeyVelocity[note]);
 }
 
-void GOStop::ChangeState(bool on) {
+void GOStop::OnDrawstopStateChanged(bool on) {
   if (IsAuto()) {
     SetRankKey(0, on ? 0x7f : 0x00);
   } else {
@@ -143,7 +143,7 @@ GOStop::~GOStop(void) {}
 
 void GOStop::AbortPlayback() {
   if (IsAuto())
-    Set(false);
+    SetButtonState(false);
   GOButtonControl::AbortPlayback();
 }
 

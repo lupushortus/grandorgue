@@ -55,7 +55,10 @@ combinations/model/GODivisionalCombination.cpp
 combinations/model/GOGeneralCombination.cpp
 combinations/GODivisionalSetter.cpp
 combinations/GOSetter.cpp
+config/GOAudioDeviceConfig.cpp
+config/GOAudioDeviceNode.cpp
 config/GOConfig.cpp
+config/GODeviceNamePattern.cpp
 config/GOMidiDeviceConfig.cpp
 config/GOMidiDeviceConfigList.cpp
 config/GOPortsConfig.cpp
@@ -76,10 +79,10 @@ dialogs/midi-event/GOMidiEventKeyTab.cpp
 dialogs/midi-event/GOMidiEventRecvTab.cpp
 dialogs/midi-event/GOMidiEventSendTab.cpp
 dialogs/settings/GOSettingsAudio.cpp
+dialogs/settings/GOSettingsDeviceMatchDialog.cpp
 dialogs/settings/GOSettingsDialog.cpp
 dialogs/settings/GOSettingsMidiDeviceList.cpp
 dialogs/settings/GOSettingsMidiDevices.cpp
-dialogs/settings/GOSettingsMidiMatchDialog.cpp
 dialogs/settings/GOSettingsMidiMessage.cpp
 dialogs/settings/GOSettingsPaths.cpp
 dialogs/settings/GOSettingsPorts.cpp
@@ -93,6 +96,7 @@ dialogs/GOOrganSettingsDialog.cpp
 dialogs/GOProgressDialog.cpp
 dialogs/GOSelectOrganDialog.cpp
 dialogs/GOSplash.cpp
+dialogs/GOStopsDialog.cpp
 document-base/GODocumentBase.cpp
 document-base/GOView.cpp
 gui/primitives/GOBitmap.cpp
@@ -188,6 +192,7 @@ sound/scheduler/GOSoundTouchTask.cpp
 sound/scheduler/GOSoundTremulantTask.cpp
 sound/scheduler/GOSoundWindchestTask.cpp
 sound/GOSoundAudioSection.cpp
+sound/GOSoundDevInfo.cpp
 sound/GOSoundEngine.cpp
 sound/GOSoundFader.cpp
 sound/GOSoundProvider.cpp

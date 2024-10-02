@@ -50,12 +50,12 @@
 #include "GOEvent.h"
 #include "GOOrgan.h"
 #include "GOOrganController.h"
-#include "GOPath.h"
 #include "GOProperties.h"
 #include "Images.h"
 #include "go_defs.h"
 #include "go_ids.h"
 #include "go_limits.h"
+#include "go_path.h"
 
 BEGIN_EVENT_TABLE(GOFrame, wxFrame)
 EVT_MSGBOX(GOFrame::OnMsgBox)
@@ -84,6 +84,7 @@ EVT_MENU(ID_FILE_CACHE, GOFrame::OnCache)
 EVT_MENU(ID_FILE_CACHE_DELETE, GOFrame::OnCacheDelete)
 EVT_MENU(ID_ORGAN_EDIT, GOFrame::OnOrganSettings)
 EVT_MENU(ID_MIDI_LIST, GOFrame::OnMidiList)
+EVT_MENU(ID_STOPS, GOFrame::OnStops)
 EVT_MENU(ID_MIDI_MONITOR, GOFrame::OnMidiMonitor)
 EVT_MENU(ID_AUDIO_PANIC, GOFrame::OnAudioPanic)
 EVT_MENU(ID_AUDIO_MEMSET, GOFrame::OnAudioMemset)
@@ -239,6 +240,7 @@ GOFrame::GOFrame(
     ID_ORGAN_EDIT, _("&Organ settings"), wxEmptyString, wxITEM_CHECK);
   m_audio_menu->Append(
     ID_MIDI_LIST, _("M&idi Objects"), wxEmptyString, wxITEM_CHECK);
+  m_audio_menu->Append(ID_STOPS, _("Stops"), wxEmptyString, wxITEM_CHECK);
   m_audio_menu->AppendSeparator();
   m_audio_menu->Append(
     ID_AUDIO_STATE, _("&Sound Output State"), wxEmptyString, wxITEM_NORMAL);
@@ -811,6 +813,8 @@ void GOFrame::OnUpdateLoaded(wxUpdateUIEvent &event) {
     event.Check(m_doc && m_doc->WindowExists(GODocument::ORGAN_DIALOG, NULL));
   else if (event.GetId() == ID_MIDI_LIST)
     event.Check(m_doc && m_doc->WindowExists(GODocument::MIDI_LIST, NULL));
+  else if (event.GetId() == ID_STOPS)
+    event.Check(m_doc && m_doc->WindowExists(GODocument::STOPS, NULL));
   else if (event.GetId() == ID_MIDI_LIST)
     event.Check(m_MidiMonitor);
 
@@ -1237,6 +1241,11 @@ void GOFrame::OnMidiList(wxCommandEvent &event) {
     m_doc->ShowMidiList();
 }
 
+void GOFrame::OnStops(wxCommandEvent &event) {
+  if (m_doc)
+    m_doc->ShowStops();
+}
+
 void GOFrame::OnHelp(wxCommandEvent &event) {
   GOHelpRequestor::DisplayHelp(_("User Interface"), false);
 }
@@ -1368,11 +1377,11 @@ void GOFrame::OnRenameFile(wxRenameFileEvent &event) {
     wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
   if (dlg.ShowModal() == wxID_OK) {
     if (filepath.GetFullPath() != dlg.GetPath())
-      GORenameFile(filepath.GetFullPath(), dlg.GetPath());
+      go_rename_file(filepath.GetFullPath(), dlg.GetPath());
   } else
     wxRemoveFile(filepath.GetFullPath());
 
-  GOSyncDirectory(filepath.GetPath());
+  go_sync_directory(filepath.GetPath());
 }
 
 void GOFrame::OnUpdateCheckingRequested(wxCommandEvent &event) {

@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2024 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -20,7 +20,7 @@
 #include "GOEvent.h"
 #include "GOMidi.h"
 #include "GOOrganController.h"
-#include "GOPath.h"
+#include "go_path.h"
 
 enum {
   ID_MIDI_RECORDER_RECORD = 0,
@@ -304,7 +304,7 @@ void GOMidiRecorder::UpdateDisplay() {
 void GOMidiRecorder::StopRecording() {
   m_buttons[ID_MIDI_RECORDER_RECORD]->Display(false);
   m_buttons[ID_MIDI_RECORDER_RECORD_RENAME]->Display(false);
-  m_OrganController->DeleteTimer(this);
+  m_OrganController->GetTimer()->DeleteTimer(this);
   if (!IsRecording())
     return;
   const unsigned char end[4] = {0x01, 0xFF, 0x2F, 0x00};
@@ -318,7 +318,7 @@ void GOMidiRecorder::StopRecording() {
   m_file.Close();
   if (!m_DoRename) {
     wxFileName name = m_Filename;
-    GOSyncDirectory(name.GetPath());
+    go_sync_directory(name.GetPath());
   } else
     GOAskRenameFile(
       m_Filename,
@@ -368,7 +368,7 @@ void GOMidiRecorder::StartRecording(bool rename) {
 
   m_RecordSeconds = 0;
   UpdateDisplay();
-  m_OrganController->SetRelativeTimer(1000, this, 1000);
+  m_OrganController->GetTimer()->SetRelativeTimer(1000, this, 1000);
 }
 
 GOEnclosure *GOMidiRecorder::GetEnclosure(const wxString &name, bool is_panel) {

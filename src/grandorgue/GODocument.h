@@ -39,7 +39,7 @@ private:
 
   GOMidiListener m_listener;
 
-  void OnMidiEvent(const GOMidiEvent &event);
+  void OnMidiEvent(const GOMidiEvent &event) override;
 
   void SyncState();
   void CloseOrgan();
@@ -54,6 +54,7 @@ public:
   void ShowPanel(unsigned id);
   void ShowOrganSettingsDialog();
   void ShowMidiList();
+  void ShowStops();
 
   bool Save();
   bool Export(const wxString &cmb);

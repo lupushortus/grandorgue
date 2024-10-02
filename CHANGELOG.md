@@ -1,3 +1,13 @@
+- Fixed combination button lighting when a crescendo was in the Override=Off mode https://github.com/GrandOrgue/grandorgue/issues/1935
+# 3.15.1 (2024-09-03)
+- Fixed saving of Settings->Paths https://github.com/GrandOrgue/grandorgue/issues/1907
+- Fixed crash on releasing a key of any Binauralpipes organ https://github.com/GrandOrgue/grandorgue/issues/1986
+- Fixed absence of warnings of unused Pipe999ReleaseCrossfadeLength https://github.com/GrandOrgue/grandorgue/issues/1904
+- Fixed loading organ to not abort if reading InfoFilename failed and also fixed showing link in properties dialog if InfoFilename exists
+# 3.15.0 (2024-08-06)
+- Added capability of regex matching audio device names https://github.com/GrandOrgue/grandorgue/issues/1265
+- Added a checkbox-based Stops dialog (Audio/Midi -> Stops) https://github.com/GrandOrgue/grandorgue/issues/1816
+- Fixed not compatibilyty between polyphase interpolation and loseless compression https://github.com/GrandOrgue/grandorgue/issues/710
 - Fixed not sounding of pipe after an enclosure has closed to zero and then opened https://github.com/GrandOrgue/grandorgue/issues/1813
 - Added Midi listener for Panic button and Exit GO function. https://github.com/GrandOrgue/grandorgue/issues/1905
 - Added a tone balance (bass/treble harmonics balance) voicing option

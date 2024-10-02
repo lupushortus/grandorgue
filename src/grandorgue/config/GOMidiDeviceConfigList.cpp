@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2024 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -16,7 +16,7 @@ GOMidiDeviceConfig *GOMidiDeviceConfigList::FindByLogicalName(
   GOMidiDeviceConfig *res = NULL;
 
   for (GOMidiDeviceConfig *pDevConf : m_list)
-    if (pDevConf->m_LogicalName == logicalName) {
+    if (pDevConf->GetLogicalName() == logicalName) {
       res = pDevConf;
       break;
     }
@@ -31,25 +31,27 @@ GOMidiDeviceConfig *GOMidiDeviceConfigList::FindByPhysicalName(
   GOMidiDeviceConfig *candidate = NULL;
 
   for (GOMidiDeviceConfig *pDevConf : m_list) {
-    if (pDevConf->m_PhysicalName == physicalName) { // hasAlreadyMatches
+    const wxString confPhysicalName = pDevConf->GetPhysicalName();
+
+    if (confPhysicalName == physicalName) { // hasAlreadyMatches
       res = pDevConf;
       break;
     }
     if (
       !candidate // physicalName has not yet matched
-      && pDevConf->m_PhysicalName.IsEmpty()
+      && confPhysicalName.IsEmpty()
       && pDevConf->DoesMatch(physicalName) // devConf has not yet matched
     )
       candidate = pDevConf;
     // Even we have a candidate, we continue to search for already matched
   }
   if (!res && candidate) {
-    candidate->m_PhysicalName = physicalName;
+    candidate->SetPhysicalName(physicalName);
     res = candidate;
   }
   if (res) {
-    res->m_PortName = portName;
-    res->m_ApiName = apiName;
+    res->SetPortName(portName);
+    res->SetApiName(apiName);
   }
   return res;
 }
@@ -60,12 +62,13 @@ void GOMidiDeviceConfigList::RemoveByLogicalNameOutOf(
   for (int i = m_list.size() - 1; i >= 0; i--) {
     GOMidiDeviceConfig *pDev = m_list[i];
 
-    if (pDev->m_LogicalName == logicalName) {
+    if (pDev->GetLogicalName() == logicalName) {
       bool isProtected = false;
+      const wxString devPhysicalName = pDev->GetPhysicalName();
 
-      if (!pDev->m_PhysicalName.IsEmpty())
+      if (!devPhysicalName.IsEmpty())
         for (GOMidiDeviceConfig *pProt : protectList)
-          if (pProt->m_PhysicalName == pDev->m_PhysicalName) {
+          if (pProt->GetPhysicalName() == devPhysicalName) {
             isProtected = true;
             break;
           }
@@ -78,17 +81,17 @@ void GOMidiDeviceConfigList::RemoveByLogicalNameOutOf(
 void GOMidiDeviceConfigList::MapOutputDevice(
   const GOMidiDeviceConfig &devConfSrc, GOMidiDeviceConfig &devConfDst) const {
   devConfDst.p_OutputDevice = devConfSrc.p_OutputDevice
-    ? FindByLogicalName(devConfSrc.p_OutputDevice->m_LogicalName)
+    ? FindByLogicalName(devConfSrc.p_OutputDevice->GetLogicalName())
     : NULL;
 }
 
 GOMidiDeviceConfig *GOMidiDeviceConfigList::Append(
   const GOMidiDeviceConfig &devConf, const GOMidiDeviceConfigList *outputList) {
   // At first, find the device with the same logical name
-  GOMidiDeviceConfig *pDevConf = FindByLogicalName(devConf.m_LogicalName);
+  GOMidiDeviceConfig *pDevConf = FindByLogicalName(devConf.GetLogicalName());
   bool toAdd = true;
 
-  if (pDevConf && pDevConf->m_PhysicalName.IsEmpty()) {
+  if (pDevConf && pDevConf->GetPhysicalName().IsEmpty()) {
     // the device is not matched. Replace it instead of adding a new one
     pDevConf->Assign(devConf);
     toAdd = false;
@@ -102,9 +105,9 @@ GOMidiDeviceConfig *GOMidiDeviceConfigList::Append(
       unsigned n = 0;
 
       do {
-        pDevConf->m_LogicalName
-          = wxString::Format(wxT("%s-%u"), devConf.m_LogicalName, ++n);
-      } while (FindByLogicalName(pDevConf->m_LogicalName));
+        pDevConf->SetLogicalName(
+          wxString::Format(wxT("%s-%u"), devConf.GetLogicalName(), ++n));
+      } while (FindByLogicalName(pDevConf->GetLogicalName()));
     }
   }
 
@@ -118,12 +121,6 @@ GOMidiDeviceConfig *GOMidiDeviceConfigList::Append(
 
 static const wxString COUNT = wxT("Count");
 static const wxString DEVICE03D = wxT("Device%03d");
-static const wxString DEVICE03D_ENABLED = wxT("Device%03dEnabled");
-static const wxString DEVICE03D_REGEX = wxT("Device%03dRegEx");
-static const wxString DEVICE03D_PORT_NAME = wxT("Device%03dPortName");
-static const wxString DEVICE03D_API_NAME = wxT("Device%03dApiName");
-static const wxString DEVICE03D_SHIFT = wxT("Device%03dShift");
-static const wxString DEVICE03D_OUTPUT_DEVICE = wxT("Device%03dOutputDevice");
 
 void GOMidiDeviceConfigList::Load(
   GOConfigReader &cfg, const GOMidiDeviceConfigList *outputMidiDevices) {
@@ -131,79 +128,26 @@ void GOMidiDeviceConfigList::Load(
     CMBSetting, m_GroupName, COUNT, 0, MAX_MIDI_DEVICES, false, 0);
 
   for (unsigned i = 1; i <= count; i++) {
-    GOMidiDeviceConfig *const devConf = Append(
-      cfg.ReadString(CMBSetting, m_GroupName, wxString::Format(DEVICE03D, i)),
-      // logicalName
-      cfg.ReadString(
-        CMBSetting,
-        m_GroupName,
-        wxString::Format(DEVICE03D_REGEX, i),
-        false), // regEx
-      cfg.ReadString(
-        CMBSetting,
-        m_GroupName,
-        wxString::Format(DEVICE03D_PORT_NAME, i),
-        false), // portName
-      cfg.ReadString(
-        CMBSetting,
-        m_GroupName,
-        wxString::Format(DEVICE03D_API_NAME, i),
-        false), // apiName
-      cfg.ReadBoolean(
-        CMBSetting,
-        m_GroupName,
-        wxString::Format(DEVICE03D_ENABLED, i)) // isEnabled
-    );
+    GOMidiDeviceConfig devConf;
 
-    if (outputMidiDevices) // load an input device
-    {
-      devConf->m_ChannelShift = cfg.ReadInteger(
-        CMBSetting, m_GroupName, wxString::Format(DEVICE03D_SHIFT, i), 0, 15);
+    devConf.LoadDeviceConfig(
+      cfg, m_GroupName, wxString::Format(DEVICE03D, i), outputMidiDevices);
 
-      const wxString outDevName = cfg.ReadString(
-        CMBSetting,
-        m_GroupName,
-        wxString::Format(DEVICE03D_OUTPUT_DEVICE, i),
-        false);
-
-      if (!outDevName.IsEmpty())
-        devConf->p_OutputDevice
-          = outputMidiDevices->FindByLogicalName(outDevName);
+    if (outputMidiDevices && !devConf.m_OutputDeviceName.IsEmpty()) {
+      // load an input device
+      devConf.p_OutputDevice
+        = outputMidiDevices->FindByLogicalName(devConf.m_OutputDeviceName);
     }
+    Append(devConf);
   }
 }
 
 void GOMidiDeviceConfigList::Save(GOConfigWriter &cfg, const bool isInput) {
   unsigned i = 0;
 
-  for (GOMidiDeviceConfig *devConf : m_list) {
-    i++;
-    cfg.WriteString(
-      m_GroupName, wxString::Format(DEVICE03D, i), devConf->m_LogicalName);
-    cfg.WriteString(
-      m_GroupName, wxString::Format(DEVICE03D_REGEX, i), devConf->m_RegEx);
-    cfg.WriteString(
-      m_GroupName,
-      wxString::Format(DEVICE03D_PORT_NAME, i),
-      devConf->m_PortName);
-    cfg.WriteString(
-      m_GroupName, wxString::Format(DEVICE03D_API_NAME, i), devConf->m_ApiName);
-    cfg.WriteBoolean(
-      m_GroupName,
-      wxString::Format(DEVICE03D_ENABLED, i),
-      devConf->m_IsEnabled);
-    if (isInput) {
-      cfg.WriteInteger(
-        m_GroupName,
-        wxString::Format(DEVICE03D_SHIFT, i),
-        devConf->m_ChannelShift);
-      if (devConf->p_OutputDevice)
-        cfg.WriteString(
-          m_GroupName,
-          wxString::Format(DEVICE03D_OUTPUT_DEVICE, i),
-          devConf->p_OutputDevice->m_LogicalName);
-    }
-  }
+  for (GOMidiDeviceConfig *devConf : m_list)
+    devConf->SaveDeviceConfig(
+      cfg, m_GroupName, wxString::Format(DEVICE03D, ++i), isInput);
   if (i > MAX_MIDI_DEVICES)
     i = MAX_MIDI_DEVICES;
   cfg.WriteInteger(m_GroupName, COUNT, i);

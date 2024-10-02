@@ -14,7 +14,6 @@
 
 #include "GOMemoryPool.h"
 #include "GOOrgan.h"
-#include "GOPath.h"
 #include "GOPortFactory.h"
 #include "GOStdPath.h"
 #include "archive/GOArchiveFile.h"
@@ -24,6 +23,7 @@
 #include "config/GOConfigReaderDB.h"
 #include "config/GOConfigWriter.h"
 #include "go_limits.h"
+#include "go_path.h"
 #include "midi/ports/GOMidiPort.h"
 #include "midi/ports/GOMidiPortFactory.h"
 #include "settings/GOSettingEnum.cpp"
@@ -315,49 +315,21 @@ void GOConfig::Load() {
 
     m_AudioDeviceConfig.clear();
     count = cfg.ReadInteger(
-      CMBSetting, wxT("AudioDevices"), COUNT, 0, 200, false, 0);
-    for (unsigned i = 0; i < count; i++) {
-      GOAudioDeviceConfig conf;
-      conf.name = cfg.ReadString(
-        CMBSetting,
-        wxT("AudioDevices"),
-        wxString::Format(wxT("Device%03dName"), i + 1));
-      conf.channels = cfg.ReadInteger(
-        CMBSetting,
-        wxT("AudioDevices"),
-        wxString::Format(wxT("Device%03dChannelCount"), i + 1),
-        0,
-        200);
-      conf.desired_latency = cfg.ReadInteger(
-        CMBSetting,
-        wxT("AudioDevices"),
-        wxString::Format(wxT("Device%03dLatency"), i + 1),
-        0,
-        999,
-        false,
-        GetDefaultLatency());
-      conf.scale_factors.resize(conf.channels);
-      for (unsigned j = 0; j < conf.channels; j++) {
-        wxString prefix
-          = wxString::Format(wxT("Device%03dChannel%03d"), i + 1, j + 1);
-        unsigned group_count = cfg.ReadInteger(
-          CMBSetting, wxT("AudioDevices"), prefix + wxT("GroupCount"), 0, 200);
-        for (unsigned k = 0; k < group_count; k++) {
-          GOAudioGroupOutputConfig group;
-          wxString p = prefix + wxString::Format(wxT("Group%03d"), k + 1);
+      CMBSetting,
+      GOAudioDeviceConfig::WX_AUDIO_DEVICES,
+      COUNT,
+      0,
+      200,
+      false,
+      0);
 
-          group.name
-            = cfg.ReadString(CMBSetting, wxT("AudioDevices"), p + wxT("Name"));
-          group.left = cfg.ReadFloat(
-            CMBSetting, wxT("AudioDevices"), p + wxT("Left"), -121.0, 40);
-          group.right = cfg.ReadFloat(
-            CMBSetting, wxT("AudioDevices"), p + wxT("Right"), -121.0, 40);
-
-          conf.scale_factors[j].push_back(group);
-        }
+    if (count > 0)
+      for (unsigned i = 0; i < count; i++) {
+        m_AudioDeviceConfig.emplace_back();
+        m_AudioDeviceConfig[i].Load(cfg, i + 1);
       }
-      m_AudioDeviceConfig.push_back(conf);
-    }
+    else // default device config
+      m_AudioDeviceConfig.emplace_back(m_AudioGroups);
 
     load_ports_config(
       cfg, MIDI_PORTS, GOMidiPortFactory::getInstance(), m_MidiPortsConfig);
@@ -397,27 +369,6 @@ void GOConfig::Load() {
   } catch (wxString error) {
     wxLogError(wxT("%s\n"), error.c_str());
   }
-
-  if (!m_AudioDeviceConfig.size()) {
-    GOAudioDeviceConfig conf;
-    conf.name = wxEmptyString;
-    conf.channels = 2;
-    conf.scale_factors.resize(conf.channels);
-    conf.desired_latency = GetDefaultLatency();
-    for (unsigned k = 0; k < m_AudioGroups.size(); k++) {
-      GOAudioGroupOutputConfig group;
-      group.name = m_AudioGroups[k];
-
-      group.left = 0.0f;
-      group.right = -121.0f;
-      conf.scale_factors[0].push_back(group);
-
-      group.left = -121.0f;
-      group.right = 0.0f;
-      conf.scale_factors[1].push_back(group);
-    }
-    m_AudioDeviceConfig.push_back(conf);
-  }
 }
 
 void GOConfig::LoadDefaults() {
@@ -435,22 +386,22 @@ void GOConfig::LoadDefaults() {
     m_MIDIEvents.push_back(new GOMidiReceiverBase(m_MIDISettings[i].type));
   m_ResourceDir = GOStdPath::GetResourceDir();
 
-  OrganPath.setDefaultValue(GOStdPath::GetGrandOrgueSubDir(_("Organs")));
-  OrganPackagePath.setDefaultValue(
+  OrganPath.SetDefaultValue(GOStdPath::GetGrandOrgueSubDir(_("Organs")));
+  OrganPackagePath.SetDefaultValue(
     GOStdPath::GetGrandOrgueSubDir(_("Organ packages")));
-  OrganCachePath.setDefaultValue(
+  OrganCachePath.SetDefaultValue(
     GOStdPath::GetGrandOrgueSubDir(wxT("Cache") + m_InstanceName));
-  OrganSettingsPath.setDefaultValue(
+  OrganSettingsPath.SetDefaultValue(
     GOStdPath::GetGrandOrgueSubDir(wxT("Data") + m_InstanceName));
-  OrganCombinationsPath.setDefaultValue(
+  OrganCombinationsPath.SetDefaultValue(
     GOStdPath::GetGrandOrgueSubDir(_("Combinations")));
-  ExportImportPath.setDefaultValue(
+  ExportImportPath.SetDefaultValue(
     GOStdPath::GetGrandOrgueSubDir(_("Settings")));
-  AudioRecorderPath.setDefaultValue(
+  AudioRecorderPath.SetDefaultValue(
     GOStdPath::GetGrandOrgueSubDir(_("Audio recordings")));
-  MidiRecorderPath.setDefaultValue(
+  MidiRecorderPath.SetDefaultValue(
     GOStdPath::GetGrandOrgueSubDir(_("MIDI recordings")));
-  MidiPlayerPath.setDefaultValue(
+  MidiPlayerPath.SetDefaultValue(
     GOStdPath::GetGrandOrgueSubDir(_("MIDI recordings")));
 }
 
@@ -624,10 +575,6 @@ int GOConfig::GetStrictAudioGroupId(const wxString &str) {
   return -1;
 }
 
-const std::vector<GOAudioDeviceConfig> &GOConfig::GetAudioDeviceConfig() {
-  return m_AudioDeviceConfig;
-}
-
 void GOConfig::SetAudioDeviceConfig(
   const std::vector<GOAudioDeviceConfig> &config) {
   if (!config.size())
@@ -639,7 +586,7 @@ const unsigned GOConfig::GetTotalAudioChannels() const {
   unsigned channels = 0;
 
   for (const GOAudioDeviceConfig &deviceConfig : m_AudioDeviceConfig)
-    channels += deviceConfig.channels;
+    channels += deviceConfig.GetChannels();
   return channels;
 }
 
@@ -677,45 +624,12 @@ void GOConfig::Flush() {
   save_ports_config(
     cfg, SOUND_PORTS, GOSoundPortFactory::getInstance(), m_SoundPortsConfig);
 
-  for (unsigned i = 0; i < m_AudioDeviceConfig.size(); i++) {
-    cfg.WriteString(
-      wxT("AudioDevices"),
-      wxString::Format(wxT("Device%03dName"), i + 1),
-      m_AudioDeviceConfig[i].name);
-    cfg.WriteInteger(
-      wxT("AudioDevices"),
-      wxString::Format(wxT("Device%03dChannelCount"), i + 1),
-      m_AudioDeviceConfig[i].channels);
-    cfg.WriteInteger(
-      wxT("AudioDevices"),
-      wxString::Format(wxT("Device%03dLatency"), i + 1),
-      m_AudioDeviceConfig[i].desired_latency);
-    for (unsigned j = 0; j < m_AudioDeviceConfig[i].channels; j++) {
-      wxString prefix
-        = wxString::Format(wxT("Device%03dChannel%03d"), i + 1, j + 1);
-      cfg.WriteInteger(
-        wxT("AudioDevices"),
-        prefix + wxT("GroupCount"),
-        m_AudioDeviceConfig[i].scale_factors[j].size());
-      for (unsigned k = 0; k < m_AudioDeviceConfig[i].scale_factors[j].size();
-           k++) {
-        wxString p = prefix + wxString::Format(wxT("Group%03d"), k + 1);
-        cfg.WriteString(
-          wxT("AudioDevices"),
-          p + wxT("Name"),
-          m_AudioDeviceConfig[i].scale_factors[j][k].name);
-        cfg.WriteFloat(
-          wxT("AudioDevices"),
-          p + wxT("Left"),
-          m_AudioDeviceConfig[i].scale_factors[j][k].left);
-        cfg.WriteFloat(
-          wxT("AudioDevices"),
-          p + wxT("Right"),
-          m_AudioDeviceConfig[i].scale_factors[j][k].right);
-      }
-    }
-  }
-  cfg.WriteInteger(wxT("AudioDevices"), COUNT, m_AudioDeviceConfig.size());
+  const unsigned audioDeviceCount = m_AudioDeviceConfig.size();
+
+  for (unsigned i = 0; i < audioDeviceCount; i++)
+    m_AudioDeviceConfig[i].Save(cfg, i + 1);
+  cfg.WriteInteger(
+    GOAudioDeviceConfig::WX_AUDIO_DEVICES, COUNT, audioDeviceCount);
 
   save_ports_config(
     cfg, MIDI_PORTS, GOMidiPortFactory::getInstance(), m_MidiPortsConfig);
@@ -733,6 +647,6 @@ void GOConfig::Flush() {
     wxLogError(_("Could not write to '%s'"), tmp_name.c_str());
     return;
   }
-  if (!GORenameFile(tmp_name, m_ConfigFileName))
+  if (!go_rename_file(tmp_name, m_ConfigFileName))
     return;
 }

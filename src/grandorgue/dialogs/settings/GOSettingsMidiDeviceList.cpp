@@ -1,13 +1,15 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2024 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
 
 #include "GOSettingsMidiDeviceList.h"
 
-#include "GOSettingsMidiMatchDialog.h"
+#include "config/GOMidiDeviceConfig.h"
+
+#include "GOSettingsDeviceMatchDialog.h"
 
 GOSettingsMidiDeviceList::GOSettingsMidiDeviceList(
   const ptr_vector<GOMidiPort> &ports,
@@ -95,13 +97,14 @@ void GOSettingsMidiDeviceList::OnChecked(wxCommandEvent &event) {
 
 void GOSettingsMidiDeviceList::OnMatchingClick(wxCommandEvent &event) {
   GOMidiDeviceConfig &devConf = GetSelectedDeviceConf();
-  GOSettingsMidiMatchDialog dlg(m_parent, &m_ListedConfs);
+  GOSettingsDeviceMatchDialog dlg(
+    m_parent, (std::vector<const GODeviceNamePattern *> *)&m_ListedConfs);
 
   dlg.FillWith(devConf);
   if (dlg.ShowModal() == wxID_OK) {
     dlg.SaveTo(devConf);
     m_ConfListTmp.RemoveByLogicalNameOutOf(
-      devConf.m_LogicalName, m_ListedConfs);
+      devConf.GetLogicalName(), m_ListedConfs);
   }
 }
 
@@ -109,9 +112,9 @@ void GOSettingsMidiDeviceList::Save(
   const GOSettingsMidiDeviceList *pOutDevList) {
   for (GOMidiDeviceConfig *pDevConfTmp : m_ListedConfs) {
     GOMidiDeviceConfig *pDevConf = m_ConfList.FindByPhysicalName(
-      pDevConfTmp->m_PhysicalName,
-      pDevConfTmp->m_PortName,
-      pDevConfTmp->m_ApiName);
+      pDevConfTmp->GetPhysicalName(),
+      pDevConfTmp->GetPortName(),
+      pDevConfTmp->GetApiName());
     const GOMidiDeviceConfigList *pOutConfList
       = pOutDevList ? &pOutDevList->m_ConfList : NULL;
 
@@ -124,6 +127,6 @@ void GOSettingsMidiDeviceList::Save(
 
     // remove unlisted devices with the same logical name
     m_ConfList.RemoveByLogicalNameOutOf(
-      pDevConfTmp->m_LogicalName, m_ListedConfs);
+      pDevConfTmp->GetLogicalName(), m_ListedConfs);
   }
 }

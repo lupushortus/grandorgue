@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2024 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -16,7 +16,7 @@
 
 #include "GOEvent.h"
 #include "GOOrganController.h"
-#include "GOPath.h"
+#include "go_path.h"
 
 enum {
   ID_AUDIO_RECORDER_RECORD = 0,
@@ -119,14 +119,14 @@ void GOAudioRecorder::UpdateDisplay() {
 void GOAudioRecorder::StopRecording() {
   m_buttons[ID_AUDIO_RECORDER_RECORD]->Display(false);
   m_buttons[ID_AUDIO_RECORDER_RECORD_RENAME]->Display(false);
-  m_OrganController->DeleteTimer(this);
+  m_OrganController->GetTimer()->DeleteTimer(this);
   if (!IsRecording())
     return;
 
   m_recorder->Close();
   if (!m_DoRename) {
     wxFileName name = m_Filename;
-    GOSyncDirectory(name.GetPath());
+    go_sync_directory(name.GetPath());
   } else
     GOAskRenameFile(
       m_Filename,
@@ -156,7 +156,7 @@ void GOAudioRecorder::StartRecording(bool rename) {
 
   m_RecordSeconds = 0;
   UpdateDisplay();
-  m_OrganController->SetRelativeTimer(1000, this, 1000);
+  m_OrganController->GetTimer()->SetRelativeTimer(1000, this, 1000);
 }
 
 void GOAudioRecorder::HandleTimer() {

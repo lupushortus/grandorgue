@@ -76,13 +76,15 @@
 #include "GOHash.h"
 #include "GOMetronome.h"
 #include "GOOrgan.h"
-#include "GOPath.h"
+#include "go_path.h"
 
 static const wxString WX_ORGAN = wxT("Organ");
 static const wxString WX_GRANDORGUE_VERSION = wxT("GrandOrgueVersion");
 
 GOOrganController::GOOrganController(
-  GOConfig &config, GOMidiDialogCreator *pMidiDialogCreator)
+  GOConfig &config,
+  GOMidiDialogCreator *pMidiDialogCreator,
+  bool isAppInitialized)
   : GOEventDistributor(this),
     GOOrganModel(config),
     m_config(config),
@@ -98,6 +100,7 @@ GOOrganController::GOOrganController(
     m_AudioRecorder(NULL),
     m_MidiPlayer(NULL),
     m_MidiRecorder(NULL),
+    m_timer(NULL),
     p_OnStateButton(nullptr),
     m_volume(0),
     m_b_customized(false),
@@ -118,10 +121,15 @@ GOOrganController::GOOrganController(
     m_MidiSamplesetMatch(),
     m_SampleSetId1(0),
     m_SampleSetId2(0),
-    m_bitmaps(this),
+    m_bitmaps(nullptr),
     m_PitchLabel(this),
     m_TemperamentLabel(this),
     m_MainWindowData(this, wxT("MainWindow")) {
+  if (isAppInitialized) {
+    // Load here objects that needs App (wx) to be loaded
+    m_timer = new GOTimer();
+    m_bitmaps = new GOBitmapCache(this);
+  }
   GOOrganModel::SetMidiDialogCreator(pMidiDialogCreator);
   GOOrganModel::SetModelModificationListener(this);
   m_setter = new GOSetter(this);
@@ -137,6 +145,10 @@ GOOrganController::~GOOrganController() {
   m_tremulants.clear();
   m_ranks.clear();
   m_VirtualCouplers.Cleanup();
+  if (m_timer)
+    delete m_timer;
+  if (m_bitmaps)
+    delete m_bitmaps;
   GOOrganModel::Cleanup();
   GOOrganModel::SetModelModificationListener(nullptr);
   GOOrganModel::SetMidiDialogCreator(nullptr);
@@ -185,7 +197,7 @@ GOHashType GOOrganController::GenerateCacheHash() {
   hash.Update(sizeof(GOSoundingPipe));
   hash.Update(sizeof(GOSoundReleaseAlignTable));
   hash.Update(BLOCK_HISTORY);
-  hash.Update(MAX_READAHEAD);
+  hash.Update(GOSoundAudioSection::getMaxReadAhead());
   hash.Update(SHORT_LOOP_LENGTH);
   GOSoundProvider::UpdateCacheHash(hash);
   hash.Update(sizeof(GOSoundAudioSection::StartSegment));
@@ -210,31 +222,25 @@ void GOOrganController::ReadOrganFile(GOConfigReader &cfg) {
   wxString info_filename
     = cfg.ReadFileName(ODFSetting, WX_ORGAN, wxT("InfoFilename"), false);
   wxFileName fn;
+  m_InfoFilename = wxEmptyString;
   if (info_filename.IsEmpty()) {
     /* Resolve organ file path */
     fn = GetODFFilename();
     fn.SetExt(wxT("html"));
     if (fn.FileExists() && !m_FileStore.AreArchivesUsed())
       m_InfoFilename = fn.GetFullPath();
-    else
-      m_InfoFilename = wxEmptyString;
   } else {
-    GOLoaderFilename fname;
-
-    fname.Assign(info_filename);
-    std::unique_ptr<GOOpenedFile> file = fname.Open(m_FileStore);
-    fn = info_filename;
-    if (
-      file->isValid()
-      && (fn.GetExt() == wxT("html") || fn.GetExt() == wxT("htm"))) {
-      if (fn.FileExists() && !m_FileStore.AreArchivesUsed())
+    if (!m_FileStore.AreArchivesUsed()) {
+      fn = GOLoaderFilename::generateFullPath(
+        info_filename, wxFileName(GetODFFilename()).GetPath());
+      if (
+        fn.FileExists()
+        && (fn.GetExt() == wxT("html") || fn.GetExt() == wxT("htm")))
         m_InfoFilename = fn.GetFullPath();
-      else
-        m_InfoFilename = wxEmptyString;
-    } else {
-      m_InfoFilename = wxEmptyString;
-      if (m_config.ODFCheck())
-        wxLogWarning(_("InfoFilename does not point to a html file"));
+      else if (m_config.ODFCheck())
+        wxLogWarning(
+          _("InfoFilename %s either does not exist or is not a html file"),
+          fn.GetFullPath());
     }
   }
 
@@ -371,9 +377,9 @@ wxString GOOrganController::Load(
     odf_name.Assign(m_odf);
   } else {
     wxString file = organ.GetODFPath();
-    m_odf = GONormalizePath(file);
+    m_odf = go_normalize_path(file);
     odf_name.AssignAbsolute(m_odf);
-    m_FileStore.SetDirectory(GOGetPath(m_odf));
+    m_FileStore.SetDirectory(go_get_path(m_odf));
   }
   m_hash = organ.GetOrganHash();
   dlg->Setup(
@@ -889,7 +895,7 @@ bool GOOrganController::Export(const wxString &cmb) {
     wxLogError(_("Could not write to '%s'"), tmp_name);
     return false;
   }
-  if (!GORenameFile(tmp_name, cmb))
+  if (!go_rename_file(tmp_name, cmb))
     return false;
   return true;
 }
@@ -1005,8 +1011,6 @@ wxString GOOrganController::GetCombinationsDir() const {
 GOMemoryPool &GOOrganController::GetMemoryPool() { return m_pool; }
 
 GOConfig &GOOrganController::GetSettings() { return m_config; }
-
-GOBitmapCache &GOOrganController::GetBitmapCache() { return m_bitmaps; }
 
 GOMidi *GOOrganController::GetMidi() { return m_midi; }
 
