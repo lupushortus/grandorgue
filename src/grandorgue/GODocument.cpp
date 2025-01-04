@@ -10,20 +10,20 @@
 #include <wx/app.h>
 
 #include "config/GOConfig.h"
-#include "dialogs/GOMidiListDialog.h"
-#include "dialogs/GOOrganSettingsDialog.h"
-#include "dialogs/GOStopsDialog.h"
-#include "dialogs/midi-event/GOMidiEventDialog.h"
 #include "document-base/GOView.h"
-#include "gui/GOGUIPanel.h"
-#include "gui/GOGUIPanelView.h"
+#include "gui/dialogs/GOMidiListDialog.h"
+#include "gui/dialogs/GOOrganSettingsDialog.h"
+#include "gui/dialogs/midi-event/GOMidiEventDialog.h"
+#include "gui/frames/GOFrame.h"
+#include "gui/frames/GOStopsWindow.h"
+#include "gui/panels/GOGUIPanel.h"
+#include "gui/panels/GOGUIPanelView.h"
+#include "gui/size/GOResizable.h"
 #include "midi/GOMidiEvent.h"
-#include "size/GOResizable.h"
 #include "sound/GOSound.h"
 #include "threading/GOMutexLocker.h"
 
 #include "GOEvent.h"
-#include "GOFrame.h"
 #include "GOOrgan.h"
 #include "GOOrganController.h"
 #include "go_ids.h"
@@ -191,15 +191,18 @@ void GODocument::ShowMidiList() {
 }
 
 void GODocument::ShowStops() {
-  if (!showWindow(GODocument::STOPS, NULL) && m_OrganController)
+  if (!showWindow(GODocument::STOPS, NULL) && m_OrganController) {
+    auto stopsWindow = new GOStopsWindow(
+      this,
+      nullptr,
+      m_OrganController->GetStopWindowSizeKeeper(),
+      *m_OrganController);
+
     registerWindow(
       GODocument::STOPS,
-      nullptr,
-      new GOStopsDialog(
-        this,
-        nullptr,
-        m_OrganController->GetConfig().m_DialogSizes,
-        *m_OrganController));
+      stopsWindow, // Otherwise GOStopsWindow::SyncState() wont be called
+      stopsWindow);
+  }
 }
 
 void GODocument::ShowMIDIEventDialog(

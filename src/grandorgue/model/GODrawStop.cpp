@@ -29,7 +29,6 @@ GODrawstop::GODrawstop(GOOrganModel &organModel)
   : GOButtonControl(organModel, MIDI_RECV_DRAWSTOP, false),
     m_Type(FUNCTION_INPUT),
     m_GCState(0),
-    m_ActiveState(false),
     m_ControlledDrawstops(),
     m_ControllingDrawstops(),
     m_IsToStoreInDivisional(false),
@@ -39,7 +38,47 @@ void GODrawstop::RegisterControlled(GODrawstop *sw) {
   m_ControlledDrawstops.push_back(sw);
 }
 
-void GODrawstop::Init(GOConfigReader &cfg, wxString group, wxString name) {
+void GODrawstop::UnRegisterControlled(GODrawstop *sw) {
+  auto end = m_ControlledDrawstops.end();
+  auto pos = std::find(m_ControlledDrawstops.begin(), end, sw);
+
+  m_ControlledDrawstops.erase(pos);
+}
+
+void GODrawstop::ClearControllingDrawstops() {
+  for (auto pControlling : m_ControllingDrawstops)
+    pControlling->UnRegisterControlled(this);
+  m_ControllingDrawstops.clear();
+}
+
+void GODrawstop::AddControllingDrawstop(
+  GODrawstop *pDrawStop, unsigned switchN, const wxString &group) {
+  auto end = m_ControllingDrawstops.end();
+
+  if (m_Type == FUNCTION_INPUT)
+    throw wxString::Format(_("Switch %d already assigned to %s"), group);
+  if (std::find(m_ControllingDrawstops.begin(), end, pDrawStop) != end)
+    throw wxString::Format(
+      _("Switch %d already assigned to %s"), switchN, group);
+  if (pDrawStop == this)
+    throw wxString::Format(_("Drawstop %s can't reference to itself"), group);
+  pDrawStop->RegisterControlled(this);
+  m_ControllingDrawstops.push_back(pDrawStop);
+}
+
+void GODrawstop::SetFunctionType(GOFunctionType newFunctionType) {
+  if (newFunctionType != m_Type) {
+    if (m_Type == FUNCTION_INPUT)
+      ClearControllingDrawstops();
+    else if (m_Type == FUNCTION_NOT && m_ControllingDrawstops.size() > 1)
+      throw wxString::Format(
+        _("A NOT Switch must not have more than one controlling switches"));
+    m_Type = newFunctionType;
+  }
+}
+
+void GODrawstop::Init(
+  GOConfigReader &cfg, const wxString &group, const wxString &name) {
   m_Type = FUNCTION_INPUT;
   m_Engaged = cfg.ReadBoolean(CMBSetting, group, wxT("DefaultToEngaged"));
   m_GCState = 0;
@@ -58,7 +97,7 @@ void GODrawstop::SetupIsToStoreInCmb() {
     || isControlledByUser;
 }
 
-void GODrawstop::Load(GOConfigReader &cfg, wxString group) {
+void GODrawstop::Load(GOConfigReader &cfg, const wxString &group) {
   m_Type = (GOFunctionType)cfg.ReadEnum(
     ODFSetting,
     group,
@@ -77,7 +116,7 @@ void GODrawstop::Load(GOConfigReader &cfg, wxString group) {
   } else {
     m_ReadOnly = true;
     unsigned cnt = 0;
-    bool unique = true;
+
     if (m_Type == FUNCTION_NOT)
       cnt = 1;
     else if (
@@ -101,16 +140,8 @@ void GODrawstop::Load(GOConfigReader &cfg, wxString group) {
         r_OrganModel.GetSwitchCount(),
         true,
         1);
-      GODrawstop *s = r_OrganModel.GetSwitch(no - 1);
-      for (unsigned j = 0; j < m_ControllingDrawstops.size(); j++)
-        if (unique && m_ControllingDrawstops[j] == s)
-          throw wxString::Format(
-            _("Switch %d already assigned to %s"), no, group.c_str());
-      if (s == (GODrawstop *)this)
-        throw wxString::Format(
-          _("Drawstop %s can't reference to itself"), group.c_str());
-      s->RegisterControlled(this);
-      m_ControllingDrawstops.push_back(s);
+
+      AddControllingDrawstop(r_OrganModel.GetSwitch(no - 1), no, group);
     }
   }
 
@@ -132,36 +163,55 @@ void GODrawstop::Save(GOConfigWriter &cfg) {
   GOButtonControl::Save(cfg);
 }
 
-void GODrawstop::SetButtonState(bool on) {
-  if (IsEngaged() == on)
-    return;
-  Display(on);
-  SetDrawStopState(on);
+void GODrawstop::SetResultState(bool resState) {
+  if (IsEngaged() != resState) {
+    Display(resState);
+    // must be before calling m_ControlledDrawstops[i]->Update();
+    OnDrawstopStateChanged(resState);
+    for (auto *pDrawstop : m_ControlledDrawstops)
+      pDrawstop->Update(); // reads IsEngaged()
+  }
 }
 
 void GODrawstop::Reset() {
-  if (IsReadOnly())
-    return;
-  if (m_GCState < 0)
-    return;
-  SetButtonState(m_GCState > 0 ? true : false);
-}
-
-void GODrawstop::SetDrawStopState(bool on) {
-  if (IsActive() == on)
-    return;
-  if (IsReadOnly()) {
-    Display(on);
+  if (!IsReadOnly() && m_GCState >= 0) {
+    if (m_GCState == 0) {
+      // Clear all internal states
+      for (auto &intState : m_InternalStates)
+        intState.second = false;
+      SetResultState(false);
+    } else
+      SetButtonState(true);
   }
-  m_ActiveState = on;
-  OnDrawstopStateChanged(on);
-  for (unsigned i = 0; i < m_ControlledDrawstops.size(); i++)
-    m_ControlledDrawstops[i]->Update();
 }
 
-void GODrawstop::SetCombinationState(bool on) {
+bool GODrawstop::CalculateResultState(bool includeDefault) const {
+  bool resState = false;
+
+  for (const auto &intState : m_InternalStates)
+    if (includeDefault || !intState.first.IsEmpty())
+      resState = resState || intState.second;
+  return resState;
+}
+
+void GODrawstop::SetInternalState(bool on, const wxString &stateName) {
+  bool &internalState = m_InternalStates[stateName];
+
+  if (internalState != on) {
+    internalState = on;
+    SetResultState(CalculateResultState(true));
+  }
+}
+
+void GODrawstop::SetButtonState(bool on) {
+  // we prohibit changing the button state while it is engaged by a crescendo
+  if (!IsReadOnly() && !CalculateResultState(false))
+    SetDrawStopState(on);
+}
+
+void GODrawstop::SetCombinationState(bool on, const wxString &stateName) {
   if (!IsReadOnly())
-    SetButtonState(on);
+    SetInternalState(on, stateName);
 }
 
 void GODrawstop::StartPlayback() {
@@ -180,7 +230,7 @@ void GODrawstop::Update() {
   case FUNCTION_NAND:
     state = true;
     for (unsigned i = 0; i < m_ControllingDrawstops.size(); i++)
-      state = state && m_ControllingDrawstops[i]->IsActive();
+      state = state && m_ControllingDrawstops[i]->IsEngaged();
     if (m_Type == FUNCTION_NAND)
       SetDrawStopState(!state);
     else
@@ -191,7 +241,7 @@ void GODrawstop::Update() {
   case FUNCTION_NOR:
     state = false;
     for (unsigned i = 0; i < m_ControllingDrawstops.size(); i++)
-      state = state || m_ControllingDrawstops[i]->IsActive();
+      state = state || m_ControllingDrawstops[i]->IsEngaged();
     if (m_Type == FUNCTION_NOR)
       SetDrawStopState(!state);
     else
@@ -201,12 +251,12 @@ void GODrawstop::Update() {
   case FUNCTION_XOR:
     state = false;
     for (unsigned i = 0; i < m_ControllingDrawstops.size(); i++)
-      state = state != m_ControllingDrawstops[i]->IsActive();
+      state = state != m_ControllingDrawstops[i]->IsEngaged();
     SetDrawStopState(state);
     break;
 
   case FUNCTION_NOT:
-    state = m_ControllingDrawstops[0]->IsActive();
+    state = m_ControllingDrawstops[0]->IsEngaged();
     SetDrawStopState(!state);
     break;
   }

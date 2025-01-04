@@ -17,13 +17,13 @@
 #include "config/GOConfig.h"
 #include "control/GOEventDistributor.h"
 #include "control/GOLabelControl.h"
-#include "gui/GOGUIMouseState.h"
+#include "gui/frames/GOMainWindowData.h"
+#include "gui/panels/GOGUIMouseState.h"
 #include "loader/GOFileStore.h"
 #include "model/GOOrganModel.h"
 #include "modification/GOModificationProxy.h"
 
 #include "GOBitmapCache.h"
-#include "GOMainWindowData.h"
 #include "GOMemoryPool.h"
 #include "GOTimer.h"
 #include "GOVirtualCouplerController.h"
@@ -72,6 +72,7 @@ private:
   GOAudioRecorder *m_AudioRecorder;
   GOMidiPlayer *m_MidiPlayer;
   GOMidiRecorder *m_MidiRecorder;
+  GOSizeKeeper m_StopWindowSizeKeeper;
   GOTimer *m_timer;
   GOButtonControl *p_OnStateButton;
   int m_volume;
@@ -129,7 +130,9 @@ public:
     GOConfig &config,
     GOMidiDialogCreator *pMidiDialogCreator = nullptr,
     bool isAppInitialized = false);
-  ~GOOrganController();
+  virtual ~GOOrganController();
+
+  GOSizeKeeper &GetStopWindowSizeKeeper() { return m_StopWindowSizeKeeper; }
 
   // Returns organ modification flag
   bool IsOrganModified() const { return m_OrganModified; }

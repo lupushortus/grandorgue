@@ -8,6 +8,9 @@
 #ifndef GODRAWSTOP_H
 #define GODRAWSTOP_H
 
+#include <unordered_map>
+
+#include <wx/hashmap.h>
 #include <wx/string.h>
 
 #include "combinations/model/GOCombinationElement.h"
@@ -15,7 +18,7 @@
 
 class GODrawstop : public GOButtonControl, virtual public GOCombinationElement {
 public:
-  typedef enum {
+  enum GOFunctionType {
     FUNCTION_INPUT,
     FUNCTION_AND,
     FUNCTION_OR,
@@ -23,19 +26,26 @@ public:
     FUNCTION_XOR,
     FUNCTION_NAND,
     FUNCTION_NOR
-  } GOFunctionType;
+  };
 
 private:
   static const struct IniFileEnumEntry m_function_types[];
   GOFunctionType m_Type;
   int m_GCState;
-  bool m_ActiveState;
+  std::unordered_map<wxString, bool, wxStringHash, wxStringEqual>
+    m_InternalStates;
   std::vector<GODrawstop *> m_ControlledDrawstops;
   std::vector<GODrawstop *> m_ControllingDrawstops;
 
   bool IsControlledByUser() const override { return !IsReadOnly(); }
 
-  void SetDrawStopState(bool on);
+  // set the result state of the internal OR switch
+  void SetResultState(bool on);
+  // set one entry of the internal OR switch
+  bool CalculateResultState(bool includeDefault) const;
+  void SetInternalState(bool on, const wxString &stateName);
+  // set the default entry of the internal OR switch
+  void SetDrawStopState(bool on) { SetInternalState(on, wxEmptyString); }
 
 protected:
   /*
@@ -60,18 +70,27 @@ protected:
 public:
   GODrawstop(GOOrganModel &organModel);
 
+  /* + For tests only */
+  GOFunctionType GetFunctionType() const { return m_Type; }
+  void SetFunctionType(GOFunctionType newFunctionType);
+
+  void ClearControllingDrawstops();
+  void AddControllingDrawstop(
+    GODrawstop *pDrawStop, unsigned switchN, const wxString &group);
+  /* - For tests only */
+
   bool IsToStoreInDivisional() const { return m_IsToStoreInDivisional; }
   bool IsToStoreInGeneral() const { return m_IsToStoreInGeneral; }
-  bool IsActive() const { return m_ActiveState; }
   bool GetCombinationState() const override { return IsEngaged(); }
 
-  void Init(GOConfigReader &cfg, wxString group, wxString name);
-  void Load(GOConfigReader &cfg, wxString group);
+  void Init(GOConfigReader &cfg, const wxString &group, const wxString &name);
+  void Load(GOConfigReader &cfg, const wxString &group);
   void RegisterControlled(GODrawstop *sw);
+  void UnRegisterControlled(GODrawstop *sw);
   virtual void SetButtonState(bool on) override;
   virtual void Update();
   void Reset();
-  void SetCombinationState(bool on) override;
+  void SetCombinationState(bool on, const wxString &stateName) override;
 };
 
 #endif

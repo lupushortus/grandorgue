@@ -1,3 +1,16 @@
+# 3.15.4 (2024-12-20)
+- Eliminated a MacOs debug alert when opening a settings dialog https://github.com/GrandOrgue/grandorgue/issues/2003
+- Fixed not releasing a pipe after fast switching between vave-based tremulant samples and regular pipe samples https://github.com/GrandOrgue/grandorgue/issues/2004
+- Removed support of MacOs 12
+- Fixed hang if there were lots of unused ODF entries https://github.com/GrandOrgue/grandorgue/issues/1918
+# 3.15.3 (2024-11-23)
+- Fixed crash of reference pipes with the "--justgui" option https://github.com/GrandOrgue/grandorgue/issues/2019
+- Fixed crash on attempt of loading an organ if it's files did not exist https://github.com/GrandOrgue/grandorgue/issues/1990
+- Fixed the sequencer "Save file" button not lightening after inserting or deleting a combination https://github.com/GrandOrgue/grandorgue/issues/2024
+- Fixed appearence, sizing and the scrollbar issues with the Stops window https://github.com/GrandOrgue/grandorgue/issues/1961
+# 3.15.2 (2024-10-25)
+- Fixed disengaging manually enabled stops when a crescendo was in the Override=Off mode https://github.com/GrandOrgue/grandorgue/issues/1935
+- Fixed non bringing a dialog windows on top when it had been already open https://github.com/GrandOrgue/grandorgue/issues/1961
 - Fixed combination button lighting when a crescendo was in the Override=Off mode https://github.com/GrandOrgue/grandorgue/issues/1935
 # 3.15.1 (2024-09-03)
 - Fixed saving of Settings->Paths https://github.com/GrandOrgue/grandorgue/issues/1907

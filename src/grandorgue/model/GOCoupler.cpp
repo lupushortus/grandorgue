@@ -64,7 +64,7 @@ void GOCoupler::PreparePlayback() {
     m_Keyshift = m_DestinationKeyshift + src->GetFirstLogicalKeyMIDINoteNumber()
       - dest->GetFirstLogicalKeyMIDINoteNumber();
   }
-  if (m_UnisonOff && IsActive())
+  if (m_UnisonOff && IsEngaged())
     src->SetUnisonOff(true);
 }
 
@@ -106,7 +106,7 @@ void GOCoupler::Init(
       = r_OrganModel.GetManual(m_DestinationManual)->RegisterCoupler(this);
 }
 
-void GOCoupler::Load(GOConfigReader &cfg, wxString group) {
+void GOCoupler::Load(GOConfigReader &cfg, const wxString &group) {
   m_UnisonOff
     = cfg.ReadBoolean(ODFSetting, group, wxT("UnisonOff"), true, false);
   m_DestinationManual = cfg.ReadInteger(
@@ -266,7 +266,7 @@ void GOCoupler::SetOut(int noteNumber, unsigned velocity) {
     return;
   m_InternalVelocity[note] = velocity;
 
-  if (!IsActive())
+  if (!IsEngaged())
     return;
   unsigned newstate = m_InternalVelocity[note];
   if (newstate)
@@ -378,7 +378,7 @@ void GOCoupler::OnDrawstopStateChanged(bool on) {
 }
 
 void GOCoupler::RefreshState() {
-  bool on = IsActive();
+  bool on = IsEngaged();
 
   if (m_UnisonOff)
     r_OrganModel.GetManual(m_SourceManual)->SetUnisonOff(on);
