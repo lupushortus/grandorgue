@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2025 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -10,7 +10,7 @@
 #include "config/GOConfigReader.h"
 #include "config/GOConfigWriter.h"
 
-void GOMidiShortcutReceiver::Load(GOConfigReader &cfg, wxString group) {
+void GOMidiShortcutReceiver::Load(GOConfigReader &cfg, const wxString &group) {
   if (m_type == KEY_RECV_ENCLOSURE) {
     m_ShortcutKey
       = cfg.ReadInteger(CMBSetting, group, wxT("PlusKey"), 0, 255, false, 0);
@@ -24,16 +24,19 @@ void GOMidiShortcutReceiver::Load(GOConfigReader &cfg, wxString group) {
   }
 }
 
-void GOMidiShortcutReceiver::Save(GOConfigWriter &cfg, wxString group) {
-  if (m_type == KEY_RECV_ENCLOSURE) {
-    cfg.WriteInteger(group, wxT("PlusKey"), m_ShortcutKey);
-    cfg.WriteInteger(group, wxT("MinusKey"), m_MinusKey);
-  } else {
-    cfg.WriteInteger(group, wxT("ShortcutKey"), m_ShortcutKey);
+void GOMidiShortcutReceiver::Save(GOConfigWriter &cfg, const wxString &group) {
+  if (m_ShortcutKey) {
+    if (m_type == KEY_RECV_ENCLOSURE) {
+      cfg.WriteInteger(group, wxT("PlusKey"), m_ShortcutKey);
+      if (m_MinusKey)
+        cfg.WriteInteger(group, wxT("MinusKey"), m_MinusKey);
+    } else {
+      cfg.WriteInteger(group, wxT("ShortcutKey"), m_ShortcutKey);
+    }
   }
 }
 
-KEY_MATCH_TYPE GOMidiShortcutReceiver::Match(unsigned key) {
+GOMidiShortcutReceiver::MatchType GOMidiShortcutReceiver::Match(unsigned key) {
   if (m_ShortcutKey == key)
     return KEY_MATCH;
   if (m_MinusKey == key)

@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2024 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2025 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -10,51 +10,30 @@
 
 #include <wx/string.h>
 
-#include "midi/GOMidiConfigurator.h"
-#include "midi/GOMidiSender.h"
-#include "sound/GOSoundStateHandler.h"
+#include "midi/objects/GOMidiSendingObject.h"
 
 #include "GOControl.h"
-#include "GOSaveableObject.h"
 
-class GOConfigReader;
-class GOConfigWriter;
-class GOOrganController;
+class GOOrganModel;
 
-class GOLabelControl : public GOControl,
-                       private GOSaveableObject,
-                       private GOSoundStateHandler,
-                       public GOMidiConfigurator {
+class GOLabelControl : public GOControl, public GOMidiSendingObject {
 protected:
-  wxString m_Name;
   wxString m_Content;
-  wxString m_group;
-  GOOrganController *m_OrganController;
-  GOMidiSender m_sender;
 
-  void Save(GOConfigWriter &cfg) override;
-
-  void AbortPlayback() override;
-  void PreparePlayback() override;
-  void PrepareRecording() override;
+  void SendCurrentMidiValue() override { SendMidiValue(m_Content); }
+  void SendEmptyMidiValue() override { SendMidiValue(wxEmptyString); }
 
 public:
-  GOLabelControl(GOOrganController *organController);
-  virtual ~GOLabelControl();
-  void Init(GOConfigReader &cfg, wxString group, wxString name);
-  void Load(GOConfigReader &cfg, wxString group, wxString name);
-  const wxString &GetName() const { return m_Name; }
-  const wxString &GetContent();
-  void SetContent(wxString name);
+  GOLabelControl(GOOrganModel &organModel);
+  const wxString &GetContent() const { return m_Content; }
+  void SetContent(const wxString &name);
 
-  const wxString &GetMidiTypeCode() const override;
-  const wxString &GetMidiType() const override;
-  const wxString &GetMidiName() const override { return GetName(); }
-  GOMidiSender *GetMidiSender() override { return &m_sender; }
-
-  wxString GetElementStatus() override;
-  std::vector<wxString> GetElementActions() override;
-  void TriggerElementActions(unsigned no) override;
+  wxString GetElementStatus() override { return m_Content; }
+  std::vector<wxString> GetElementActions() override {
+    return std::vector<wxString>();
+  }
+  void TriggerElementActions(unsigned no) override { /* Never called */
+  }
 };
 
 #endif

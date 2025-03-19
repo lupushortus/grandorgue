@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2024 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2025 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -24,32 +24,25 @@ enum {
   ID_AUDIO_RECORDER_RECORD_RENAME,
 };
 
-const struct GOElementCreator::ButtonDefinitionEntry
-  GOAudioRecorder::m_element_types[]
-  = {
-    {wxT("AudioRecorderRecord"), ID_AUDIO_RECORDER_RECORD, false, true, false},
-    {wxT("AudioRecorderStop"), ID_AUDIO_RECORDER_STOP, false, true, false},
-    {wxT("AudioRecorderRecordRename"),
-     ID_AUDIO_RECORDER_RECORD_RENAME,
-     false,
-     true,
-     false},
-    {wxT(""), -1, false, false, false},
+const struct GOElementCreator::ButtonDefinitionEntry BUTTON_DEFS[] = {
+  {wxT("AudioRecorderRecord"), ID_AUDIO_RECORDER_RECORD, false, true, false},
+  {wxT("AudioRecorderStop"), ID_AUDIO_RECORDER_STOP, false, true, false},
+  {wxT("AudioRecorderRecordRename"),
+   ID_AUDIO_RECORDER_RECORD_RENAME,
+   false,
+   true,
+   false},
+  {wxT(""), -1, false, false, false},
 };
-
-const struct GOElementCreator::ButtonDefinitionEntry *GOAudioRecorder::
-  GetButtonDefinitionList() {
-  return m_element_types;
-}
 
 GOAudioRecorder::GOAudioRecorder(GOOrganController *organController)
   : m_OrganController(organController),
     m_recorder(NULL),
-    m_RecordingTime(organController),
+    m_RecordingTime(*organController),
     m_RecordSeconds(0),
     m_Filename(),
     m_DoRename(false) {
-  CreateButtons(*m_OrganController);
+  CreateButtons(*m_OrganController, BUTTON_DEFS);
   UpdateDisplay();
 }
 

@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2024 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2025 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -10,7 +10,7 @@
 
 #include <vector>
 
-#include "GODrawStop.h"
+#include "GODrawstop.h"
 
 class GOConfigReader;
 class GOConfigWriter;
@@ -66,16 +66,17 @@ public:
   }
   void SetRecursive(bool isRecursive);
 
+  using GODrawstop::Init; // for avoiding a compilation warning
   void Init(
     GOConfigReader &cfg,
-    wxString group,
-    wxString name,
+    const wxString &group,
+    const wxString &name,
     bool unison_off,
     bool recursive,
     int keyshift,
     int dest_manual,
     GOCouplerType coupler_type);
-  void Load(GOConfigReader &cfg, const wxString &group);
+  void Load(GOConfigReader &cfg, const wxString &group) override;
 
   // send key states for all chained couplers
   void RefreshState();
@@ -86,9 +87,6 @@ public:
     const std::vector<GOCoupler *> &couplers);
   bool IsIntermanual();
   bool IsUnisonOff();
-
-  const wxString &GetMidiTypeCode() const override;
-  const wxString &GetMidiType() const override;
 };
 
 #endif

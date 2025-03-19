@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2024 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2025 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -188,60 +188,62 @@ void GOMidiReceiverBase::Preconfigure(GOConfigReader &cfg, wxString group) {}
 int GOMidiReceiverBase::GetTranspose() { return 0; }
 
 void GOMidiReceiverBase::Save(
-  GOConfigWriter &cfg, wxString group, GOMidiMap &map) {
-  cfg.WriteInteger(group, wxT("NumberOfMIDIEvents"), m_events.size());
-  for (unsigned i = 0; i < m_events.size(); i++) {
-    auto &pattern = m_events[i];
+  GOConfigWriter &cfg, const wxString &group, GOMidiMap &map) {
+  if (!m_events.empty()) {
+    cfg.WriteInteger(group, wxT("NumberOfMIDIEvents"), m_events.size());
+    for (unsigned i = 0; i < m_events.size(); i++) {
+      auto &pattern = m_events[i];
 
-    cfg.WriteString(
-      group,
-      wxString::Format(wxT("MIDIDevice%03d"), i + 1),
-      map.GetDeviceLogicalNameById(pattern.deviceId));
-    cfg.WriteEnum(
-      group,
-      wxString::Format(wxT("MIDIEventType%03d"), i + 1),
-      pattern.type,
-      m_MidiTypes,
-      sizeof(m_MidiTypes) / sizeof(m_MidiTypes[0]));
-    if (HasChannel(pattern.type))
-      cfg.WriteInteger(
+      cfg.WriteString(
         group,
-        wxString::Format(wxT("MIDIChannel%03d"), i + 1),
-        pattern.channel);
-    if (HasDebounce(pattern.type))
-      cfg.WriteInteger(
+        wxString::Format(wxT("MIDIDevice%03d"), i + 1),
+        map.GetDeviceLogicalNameById(pattern.deviceId));
+      cfg.WriteEnum(
         group,
-        wxString::Format(wxT("MIDIDebounce%03d"), i + 1),
-        pattern.debounce_time);
+        wxString::Format(wxT("MIDIEventType%03d"), i + 1),
+        pattern.type,
+        m_MidiTypes,
+        sizeof(m_MidiTypes) / sizeof(m_MidiTypes[0]));
+      if (HasChannel(pattern.type))
+        cfg.WriteInteger(
+          group,
+          wxString::Format(wxT("MIDIChannel%03d"), i + 1),
+          pattern.channel);
+      if (HasDebounce(pattern.type))
+        cfg.WriteInteger(
+          group,
+          wxString::Format(wxT("MIDIDebounce%03d"), i + 1),
+          pattern.debounce_time);
 
-    if (HasLowKey(pattern.type))
-      cfg.WriteInteger(
-        group,
-        wxString::Format(wxT("MIDILowerKey%03d"), i + 1),
-        pattern.low_key);
-    if (HasHighKey(pattern.type))
-      cfg.WriteInteger(
-        group,
-        wxString::Format(wxT("MIDIUpperKey%03d"), i + 1),
-        pattern.high_key);
+      if (HasLowKey(pattern.type))
+        cfg.WriteInteger(
+          group,
+          wxString::Format(wxT("MIDILowerKey%03d"), i + 1),
+          pattern.low_key);
+      if (HasHighKey(pattern.type))
+        cfg.WriteInteger(
+          group,
+          wxString::Format(wxT("MIDIUpperKey%03d"), i + 1),
+          pattern.high_key);
 
-    if (m_type == MIDI_RECV_MANUAL)
-      cfg.WriteInteger(
-        group, wxString::Format(wxT("MIDIKeyShift%03d"), i + 1), pattern.key);
-    else if (HasKey(pattern.type))
-      cfg.WriteInteger(
-        group, wxString::Format(wxT("MIDIKey%03d"), i + 1), pattern.key);
+      if (m_type == MIDI_RECV_MANUAL)
+        cfg.WriteInteger(
+          group, wxString::Format(wxT("MIDIKeyShift%03d"), i + 1), pattern.key);
+      else if (HasKey(pattern.type))
+        cfg.WriteInteger(
+          group, wxString::Format(wxT("MIDIKey%03d"), i + 1), pattern.key);
 
-    if (HasLowerLimit(pattern.type))
-      cfg.WriteInteger(
-        group,
-        wxString::Format(wxT("MIDILowerLimit%03d"), i + 1),
-        pattern.low_value);
-    if (HasUpperLimit(pattern.type))
-      cfg.WriteInteger(
-        group,
-        wxString::Format(wxT("MIDIUpperLimit%03d"), i + 1),
-        pattern.high_value);
+      if (HasLowerLimit(pattern.type))
+        cfg.WriteInteger(
+          group,
+          wxString::Format(wxT("MIDILowerLimit%03d"), i + 1),
+          pattern.low_value);
+      if (HasUpperLimit(pattern.type))
+        cfg.WriteInteger(
+          group,
+          wxString::Format(wxT("MIDIUpperLimit%03d"), i + 1),
+          pattern.high_value);
+    }
   }
 }
 
@@ -463,7 +465,7 @@ GOMidiMatchType GOMidiReceiverBase::Match(const GOMidiEvent &e, int &value) {
 }
 
 GOMidiMatchType GOMidiReceiverBase::Match(
-  const GOMidiEvent &e, const unsigned midi_map[128], int &key, int &value) {
+  const GOMidiEvent &e, const KeyMap *pMidiMap, int &key, int &value) {
   const GOMidiEvent::MidiType eMidiType = e.GetMidiType();
 
   value = 0;
@@ -564,9 +566,9 @@ GOMidiMatchType GOMidiReceiverBase::Match(
         if (key > 127)
           continue;
         if (
-          midi_map && pattern.type != MIDI_M_NOTE_SHORT_OCTAVE
+          pMidiMap && pattern.type != MIDI_M_NOTE_SHORT_OCTAVE
           && pattern.type != MIDI_M_NOTE_NORMAL)
-          key = midi_map[key];
+          key = (*pMidiMap)[key];
         if (pattern.type == MIDI_M_NOTE_NO_VELOCITY) {
           value = e.GetValue() ? 127 : 0;
           if (eMidiType == GOMidiEvent::MIDI_AFTERTOUCH)

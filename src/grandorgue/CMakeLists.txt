@@ -1,5 +1,5 @@
 # Copyright 2006 Milan Digital Audio LLC
-# Copyright 2009-2024 GrandOrgue contributors (see AUTHORS)
+# Copyright 2009-2025 GrandOrgue contributors (see AUTHORS)
 # License GPL-2.0 or later (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
 
 include(${CMAKE_SOURCE_DIR}/cmake/AddLinkerOption.cmake)
@@ -74,6 +74,10 @@ gui/dialogs/midi-event/GOMidiEventDialog.cpp
 gui/dialogs/midi-event/GOMidiEventKeyTab.cpp
 gui/dialogs/midi-event/GOMidiEventRecvTab.cpp
 gui/dialogs/midi-event/GOMidiEventSendTab.cpp
+gui/dialogs/organ-settings/GOOrganSettingsTab.cpp
+gui/dialogs/organ-settings/GOOrganSettingsDialog.cpp
+gui/dialogs/organ-settings/GOOrganSettingsEnclosuresTab.cpp
+gui/dialogs/organ-settings/GOOrganSettingsPipesTab.cpp
 gui/dialogs/settings/GOSettingsAudio.cpp
 gui/dialogs/settings/GOSettingsDeviceMatchDialog.cpp
 gui/dialogs/settings/GOSettingsDialog.cpp
@@ -86,9 +90,8 @@ gui/dialogs/settings/GOSettingsOptions.cpp
 gui/dialogs/settings/GOSettingsOrgans.cpp
 gui/dialogs/settings/GOSettingsReverb.cpp
 gui/dialogs/settings/GOSettingsTemperaments.cpp
-gui/dialogs/GOMidiListDialog.cpp
+gui/dialogs/GOMidiObjectsDialog.cpp
 gui/dialogs/GONewReleaseDialog.cpp
-gui/dialogs/GOOrganSettingsDialog.cpp
 gui/dialogs/GOProgressDialog.cpp
 gui/dialogs/GOPropertiesDialog.cpp
 gui/dialogs/GOSelectOrganDialog.cpp
@@ -139,6 +142,11 @@ loader/cache/GOCache.cpp
 loader/cache/GOCacheCleaner.cpp
 loader/cache/GOCacheWriter.cpp
 midi/dialog-creator/GOMidiDialogCreatorProxy.cpp
+midi/objects/GOMidiObject.cpp
+midi/objects/GOMidiObjectWithDivision.cpp
+midi/objects/GOMidiObjectWithShortcut.cpp
+midi/objects/GOMidiReceivingSendingObject.cpp
+midi/objects/GOMidiSendingObject.cpp
 midi/ports/GOMidiInPort.cpp
 midi/ports/GOMidiOutPort.cpp
 midi/ports/GOMidiPort.cpp
@@ -147,7 +155,6 @@ midi/ports/GOMidiRtPortFactory.cpp
 midi/ports/GOMidiRtInPort.cpp
 midi/ports/GOMidiRtOutPort.cpp
 midi/GOMidi.cpp
-midi/GOMidiConfigurator.cpp
 midi/GOMidiInputMerger.cpp
 midi/GOMidiListener.cpp
 midi/GOMidiOutputMerger.cpp
@@ -165,7 +172,7 @@ model/pipe-config/GOPipeConfigTreeNode.cpp
 model/GOCacheObject.cpp
 model/GOCoupler.cpp
 model/GODivisionalCoupler.cpp
-model/GODrawStop.cpp
+model/GODrawstop.cpp
 model/GOEnclosure.cpp
 model/GOEventHandlerList.cpp
 model/GOManual.cpp

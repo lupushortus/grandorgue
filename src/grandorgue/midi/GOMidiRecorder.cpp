@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2024 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2025 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -28,28 +28,21 @@ enum {
   ID_MIDI_RECORDER_RECORD_RENAME,
 };
 
-const struct GOElementCreator::ButtonDefinitionEntry
-  GOMidiRecorder::m_element_types[]
-  = {
-    {wxT("MidiRecorderRecord"), ID_MIDI_RECORDER_RECORD, false, true, false},
-    {wxT("MidiRecorderStop"), ID_MIDI_RECORDER_STOP, false, true, false},
-    {wxT("MidiRecorderRecordRename"),
-     ID_MIDI_RECORDER_RECORD_RENAME,
-     false,
-     true,
-     false},
-    {wxT(""), -1, false, false, false},
+const GOElementCreator::ButtonDefinitionEntry BUTTON_DEFS[] = {
+  {wxT("MidiRecorderRecord"), ID_MIDI_RECORDER_RECORD, false, true, false},
+  {wxT("MidiRecorderStop"), ID_MIDI_RECORDER_STOP, false, true, false},
+  {wxT("MidiRecorderRecordRename"),
+   ID_MIDI_RECORDER_RECORD_RENAME,
+   false,
+   true,
+   false},
+  {wxT(""), -1, false, false, false},
 };
-
-const struct GOElementCreator::ButtonDefinitionEntry *GOMidiRecorder::
-  GetButtonDefinitionList() {
-  return m_element_types;
-}
 
 GOMidiRecorder::GOMidiRecorder(GOOrganController *organController)
   : m_OrganController(organController),
     m_Map(organController->GetSettings().GetMidiMap()),
-    m_RecordingTime(organController),
+    m_RecordingTime(*organController),
     m_RecordSeconds(0),
     m_NextChannel(0),
     m_NextNRPN(0),
@@ -62,7 +55,7 @@ GOMidiRecorder::GOMidiRecorder(GOOrganController *organController)
     m_BufferPos(0),
     m_FileLength(0),
     m_Last(0) {
-  CreateButtons(*m_OrganController);
+  CreateButtons(*m_OrganController, BUTTON_DEFS);
   Clear();
   UpdateDisplay();
 }
@@ -351,7 +344,7 @@ void GOMidiRecorder::StartRecording(bool rename) {
   Write(&h, sizeof(h));
   Write(&t, sizeof(t));
 
-  wxString s = m_OrganController->GetChurchName();
+  wxString s = m_OrganController->GetOrganName();
   wxCharBuffer b = s.ToAscii();
   unsigned len = s.length();
   unsigned char th[] = {0x00, 0xFF, 0x04};

@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2024 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2025 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -17,7 +17,7 @@ class GOCombinationButtonSet;
 class GOControl;
 class GOControlChangedHandler;
 class GOEventHandler;
-class GOMidiConfigurator;
+class GOMidiObject;
 class GOReferencingObject;
 class GOSoundStateHandler;
 class GOSaveableObject;
@@ -61,7 +61,7 @@ private:
   UPVector<GOReferencingObject> m_ReferencingObjects;
   UPVector<GOCombinationButtonSet> m_CombinationButtonSets;
   UPVector<GOControlChangedHandler> m_ControlChangedHandlers;
-  UPVector<GOMidiConfigurator> m_MidiConfigurators;
+  UPVector<GOMidiObject> m_MidiObjects;
   UPVector<GOEventHandler> m_MidiEventHandlers;
   UPVector<GOSoundStateHandler> m_SoundStateHandlers;
   UPVector<GOSaveableObject> m_SaveableObjects;
@@ -77,8 +77,8 @@ public:
     const {
     return m_CombinationButtonSets.AsVector();
   }
-  const std::vector<GOMidiConfigurator *> &GetMidiConfigurators() const {
-    return m_MidiConfigurators.AsVector();
+  const std::vector<GOMidiObject *> &GetMidiObjects() const {
+    return m_MidiObjects.AsVector();
   }
   const std::vector<GOEventHandler *> &GetMidiEventHandlers() const {
     return m_MidiEventHandlers.AsVector();
@@ -104,6 +104,10 @@ public:
     m_CombinationButtonSets.Add(obj);
   }
 
+  void UnRegisterCombinationButtonSet(GOCombinationButtonSet *obj) {
+    m_CombinationButtonSets.Remove(obj);
+  }
+
   void RegisterControlChangedHandler(GOControlChangedHandler *handler) {
     m_ControlChangedHandlers.Add(handler);
   }
@@ -112,12 +116,16 @@ public:
     m_ControlChangedHandlers.Remove(handler);
   }
 
-  void RegisterMidiConfigurator(GOMidiConfigurator *obj) {
-    m_MidiConfigurators.Add(obj);
-  }
+  void RegisterMidiObject(GOMidiObject *obj) { m_MidiObjects.Add(obj); }
+
+  void UnRegisterMidiObject(GOMidiObject *obj) { m_MidiObjects.Remove(obj); }
 
   void RegisterEventHandler(GOEventHandler *handler) {
     m_MidiEventHandlers.Add(handler);
+  }
+
+  void UnRegisterEventHandler(GOEventHandler *handler) {
+    m_MidiEventHandlers.Remove(handler);
   }
 
   void RegisterSoundStateHandler(GOSoundStateHandler *handler) {

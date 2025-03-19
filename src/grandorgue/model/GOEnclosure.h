@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2024 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2025 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -8,76 +8,71 @@
 #ifndef GOENCLOSURE_H_
 #define GOENCLOSURE_H_
 
+#include <algorithm>
+#include <cstdint>
+
 #include <wx/string.h>
 
 #include "control/GOControl.h"
-#include "midi/GOMidiConfigurator.h"
-#include "midi/GOMidiReceiver.h"
-#include "midi/GOMidiSender.h"
-#include "midi/GOMidiShortcutReceiver.h"
-#include "sound/GOSoundStateHandler.h"
-
-#include "GOEventHandler.h"
-#include "GOSaveableObject.h"
+#include "midi/objects/GOMidiObjectWithShortcut.h"
 
 class GOConfigReader;
 class GOConfigWriter;
-class GOMidiEvent;
-class GOMidiMap;
 class GOOrganModel;
 
-class GOEnclosure : public GOControl,
-                    private GOEventHandler,
-                    private GOSaveableObject,
-                    private GOSoundStateHandler,
-                    public GOMidiConfigurator {
+class GOEnclosure : public GOControl, public GOMidiObjectWithShortcut {
 private:
-  GOOrganModel &r_OrganModel;
-  GOMidiMap &r_MidiMap;
-
-  GOMidiReceiver m_midi;
-  GOMidiSender m_sender;
-  GOMidiShortcutReceiver m_shortcut;
-  int m_AmpMinimumLevel;
-  int m_MIDIInputNumber;
-  int m_MIDIValue;
-  wxString m_Name;
+  bool m_IsOdfDefined;
+  uint8_t m_DefaultAmpMinimumLevel;
+  uint8_t m_MIDIInputNumber;
   bool m_Displayed1;
   bool m_Displayed2;
 
-  void ProcessMidi(const GOMidiEvent &event) override;
-  void HandleKey(int key) override;
+  uint8_t m_AmpMinimumLevel;
+  uint8_t m_MIDIValue;
 
+  void OnMidiReceived(
+    const GOMidiEvent &event,
+    GOMidiMatchType matchType,
+    int key,
+    int value) override;
+  void OnShortcutKeyReceived(
+    GOMidiShortcutReceiver::MatchType matchType, int key) override;
+
+  // Load all customizable values from the .cmb file
+  void LoadFromCmb(GOConfigReader &cfg, uint8_t defaultValue);
   void Save(GOConfigWriter &cfg) override;
 
-  void AbortPlayback() override;
-  void PreparePlayback() override;
-  void PrepareRecording() override;
+  void SendCurrentMidiValue() override { SendMidiValue(m_MIDIValue); }
+  void SendEmptyMidiValue() override { SendMidiValue(0); }
 
-  GOMidiReceiverBase *GetMidiReceiver() override { return &m_midi; }
-  GOMidiSender *GetMidiSender() override { return &m_sender; }
-  GOMidiShortcutReceiver *GetMidiShortcutReceiver() override {
-    return &m_shortcut;
-  }
+  void SetIntEnclosureValue(int n) { SetEnclosureValue(std::clamp(n, 0, 127)); }
 
 public:
+  static constexpr uint8_t MAX_MIDI_VALUE = 127;
+
   GOEnclosure(GOOrganModel &organModel);
+
+  bool IsOdfDefined() const { return m_IsOdfDefined; }
+
+  using GOMidiObjectWithShortcut::Init; // for avoiding a warning
   void Init(
-    GOConfigReader &cfg, wxString group, wxString Name, unsigned def_value);
-  void Load(GOConfigReader &cfg, wxString group, int enclosure_nb);
-  void Set(int n);
-  const wxString &GetName() const { return m_Name; }
-  int GetValue();
-  int GetMIDIInputNumber();
+    GOConfigReader &cfg,
+    const wxString &group,
+    const wxString &name,
+    uint8_t defValue);
+  using GOMidiObject::Load; // for avoiding a warning
+  void Load(GOConfigReader &cfg, const wxString &group, int enclosureNb);
+  uint8_t GetDefaultAmpMinimumLevel() const { return m_DefaultAmpMinimumLevel; }
+  uint8_t GetAmpMinimumLevel() const { return m_AmpMinimumLevel; }
+  void SetAmpMinimumLevel(uint8_t v) { m_AmpMinimumLevel = v; }
+  void SetEnclosureValue(uint8_t n);
+  int GetEnclosureValue() const { return m_MIDIValue; }
+  int GetMIDIInputNumber() const { return m_MIDIInputNumber; }
   float GetAttenuation();
 
   void Scroll(bool scroll_up);
   bool IsDisplayed(bool new_format);
-  void SetElementID(int id);
-
-  const wxString &GetMidiTypeCode() const override;
-  const wxString &GetMidiType() const override;
-  const wxString &GetMidiName() const override { return GetName(); }
 
   wxString GetElementStatus() override;
   std::vector<wxString> GetElementActions() override;

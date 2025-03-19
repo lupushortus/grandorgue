@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2024 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2025 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -12,7 +12,7 @@
 #include <wx/string.h>
 
 #include "GOCacheObject.h"
-#include "GODrawStop.h"
+#include "GODrawstop.h"
 
 class GOSoundProvider;
 class GOConfigReader;
@@ -45,7 +45,7 @@ private:
   bool LoadCache(GOMemoryPool &pool, GOCache &cache) override;
   bool SaveCache(GOCacheWriter &cache) const override { return true; }
   void UpdateHash(GOHash &hash) const override {}
-  const wxString &GetLoadTitle() const override { return m_Name; };
+  const wxString &GetLoadTitle() const override { return GetName(); };
 
   void AbortPlayback() override;
   void StartPlayback() override;
@@ -53,11 +53,9 @@ private:
 public:
   GOTremulant(GOOrganModel &organModel);
   ~GOTremulant();
+  using GODrawstop::Load; // Avoiding a compilation warning
   void Load(GOConfigReader &cfg, const wxString &group, unsigned tremulantN);
   GOTremulantType GetTremulantType();
-
-  const wxString &GetMidiTypeCode() const override;
-  const wxString &GetMidiType() const override;
 };
 
 #endif /* GOTREMULANT_H_ */

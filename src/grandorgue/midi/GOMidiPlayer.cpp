@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2024 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2025 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -25,19 +25,12 @@ enum {
   ID_MIDI_PLAYER_PAUSE,
 };
 
-const struct GOElementCreator::ButtonDefinitionEntry
-  GOMidiPlayer::m_element_types[]
-  = {
-    {wxT("MidiPlayerPlay"), ID_MIDI_PLAYER_PLAY, false, true, false},
-    {wxT("MidiPlayerStop"), ID_MIDI_PLAYER_STOP, false, true, false},
-    {wxT("MidiPlayerPause"), ID_MIDI_PLAYER_PAUSE, false, true, false},
-    {wxT(""), -1, false, false, false},
+const GOElementCreator::ButtonDefinitionEntry BUTTON_DEFS[] = {
+  {wxT("MidiPlayerPlay"), ID_MIDI_PLAYER_PLAY, false, true, false},
+  {wxT("MidiPlayerStop"), ID_MIDI_PLAYER_STOP, false, true, false},
+  {wxT("MidiPlayerPause"), ID_MIDI_PLAYER_PAUSE, false, true, false},
+  {wxT(""), -1, false, false, false},
 };
-
-const struct GOElementCreator::ButtonDefinitionEntry *GOMidiPlayer::
-  GetButtonDefinitionList() {
-  return m_element_types;
-}
 
 void GOMidiPlayer::ResetUI() {
   m_buttons[ID_MIDI_PLAYER_PLAY]->Display(false);
@@ -50,13 +43,13 @@ GOMidiPlayer::GOMidiPlayer(GOOrganController *organController)
     r_timer(*organController->GetTimer()),
     p_midi(nullptr),
     m_content(),
-    m_PlayingTime(organController),
+    m_PlayingTime(*organController),
     m_Start(0),
     m_PlayingSeconds(0),
     m_Speed(1),
     m_IsPlaying(false),
     m_Pause(false) {
-  CreateButtons(*organController);
+  CreateButtons(*organController, BUTTON_DEFS);
   m_DeviceID = r_MidiMap.GetDeviceIdByLogicalName(_("GrandOrgue MIDI Player"));
   ResetUI();
 }

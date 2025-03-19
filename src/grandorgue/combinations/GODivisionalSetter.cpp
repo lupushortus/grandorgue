@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2024 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2025 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -42,11 +42,6 @@ enum {
   N_BUTTONS,
   ID_FIRST = 0
 };
-
-const struct GOElementCreator::ButtonDefinitionEntry *GODivisionalSetter::
-  GetButtonDefinitionList() {
-  return m_ButtonDefinitions;
-}
 
 // fills a button definition
 void fill_button_definition(
@@ -115,11 +110,11 @@ GODivisionalSetter::GODivisionalSetter(
 
   // create button conrols for all buttons. It calls the GetButtonDefinitionList
   // callback
-  CreateButtons(*organController);
+  CreateButtons(*organController, m_ButtonDefinitions);
   organController->RegisterCombinationButtonSet(this);
   for (unsigned manualN = 0; manualN < m_NManuals; manualN++) {
     m_manualBanks.push_back(0);
-    m_BankLabels.push_back(new GOLabelControl(organController));
+    m_BankLabels.push_back(new GOLabelControl(*organController));
     m_DivisionalMaps.emplace_back();
   }
 }
@@ -170,7 +165,6 @@ void GODivisionalSetter::Load(GOConfigReader &cfg) {
 
       assert(divisional);
       divisional->Init(cfg, buttonName, wxString::Format(wxT("%d"), j + 1));
-      divisional->Load(cfg, buttonName);
       divisional->SetDisplayed(true);
     }
 

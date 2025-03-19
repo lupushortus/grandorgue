@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2024 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2025 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -11,9 +11,9 @@
 
 #include "config/GOConfig.h"
 #include "document-base/GOView.h"
-#include "gui/dialogs/GOMidiListDialog.h"
-#include "gui/dialogs/GOOrganSettingsDialog.h"
+#include "gui/dialogs/GOMidiObjectstDialog.h"
 #include "gui/dialogs/midi-event/GOMidiEventDialog.h"
+#include "gui/dialogs/organ-settings/GOOrganSettingsDialog.h"
 #include "gui/frames/GOFrame.h"
 #include "gui/frames/GOStopsWindow.h"
 #include "gui/panels/GOGUIPanel.h"
@@ -76,7 +76,7 @@ bool GODocument::LoadOrgan(
   }
 
   wxCommandEvent event(wxEVT_WINTITLE, 0);
-  event.SetString(m_OrganController->GetChurchName());
+  event.SetString(m_OrganController->GetOrganName());
   wxTheApp->GetTopWindow()->GetEventHandler()->AddPendingEvent(event);
 
   for (unsigned i = 0; i < m_OrganController->GetPanelCount(); i++)
@@ -173,7 +173,7 @@ void GODocument::ShowOrganSettingsDialog() {
     registerWindow(
       GODocument::ORGAN_DIALOG,
       NULL,
-      new GOOrganSettingsDialog(this, NULL, m_OrganController));
+      new GOOrganSettingsDialog(*m_OrganController, this, nullptr));
   }
 }
 
@@ -182,11 +182,11 @@ void GODocument::ShowMidiList() {
     registerWindow(
       GODocument::MIDI_LIST,
       NULL,
-      new GOMidiListDialog(
+      new GOMidiObjectsDialog(
         this,
         NULL,
         m_OrganController->GetConfig().m_DialogSizes,
-        m_OrganController->GetMidiConfigurators()));
+        m_OrganController->GetMidiObjects()));
   }
 }
 
@@ -212,7 +212,8 @@ void GODocument::ShowMIDIEventDialog(
   GOMidiReceiverBase *event,
   GOMidiSender *sender,
   GOMidiShortcutReceiver *key,
-  GOMidiSender *division) {
+  GOMidiSender *division,
+  GOMidiDialogListener *pDialogListener) {
   if (!showWindow(GODocument::MIDI_EVENT, element) && m_OrganController) {
     GOMidiEventDialog *dlg = new GOMidiEventDialog(
       this,
@@ -223,7 +224,8 @@ void GODocument::ShowMIDIEventDialog(
       event,
       sender,
       key,
-      division);
+      division,
+      pDialogListener);
     dlg->RegisterMIDIListener(m_OrganController->GetMidi());
     dlg->SetModificationListener(m_OrganController);
     registerWindow(GODocument::MIDI_EVENT, element, dlg);

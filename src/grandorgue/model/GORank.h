@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2024 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2025 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -10,26 +10,20 @@
 
 #include "ptrvector.h"
 
-#include "midi/GOMidiConfigurator.h"
-#include "midi/GOMidiSender.h"
+#include "midi/objects/GOMidiSendingObject.h"
 #include "pipe-config/GOPipeConfigTreeNode.h"
 #include "sound/GOSoundStateHandler.h"
 
-#include "GOSaveableObject.h"
+#include "GOPipe.h"
 
 class GOMidiMap;
 class GOOrganModel;
-class GOPipe;
 class GOStop;
 class GOTemperament;
 
-class GORank : private GOSaveableObject,
-               public GOMidiConfigurator,
-               private GOSoundStateHandler {
+class GORank : public GOMidiSendingObject {
 private:
   GOOrganModel &r_OrganModel;
-  GOMidiMap &r_MidiMap;
-  wxString m_Name;
   ptr_vector<GOPipe> m_Pipes;
   /**
    * Number of stops using this rank
@@ -49,22 +43,21 @@ private:
   float m_MinVolume;
   float m_MaxVolume;
   bool m_RetuneRank;
-  GOMidiSender m_sender;
   GOPipeConfigTreeNode m_PipeConfig;
+
+  void LoadMidiObject(
+    GOConfigReader &cfg, const wxString &group, GOMidiMap &midiMap) override;
+  void SaveMidiObject(
+    GOConfigWriter &cfg, const wxString &group, GOMidiMap &midiMap) override;
 
   void Resize();
 
-  void Save(GOConfigWriter &cfg) override;
-
-  void AbortPlayback() override;
   void PreparePlayback() override;
-
-protected:
-  GOMidiSender *GetMidiSender() override { return &m_sender; }
 
 public:
   GORank(GOOrganModel &organModel);
-  ~GORank();
+
+  using GOMidiObject::Init; // Avoiding a compilation warning
   void Init(
     GOConfigReader &cfg,
     const wxString &group,
@@ -78,6 +71,7 @@ public:
    * @param firstMidiNoteNumber. -1 means no default and must be specified in
    *   the ODF
    */
+  using GOMidiObject::Load; // Avoiding a compilation warning
   void Load(
     GOConfigReader &cfg, const wxString &group, int defaultFirstMidiNoteNumber);
   void AddPipe(GOPipe *pipe);
@@ -87,17 +81,14 @@ public:
   unsigned GetPipeCount();
   GOPipeConfigNode &GetPipeConfig();
   void SetTemperament(const GOTemperament &temperament);
-  const wxString &GetName() const { return m_Name; }
-
-  const wxString &GetMidiTypeCode() const override;
-  const wxString &GetMidiType() const override;
-  const wxString &GetMidiName() const override { return GetName(); }
 
   wxString GetElementStatus() override;
   std::vector<wxString> GetElementActions() override;
   void TriggerElementActions(unsigned no) override;
 
-  void SendKey(unsigned note, unsigned velocity);
+  void SendKey(unsigned note, unsigned velocity) {
+    SendMidiKey(note, velocity);
+  }
 };
 
 #endif
