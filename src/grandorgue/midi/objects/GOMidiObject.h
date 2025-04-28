@@ -18,6 +18,7 @@
 #include "GOSaveableObject.h"
 
 class GOMidiMap;
+class GOMidiObjectContext;
 class GOMidiReceiver;
 class GOMidiSender;
 class GOMidiShortcutReceiver;
@@ -40,6 +41,8 @@ private:
   GOMidiReceiver *p_MidiReceiver;
   GOMidiShortcutReceiver *p_ShortcutReceiver;
   GOMidiSender *p_DivisionSender;
+
+  const GOMidiObjectContext *p_context;
 
 protected:
   GOMidiObject(
@@ -74,7 +77,7 @@ protected:
   virtual void LoadMidiObject(
     GOConfigReader &cfg, const wxString &group, GOMidiMap &midiMap) {}
   virtual void SaveMidiObject(
-    GOConfigWriter &cfg, const wxString &group, GOMidiMap &midiMap) {}
+    GOConfigWriter &cfg, const wxString &group, GOMidiMap &midiMap) const {}
 
 public:
   GOMidiMap &GetMidiMap() { return r_MidiMap; }
@@ -82,6 +85,11 @@ public:
   const wxString &GetMidiTypeName() const { return r_MidiTypeName; }
   const wxString &GetName() const { return m_name; }
   void SetName(const wxString &name) { m_name = name; }
+
+  const GOMidiObjectContext *GetContext() const { return p_context; }
+  void SetContext(const GOMidiObjectContext *pContext) { p_context = pContext; }
+
+  wxString GetContextTitle() const;
 
   virtual void Init(
     GOConfigReader &cfg, const wxString &group, const wxString &name) {
@@ -93,7 +101,7 @@ public:
     InitMidiObject(cfg, group, name);
   }
 
-  virtual void Save(GOConfigWriter &cfg) {
+  virtual void Save(GOConfigWriter &cfg) override {
     SaveMidiObject(cfg, m_group, r_MidiMap);
   }
 

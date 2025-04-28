@@ -8,7 +8,7 @@
 #ifndef GOMIDIOBJECTWITHSHORTCUT_H
 #define GOMIDIOBJECTWITHSHORTCUT_H
 
-#include "midi/GOMidiShortcutReceiver.h"
+#include "midi/elements/GOMidiShortcutReceiver.h"
 
 #include "GOMidiReceivingSendingObject.h"
 
@@ -32,7 +32,9 @@ protected:
   void LoadMidiObject(
     GOConfigReader &cfg, const wxString &group, GOMidiMap &midiMap) override;
   void SaveMidiObject(
-    GOConfigWriter &cfg, const wxString &group, GOMidiMap &midiMap) override;
+    GOConfigWriter &cfg,
+    const wxString &group,
+    GOMidiMap &midiMap) const override;
 
   virtual void OnShortcutKeyReceived(
     GOMidiShortcutReceiver::MatchType matchType, int key)

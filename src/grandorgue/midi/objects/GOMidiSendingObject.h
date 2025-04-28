@@ -8,7 +8,7 @@
 #ifndef GOMIDISENDINGOBJECT_H
 #define GOMIDISENDINGOBJECT_H
 
-#include "midi/GOMidiSender.h"
+#include "midi/elements/GOMidiSender.h"
 
 #include "GOMidiObject.h"
 
@@ -30,7 +30,9 @@ protected:
   void LoadMidiObject(
     GOConfigReader &cfg, const wxString &group, GOMidiMap &midiMap) override;
   void SaveMidiObject(
-    GOConfigWriter &cfg, const wxString &group, GOMidiMap &midiMap) override;
+    GOConfigWriter &cfg,
+    const wxString &group,
+    GOMidiMap &midiMap) const override;
 
   void SendMidiValue(bool value) { m_sender.SetDisplay(value); }
   void SendMidiValue(int value) { m_sender.SetValue(value); }

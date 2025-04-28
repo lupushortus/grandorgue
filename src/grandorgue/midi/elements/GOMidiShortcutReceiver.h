@@ -10,7 +10,7 @@
 
 #include <wx/string.h>
 
-#include "GOMidiShortcutPattern.h"
+#include "midi/events/GOMidiShortcutPattern.h"
 
 class GOConfigReader;
 class GOConfigWriter;
@@ -20,7 +20,7 @@ public:
   GOMidiShortcutReceiver(ReceiverType type) : GOMidiShortcutPattern(type) {}
 
   void Load(GOConfigReader &cfg, const wxString &group);
-  void Save(GOConfigWriter &cfg, const wxString &group);
+  void Save(GOConfigWriter &cfg, const wxString &group) const;
 
   MatchType Match(unsigned key);
 

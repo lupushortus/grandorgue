@@ -17,7 +17,7 @@
 #include "gui/dialogs/common/GODialogSizeSet.h"
 #include "gui/size/GOLogicalRect.h"
 #include "midi/GOMidiMap.h"
-#include "midi/GOMidiReceiverBase.h"
+#include "midi/elements/GOMidiReceiverBase.h"
 #include "settings/GOSettingBool.h"
 #include "settings/GOSettingDirectory.h"
 #include "settings/GOSettingEnum.h"
@@ -66,7 +66,11 @@ private:
   GOLogicalRect m_MainWindowRect;
 
   static const GOMidiSetting m_MIDISettings[];
-  static const struct IniFileEnumEntry m_InitialLoadTypes[];
+
+  GOOrgan *CloneOrgan(const GOOrgan &newOrgan) const override;
+
+  void LoadOrgans(GOConfigReader &cfg);
+  void SaveOrgans(GOConfigWriter &cfg);
 
   wxString GetEventSection(unsigned index);
 
@@ -173,6 +177,9 @@ public:
   wxString GetEventGroup(unsigned index);
   wxString GetEventTitle(unsigned index);
   const GOMidiReceiverBase *GetMidiEvent(unsigned index) const;
+  unsigned GetEventInputNumber(unsigned index) const {
+    return m_MIDISettings[index].index;
+  }
   const GOMidiReceiverBase *FindMidiEvent(
     GOMidiReceiverType type, unsigned index) const;
 

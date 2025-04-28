@@ -57,6 +57,7 @@ config/GOMidiDeviceConfig.cpp
 config/GOMidiDeviceConfigList.cpp
 config/GOPortsConfig.cpp
 config/GOPortFactory.cpp
+config/GORegisteredOrgan.cpp
 control/GOButtonControl.cpp
 control/GOCallbackButtonControl.cpp
 control/GOElementCreator.cpp
@@ -96,6 +97,7 @@ gui/dialogs/GOProgressDialog.cpp
 gui/dialogs/GOPropertiesDialog.cpp
 gui/dialogs/GOSelectOrganDialog.cpp
 gui/dialogs/GOSplash.cpp
+gui/dialogs/go-message-boxes.cpp
 gui/frames/GOFrame.cpp
 gui/frames/GOLogWindow.cpp
 gui/frames/GOMainWindowData.cpp
@@ -142,7 +144,21 @@ loader/cache/GOCache.cpp
 loader/cache/GOCacheCleaner.cpp
 loader/cache/GOCacheWriter.cpp
 midi/dialog-creator/GOMidiDialogCreatorProxy.cpp
+midi/elements/GOMidiReceiver.cpp
+midi/elements/GOMidiReceiverBase.cpp
+midi/elements/GOMidiShortcutReceiver.cpp
+midi/elements/GOMidiSendProxy.cpp
+midi/elements/GOMidiSender.cpp
+midi/events/GOMidiEvent.cpp
+midi/events/GOMidiEventPattern.cpp
+midi/events/GOMidiReceiverEventPattern.cpp
+midi/events/GOMidiSenderEventPattern.cpp
+midi/events/GOMidiShortcutPattern.cpp
+midi/events/GOMidiWXEvent.cpp
+midi/events/GORodgers.cpp
+midi/files/GOMidiFileReader.cpp
 midi/objects/GOMidiObject.cpp
+midi/objects/GOMidiObjectContext.cpp
 midi/objects/GOMidiObjectWithDivision.cpp
 midi/objects/GOMidiObjectWithShortcut.cpp
 midi/objects/GOMidiReceivingSendingObject.cpp
@@ -157,14 +173,10 @@ midi/ports/GOMidiRtOutPort.cpp
 midi/GOMidi.cpp
 midi/GOMidiInputMerger.cpp
 midi/GOMidiListener.cpp
+midi/GOMidiMap.cpp
 midi/GOMidiOutputMerger.cpp
 midi/GOMidiPlayer.cpp
 midi/GOMidiPlayerContent.cpp
-midi/GOMidiSendProxy.cpp
-midi/GOMidiSender.cpp
-midi/GOMidiShortcutPattern.cpp
-midi/GOMidiShortcutReceiver.cpp
-midi/GOMidiReceiver.cpp
 midi/GOMidiRecorder.cpp
 model/pipe-config/GOPipeConfig.cpp
 model/pipe-config/GOPipeConfigNode.cpp
@@ -221,14 +233,16 @@ sound/GOSoundFilter.cpp
 sound/GOSoundToneBalanceFilter.cpp
 updater/GOUpdateChecker.cpp
 yaml/GOSaveableToYaml.cpp
+yaml/GOYamlModel.cpp
 yaml/go-wx-yaml.cpp
 GOAudioRecorder.cpp
 GOBitmapCache.cpp
+GODocument.cpp
 GOEvent.cpp
+GOKeyConvert.cpp
 GOLog.cpp
 GOMetronome.cpp
 GOOrganController.cpp
-GODocument.cpp
 GOVirtualCouplerController.cpp
 )
 
@@ -239,6 +253,7 @@ endif()
 add_library(golib STATIC ${grandorgue_src})
 set(go_libs ${wxWidgets_LIBRARIES} ${YAML_CPP_LIBRARIES} ${RT_LIBRARIES} ${PORTAUDIO_LIBRARIES} ${FFTW_LIBRARIES} ${ZITACONVOLVER_LIBRARIES} CURL::libcurl)
 set(go_libdir ${wxWidgets_LIBRARY_DIRS} ${RT_LIBDIR} ${PORTAUDIO_LIBDIR} ${FFTW_LIBDIR})
+target_include_directories(golib PUBLIC ${YAML_CPP_INCLUDE_DIRS})
 target_link_libraries(golib GrandOrgueImages GrandOrgueCore ${go_libs})
 link_directories(${go_libdir})
 

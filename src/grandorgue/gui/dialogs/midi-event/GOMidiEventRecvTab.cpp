@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2024 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2025 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -15,10 +15,11 @@
 #include <wx/stattext.h>
 #include <wx/tglbtn.h>
 
-#include "GOOrganController.h"
-#include "GORodgers.h"
 #include "config/GOConfig.h"
-#include "midi/GOMidiEvent.h"
+#include "midi/events/GOMidiEvent.h"
+#include "midi/events/GORodgers.h"
+
+#include "GOOrganController.h"
 
 BEGIN_EVENT_TABLE(GOMidiEventRecvTab, wxPanel)
 EVT_TOGGLEBUTTON(ID_LISTEN_SIMPLE, GOMidiEventRecvTab::OnListenSimpleClick)
@@ -329,7 +330,7 @@ bool GOMidiEventRecvTab::TransferDataFromWindow() {
 
 void GOMidiEventRecvTab::OnTypeChange(wxCommandEvent &event) {
   GOMidiReceiverMessageType type = m_eventtype->GetCurrentValue();
-  if (m_original->HasChannel(type))
+  if (m_original->hasChannel(type))
     m_channel->Enable();
   else
     m_channel->Disable();
@@ -345,22 +346,22 @@ void GOMidiEventRecvTab::OnTypeChange(wxCommandEvent &event) {
     m_HighKey->Enable();
   else
     m_HighKey->Disable();
-  if (m_original->HasLowerLimit(type)) {
+  if (m_original->hasLowerLimit(type)) {
     m_LowValue->Enable();
-    m_LowValue->SetRange(0, m_original->LowerValueLimit(type));
+    m_LowValue->SetRange(0, m_original->lowerValueLimit(type));
   } else
     m_LowValue->Disable();
-  if (m_original->HasUpperLimit(type)) {
+  if (m_original->hasUpperLimit(type)) {
     m_HighValue->Enable();
-    m_HighValue->SetRange(0, m_original->UpperValueLimit(type));
+    m_HighValue->SetRange(0, m_original->upperValueLimit(type));
   } else
     m_HighValue->Disable();
-  if (m_original->HasKey(type)) {
+  if (m_original->hasKey(type)) {
     m_data->Enable();
     if (m_ReceiverType == MIDI_RECV_MANUAL)
       m_data->SetRange(-35, 35);
     else
-      m_data->SetRange(0, m_original->KeyLimit(type));
+      m_data->SetRange(0, m_original->keyLimit(type));
   } else
     m_data->Disable();
 
@@ -907,7 +908,7 @@ void GOMidiEventRecvTab::DetectEvent() {
               }
               break;
             case GOMidiEvent::MIDI_SYSEX_RODGERS_STOP_CHANGE:
-              for (unsigned i = 0; i < m_original->LowerValueLimit(
+              for (unsigned i = 0; i < m_original->lowerValueLimit(
                                      MIDI_M_SYSEX_RODGERS_STOP_CHANGE);
                    i++) {
                 if (
