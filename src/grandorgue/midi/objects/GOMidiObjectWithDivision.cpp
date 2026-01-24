@@ -11,30 +11,17 @@
 
 GOMidiObjectWithDivision::GOMidiObjectWithDivision(
   GOOrganModel &organModel,
-  const wxString &midiTypeCode,
-  const wxString &midiTypeName,
+  ObjectType objectType,
   GOMidiSenderType senderType,
   GOMidiReceiverType receiverType)
   : GOMidiReceivingSendingObject(
-    organModel, midiTypeCode, midiTypeName, senderType, receiverType),
-    m_DivisionSender(organModel, MIDI_SEND_MANUAL) {
+    organModel, objectType, senderType, receiverType),
+    m_DivisionSender(MIDI_SEND_MANUAL) {
+  m_DivisionSender.SetProxy(&organModel);
   SetDivisionSender(&m_DivisionSender);
 }
 
 GOMidiObjectWithDivision::~GOMidiObjectWithDivision() {
   SetDivisionSender(nullptr);
-}
-
-static const wxString WX_DIVISION = wxT("Division");
-
-void GOMidiObjectWithDivision::LoadMidiObject(
-  GOConfigReader &cfg, const wxString &group, GOMidiMap &midiMap) {
-  GOMidiReceivingSendingObject::LoadMidiObject(cfg, group, midiMap);
-  m_DivisionSender.Load(cfg, group + WX_DIVISION, midiMap);
-}
-
-void GOMidiObjectWithDivision::SaveMidiObject(
-  GOConfigWriter &cfg, const wxString &group, GOMidiMap &midiMap) const {
-  GOMidiReceivingSendingObject::SaveMidiObject(cfg, group, midiMap);
-  m_DivisionSender.Save(cfg, group + WX_DIVISION, midiMap);
+  m_DivisionSender.SetProxy(nullptr);
 }

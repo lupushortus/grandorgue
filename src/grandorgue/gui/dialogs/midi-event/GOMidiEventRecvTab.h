@@ -15,7 +15,7 @@
 
 #include "gui/wxcontrols/GOChoice.h"
 #include "midi/GOMidiListener.h"
-#include "midi/elements/GOMidiReceiverBase.h"
+#include "midi/elements/GOMidiReceiver.h"
 #include "midi/events/GOMidiCallback.h"
 #include "modification/GOModificationProxy.h"
 
@@ -27,20 +27,21 @@ class wxToggleButton;
 
 class GOConfig;
 class GOMidiDeviceConfigList;
+class GOMidiEventDeviceChoice;
 
 class GOMidiEventRecvTab : public wxPanel,
                            public GOModificationProxy,
                            protected GOMidiCallback {
 private:
-  GOMidiDeviceConfigList &m_MidiIn;
-  GOMidiMap &m_MidiMap;
+  const GOConfig &r_config;
 
-  GOMidiReceiverBase *m_original;
+  GOMidiReceiver *m_original;
   GOMidiReceiverEventPatternList m_midi;
   GOMidiReceiverType m_ReceiverType;
   GOMidiListener m_listener;
   GOChoice<GOMidiReceiverMessageType> *m_eventtype;
-  wxChoice *m_eventno, *m_channel, *m_device;
+  wxChoice *m_eventno, *m_channel;
+  GOMidiEventDeviceChoice *m_device;
   wxStaticText *m_DataLabel;
   wxSpinCtrl *m_data;
   wxSpinCtrl *m_LowKey;
@@ -114,12 +115,12 @@ protected:
   };
 
 public:
-  GOMidiEventRecvTab(
-    wxWindow *parent, GOMidiReceiverBase *event, GOConfig &config);
+  GOMidiEventRecvTab(wxWindow *parent, GOMidiReceiver *event, GOConfig &config);
   ~GOMidiEventRecvTab();
   void RegisterMIDIListener(GOMidi *midi);
 
-  virtual bool TransferDataFromWindow() override;
+  bool TransferDataToWindow() override;
+  bool TransferDataFromWindow() override;
   GOMidiReceiverEventPattern GetCurrentEvent();
 
   DECLARE_EVENT_TABLE()

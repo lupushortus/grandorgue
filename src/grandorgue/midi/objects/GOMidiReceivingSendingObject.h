@@ -25,8 +25,7 @@ private:
 protected:
   GOMidiReceivingSendingObject(
     GOOrganModel &organModel,
-    const wxString &midiTypeCode,
-    const wxString &midiTypeName,
+    ObjectType objectType,
     GOMidiSenderType senderType,
     GOMidiReceiverType receiverType);
 
@@ -47,6 +46,8 @@ public:
   virtual void SetElementId(int id) override;
 
 protected:
+  virtual const GOMidiObject *FindInitialMidiObject() const override;
+
   // Now it is present only for the symmetry with Load
   // TODO: add the initialMidiNumber parameter
   void Init(
@@ -57,12 +58,6 @@ protected:
     const wxString &group,
     const wxString &name,
     bool mayHaveOdfMidiInputNumber);
-  virtual void LoadMidiObject(
-    GOConfigReader &cfg, const wxString &group, GOMidiMap &midiMap) override;
-  virtual void SaveMidiObject(
-    GOConfigWriter &cfg,
-    const wxString &group,
-    GOMidiMap &midiMap) const override;
 
   void PreparePlayback() override;
 

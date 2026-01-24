@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2025 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2026 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -8,9 +8,17 @@
 #ifndef GOMIDIEVENTPATTERNLIST_H
 #define GOMIDIEVENTPATTERNLIST_H
 
+#include <algorithm>
 #include <vector>
 
-template <class MidiType, class MidiEventPattern> class GOMidiEventPatternList {
+#include "GOMidiBasePatternList.h"
+
+template <
+  class MidiType,
+  class MidiEventPattern,
+  typename = std::enable_if_t<
+    std::is_base_of<GOMidiEventPattern, MidiEventPattern>::value>>
+class GOMidiEventPatternList : public GOMidiBasePatternList {
 protected:
   MidiType m_type;
   std::vector<MidiEventPattern> m_events;
@@ -21,12 +29,18 @@ public:
 
   MidiType GetType() const { return m_type; }
 
-  unsigned GetEventCount() const { return m_events.size(); }
+  unsigned GetEventCount() const override { return m_events.size(); }
 
   bool IsMidiConfigured() const { return !m_events.empty(); }
 
+  void ClearEvents() { m_events.clear(); }
+
   const MidiEventPattern &GetEvent(unsigned index) const {
     return m_events[index];
+  }
+
+  const GOMidiEventPattern &GetBasePattern(unsigned index) const override {
+    return GetEvent(index);
   }
 
   MidiEventPattern &GetEvent(unsigned index) { return m_events[index]; }
@@ -45,10 +59,21 @@ public:
    */
 
   bool RenewFrom(const GOMidiEventPatternList &newList) {
-    bool result = newList.m_type != m_type || newList.m_events != m_events;
+    std::vector<MidiEventPattern> nonEmptyEvents;
 
-    if (result)
-      *this = newList;
+    // copy not empty events.
+    std::copy_if(
+      newList.m_events.begin(),
+      newList.m_events.end(),
+      std::back_inserter(nonEmptyEvents),
+      [](const MidiEventPattern &x) { return !x.IsEmpty(); });
+
+    bool result = newList.m_type != m_type || nonEmptyEvents != m_events;
+
+    if (result) {
+      m_type = newList.m_type;
+      m_events = nonEmptyEvents;
+    }
     return result;
   }
 };

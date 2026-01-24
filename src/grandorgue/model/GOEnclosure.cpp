@@ -14,17 +14,13 @@
 
 #include "GOOrganModel.h"
 
-static const wxString WX_MIDI_TYPE_CODE = wxT("Enclosure");
-static const wxString WX_MIDI_TYPE_NAME = _("Enclosure");
-
 GOEnclosure::GOEnclosure(GOOrganModel &organModel)
   : GOMidiObjectWithShortcut(
     organModel,
-    WX_MIDI_TYPE_CODE,
-    WX_MIDI_TYPE_NAME,
+    OBJECT_TYPE_ENCLOSURE,
     MIDI_SEND_ENCLOSURE,
     MIDI_RECV_ENCLOSURE,
-    GOMidiShortcutReceiver::KEY_RECV_ENCLOSURE),
+    KEY_RECV_ENCLOSURE),
     m_IsOdfDefined(false),
     m_DefaultAmpMinimumLevel(0),
     m_Displayed1(false),

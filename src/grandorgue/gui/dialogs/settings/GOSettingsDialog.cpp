@@ -16,7 +16,7 @@
 
 #include "GOSettingsAudio.h"
 #include "GOSettingsMidiDevices.h"
-#include "GOSettingsMidiMessage.h"
+#include "GOSettingsMidiInitial.h"
 #include "GOSettingsOptions.h"
 #include "GOSettingsOrgans.h"
 #include "GOSettingsPaths.h"
@@ -61,8 +61,9 @@ GOSettingsDialog::GOSettingsDialog(
   AddTab(m_AudioPage, PAGE_AUDIO, _("Audio"));
   m_MidiDevicePage = new SettingsMidiDevices(config, midi, notebook);
   AddTab(m_MidiDevicePage, PAGE_MIDI_DEVICES, _("MIDI Devices"));
-  m_MidiMessagePage = new GOSettingsMidiMessage(config, midi, notebook);
-  AddTab(m_MidiMessagePage, PAGE_INITIAL_MIDI, _("Initial MIDI"));
+  m_MidiMessagePage = new GOSettingsMidiInitial(
+    config, midi, this, PAGE_INITIAL_MIDI, _("Initial MIDI"));
+  AddTab(m_MidiMessagePage);
   m_OrgansPage
     = new GOSettingsOrgans(config, midi, this, PAGE_ORGANS, _("Organs"));
   AddTab(m_OrgansPage);

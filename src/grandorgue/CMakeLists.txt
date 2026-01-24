@@ -52,6 +52,7 @@ combinations/GOSetter.cpp
 config/GOAudioDeviceConfig.cpp
 config/GOAudioDeviceNode.cpp
 config/GOConfig.cpp
+config/GOConfigMidiObject.cpp
 config/GODeviceNamePattern.cpp
 config/GOMidiDeviceConfig.cpp
 config/GOMidiDeviceConfigList.cpp
@@ -71,6 +72,7 @@ gui/dialogs/common/GODialogSizeSet.cpp
 gui/dialogs/common/GODialogTab.cpp
 gui/dialogs/common/GOSimpleDialog.cpp
 gui/dialogs/common/GOTabbedDialog.cpp
+gui/dialogs/midi-event/GOMidiEventDeviceChoice.cpp
 gui/dialogs/midi-event/GOMidiEventDialog.cpp
 gui/dialogs/midi-event/GOMidiEventKeyTab.cpp
 gui/dialogs/midi-event/GOMidiEventRecvTab.cpp
@@ -84,7 +86,7 @@ gui/dialogs/settings/GOSettingsDeviceMatchDialog.cpp
 gui/dialogs/settings/GOSettingsDialog.cpp
 gui/dialogs/settings/GOSettingsMidiDeviceList.cpp
 gui/dialogs/settings/GOSettingsMidiDevices.cpp
-gui/dialogs/settings/GOSettingsMidiMessage.cpp
+gui/dialogs/settings/GOSettingsMidiInitial.cpp
 gui/dialogs/settings/GOSettingsPaths.cpp
 gui/dialogs/settings/GOSettingsPorts.cpp
 gui/dialogs/settings/GOSettingsOptions.cpp
@@ -113,11 +115,12 @@ gui/panels/GOGUICouplerPanel.cpp
 gui/panels/GOGUIDisplayMetrics.cpp
 gui/panels/GOGUIDivisionalsPanel.cpp
 gui/panels/GOGUIEnclosure.cpp
-gui/panels/GOGUIFloatingPanel.cpp
+gui/panels/GOGUICouplerManualsAndVolumePanel.cpp
 gui/panels/GOGUIHW1Background.cpp
 gui/panels/GOGUIHW1DisplayMetrics.cpp
 gui/panels/GOGUIImage.cpp
 gui/panels/GOGUILayoutEngine.cpp
+gui/panels/GOGUIMidiControl.cpp
 gui/panels/GOGUIPanelView.cpp
 gui/panels/GOGUISetterDisplayMetrics.cpp
 gui/panels/GOGUILabel.cpp
@@ -143,9 +146,8 @@ loader/GOLoadWorker.cpp
 loader/cache/GOCache.cpp
 loader/cache/GOCacheCleaner.cpp
 loader/cache/GOCacheWriter.cpp
-midi/dialog-creator/GOMidiDialogCreatorProxy.cpp
+midi/dialog-creator/GOMidiConfigDispatcher.cpp
 midi/elements/GOMidiReceiver.cpp
-midi/elements/GOMidiReceiverBase.cpp
 midi/elements/GOMidiShortcutReceiver.cpp
 midi/elements/GOMidiSendProxy.cpp
 midi/elements/GOMidiSender.cpp
@@ -161,6 +163,7 @@ midi/objects/GOMidiObject.cpp
 midi/objects/GOMidiObjectContext.cpp
 midi/objects/GOMidiObjectWithDivision.cpp
 midi/objects/GOMidiObjectWithShortcut.cpp
+midi/objects/GOMidiPlayingObject.cpp
 midi/objects/GOMidiReceivingSendingObject.cpp
 midi/objects/GOMidiSendingObject.cpp
 midi/ports/GOMidiInPort.cpp
@@ -173,7 +176,6 @@ midi/ports/GOMidiRtOutPort.cpp
 midi/GOMidi.cpp
 midi/GOMidiInputMerger.cpp
 midi/GOMidiListener.cpp
-midi/GOMidiMap.cpp
 midi/GOMidiOutputMerger.cpp
 midi/GOMidiPlayer.cpp
 midi/GOMidiPlayerContent.cpp

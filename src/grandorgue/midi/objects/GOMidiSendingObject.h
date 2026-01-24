@@ -10,29 +10,24 @@
 
 #include "midi/elements/GOMidiSender.h"
 
-#include "GOMidiObject.h"
+#include "GOMidiPlayingObject.h"
 
 class GOOrganModel;
 
-class GOMidiSendingObject : public GOMidiObject {
+class GOMidiSendingObject : public GOMidiPlayingObject {
 private:
   GOMidiSender m_sender;
 
 protected:
   GOMidiSendingObject(
     GOOrganModel &organModel,
-    const wxString &midiTypeCode,
-    const wxString &midiTypeName,
+    ObjectType objectType,
     GOMidiSenderType senderType);
 
   ~GOMidiSendingObject();
 
   void LoadMidiObject(
     GOConfigReader &cfg, const wxString &group, GOMidiMap &midiMap) override;
-  void SaveMidiObject(
-    GOConfigWriter &cfg,
-    const wxString &group,
-    GOMidiMap &midiMap) const override;
 
   void SendMidiValue(bool value) { m_sender.SetDisplay(value); }
   void SendMidiValue(int value) { m_sender.SetValue(value); }
@@ -58,7 +53,7 @@ protected:
    */
   void ResendMidi();
 
-  void OnSettingsApplied() override { ResendMidi(); }
+  void OnSettingsApplied() override;
 
   void PreparePlayback() override;
   void PrepareRecording() override;

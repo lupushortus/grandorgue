@@ -32,9 +32,8 @@ GOMidiEventKeyTab::GOMidiEventKeyTab(
   wxBoxSizer *sizer = new wxStaticBoxSizer(
     wxVERTICAL,
     this,
-    m_key.GetType() == GOMidiShortcutPattern::KEY_RECV_ENCLOSURE
-      ? _("&Plus-Shortcut:")
-      : _("&Shortcut:"));
+    m_key.GetType() == KEY_RECV_ENCLOSURE ? _("&Plus-Shortcut:")
+                                          : _("&Shortcut:"));
   m_keyselect = new wxChoice(this, ID_KEY_SELECT);
   sizer->Add(m_keyselect, 1, wxEXPAND);
 
@@ -44,7 +43,7 @@ GOMidiEventKeyTab::GOMidiEventKeyTab(
 
   topSizer->Add(sizer, 0, wxALL | wxEXPAND, 6);
 
-  if (m_key.GetType() == GOMidiShortcutPattern::KEY_RECV_ENCLOSURE) {
+  if (m_key.GetType() == KEY_RECV_ENCLOSURE) {
     sizer = new wxStaticBoxSizer(wxVERTICAL, this, _("&Minus-Shortcut:"));
     m_keyminusselect = new wxChoice(this, ID_MINUS_KEY_SELECT);
     sizer->Add(m_keyminusselect, 1, wxEXPAND);
@@ -69,32 +68,28 @@ GOMidiEventKeyTab::GOMidiEventKeyTab(
 GOMidiEventKeyTab::~GOMidiEventKeyTab() {}
 
 void GOMidiEventKeyTab::FillKeylist(wxChoice *select, unsigned shortcut) {
-  const GOKeyConvert::Shortcut *keys = GOKeyConvert::getShortcutKeys();
-  unsigned count = GOKeyConvert::getShortcutKeyCount();
-  select->Append(_("None"), (void *)0);
+  const auto &keys = GOKeyConvert::SHORTCUTS.m_entries;
+  select->Append(_("None"), (void *)nullptr);
   select->SetSelection(0);
-  for (unsigned i = 0; i < count; i++) {
-    select->Append(wxGetTranslation(keys[i].name), (void *)&keys[i]);
-    if (keys[i].key_code == shortcut)
+  for (unsigned l = keys.size(), i = 0; i < l; i++) {
+    const GOConfigEnum::Entry &key = keys[i];
+
+    select->Append(wxGetTranslation(key.name), (void *)&key);
+    if (key.value == (int)shortcut)
       select->SetSelection(i + 1);
   }
 }
 
 bool GOMidiEventKeyTab::TransferDataFromWindow() {
-  const GOKeyConvert::Shortcut *key
-    = (const GOKeyConvert::Shortcut *)m_keyselect->GetClientData(
+  const GOConfigEnum::Entry *pKey
+    = (const GOConfigEnum::Entry *)m_keyselect->GetClientData(
       m_keyselect->GetSelection());
-  if (!key)
-    m_key.SetShortcut(0);
-  else
-    m_key.SetShortcut(key->key_code);
+
+  m_key.SetShortcut(pKey ? (unsigned)pKey->value : 0);
   if (m_keyminusselect) {
-    key = (const GOKeyConvert::Shortcut *)m_keyminusselect->GetClientData(
+    pKey = (const GOConfigEnum::Entry *)m_keyminusselect->GetClientData(
       m_keyminusselect->GetSelection());
-    if (!key)
-      m_key.SetMinusKey(0);
-    else
-      m_key.SetMinusKey(key->key_code);
+    m_key.SetMinusKey(pKey ? (unsigned)pKey->value : 0);
   }
   if (m_original->RenewFrom(m_key))
     GOModificationProxy::OnIsModifiedChanged(true);
@@ -134,13 +129,14 @@ void GOMidiEventKeyTab::Listen(bool enable) {
 void GOMidiEventKeyTab::OnKeyDown(wxKeyEvent &event) {
   unsigned code = GOKeyConvert::wXKtoVK(event.GetKeyCode());
   if (code) {
-    wxChoice *select = m_keyselect;
-    if (m_minuslisten && m_minuslisten->GetValue())
-      select = m_keyminusselect;
+    wxChoice *select = (m_minuslisten && m_minuslisten->GetValue())
+      ? m_keyminusselect
+      : m_keyselect;
+
     for (unsigned i = 0; i < select->GetCount(); i++) {
-      const GOKeyConvert::Shortcut *key
-        = (const GOKeyConvert::Shortcut *)select->GetClientData(i);
-      if (key && key->key_code == code)
+      const GOConfigEnum::Entry *pKey
+        = (const GOConfigEnum::Entry *)select->GetClientData(i);
+      if (pKey && pKey->value == (int)code)
         select->SetSelection(i);
     }
 

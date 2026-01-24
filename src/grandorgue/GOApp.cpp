@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2024 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2026 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -10,9 +10,7 @@
 #include <wx/cmdline.h>
 #include <wx/filesys.h>
 #include <wx/fs_zip.h>
-#include <wx/image.h>
 #include <wx/regex.h>
-#include <wx/stopwatch.h>
 
 #include "config/GOConfig.h"
 #include "gui/frames/GOFrame.h"
@@ -32,20 +30,19 @@
 
 IMPLEMENT_APP(GOApp)
 
-GOApp::GOApp()
-  : m_Restart(false),
-    m_Frame(NULL),
-    m_locale(),
-    m_config(NULL),
-    m_soundSystem(NULL),
-    m_Log(NULL),
-    m_FileName(),
-    m_InstanceName(),
-    m_IsGuiOnly(false) {}
+void GOApp::TemporaryLog::DoLogTextAtLevel(
+  wxLogLevel level, const wxString &msg) {
+  FILE *output = (level <= wxLOG_Warning) ? stderr : stdout;
+
+  fprintf(output, "%s\n", msg.mb_str().data());
+  if (level <= wxLOG_Error)
+    wxMessageBox(msg, "Error", wxOK | wxICON_ERROR);
+}
 
 static const char *const SWITCH_GUI = "g";
 static const char *const SWITCH_HELP = "h";
 static const char *const OPTION_INSTANCE = "i";
+static const char *const OPTION_CONFIG_FILE = "c";
 
 static const wxCmdLineEntryDesc cmd_line_desc[] = {
   {wxCMD_LINE_SWITCH,
@@ -64,6 +61,12 @@ static const wxCmdLineEntryDesc cmd_line_desc[] = {
    OPTION_INSTANCE,
    "instance",
    wxTRANSLATE("specify GrandOrgue instance name"),
+   wxCMD_LINE_VAL_STRING,
+   wxCMD_LINE_PARAM_OPTIONAL},
+  {wxCMD_LINE_OPTION,
+   OPTION_CONFIG_FILE,
+   "config",
+   wxTRANSLATE("specify GrandOrgue config file name"),
    wxCMD_LINE_VAL_STRING,
    wxCMD_LINE_PARAM_OPTIONAL},
   {wxCMD_LINE_SWITCH,
@@ -88,23 +91,22 @@ void GOApp::OnInitCmdLine(wxCmdLineParser &parser) {
 
 bool GOApp::OnCmdLineParsed(wxCmdLineParser &parser) {
   bool res = wxApp::OnCmdLineParsed(parser);
+  wxString str;
 
   if (res)
     m_IsGuiOnly = parser.FoundSwitch(SWITCH_GUI) == wxCMD_SWITCH_ON;
-  if (res) {
-    wxString str;
+  if (res && parser.Found(OPTION_INSTANCE, &str)) {
+    wxRegEx r(wxT("^[A-Za-z0-9]+$"), wxRE_ADVANCED);
 
-    if (parser.Found(OPTION_INSTANCE, &str)) {
-      wxRegEx r(wxT("^[A-Za-z0-9]+$"), wxRE_ADVANCED);
-
-      if (r.Matches(str))
-        m_InstanceName = wxT("-") + str;
-      else {
-        wxMessageOutput::Get()->Printf(_("Invalid instance name"));
-        res = false;
-      }
+    if (r.Matches(str))
+      m_InstanceName = std::string("-") + str.ToStdString();
+    else {
+      wxMessageOutput::Get()->Printf(_("Invalid instance name"));
+      res = false;
     }
   }
+  if (res && parser.Found(OPTION_CONFIG_FILE, &str))
+    m_ConfigFilePath = str.ToStdString();
   if (res)
     for (unsigned i = 0; i < parser.GetParamCount(); i++)
       m_FileName = parser.GetParam(i);
@@ -112,9 +114,7 @@ bool GOApp::OnCmdLineParsed(wxCmdLineParser &parser) {
 }
 
 bool GOApp::OnInit() {
-  /* wxMessageOutputStderr break wxLogStderr (fwide), therefore use MessageBox
-   * everywhere */
-  wxMessageOutput::Set(new wxMessageOutputMessageBox());
+  wxLog::SetActiveTarget(m_TemporaryLog.get());
 
 #ifdef __WXMAC__
   /* This ensures that the executable (when it is not in the form of an OS X
@@ -147,7 +147,7 @@ bool GOApp::OnInit() {
   if (!wxApp::OnInit())
     return false;
 
-  m_config = new GOConfig(m_InstanceName);
+  m_config = new GOConfig(m_InstanceName, m_ConfigFilePath);
   m_config->Load();
 
   GOStdPath::InitLocaleDir();
@@ -185,7 +185,7 @@ int GOApp::OnRun() { return wxApp::OnRun(); }
 
 int GOApp::OnExit() {
   wxLog::FlushActive();
-  wxLog::SetActiveTarget(NULL);
+  wxLog::SetActiveTarget(nullptr);
 
   int rc = wxApp::OnExit();
 
@@ -200,7 +200,6 @@ int GOApp::OnExit() {
 void GOApp::CleanUp() {
   // Ensure that GOFrame and other objects are destroyed before deleting
   wxApp::CleanUp();
-
   // CleanUp() may be called even if OnInit() has not succeed, so we need to
   // check
   if (m_soundSystem) {
@@ -216,5 +215,3 @@ void GOApp::CleanUp() {
     m_Log = nullptr;
   }
 }
-
-void GOApp::SetRestart() { m_Restart = true; }

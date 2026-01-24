@@ -9,13 +9,12 @@
 
 GOMidiObjectWithShortcut::GOMidiObjectWithShortcut(
   GOOrganModel &organModel,
-  const wxString &midiTypeCode,
-  const wxString &midiTypeName,
+  ObjectType objectType,
   GOMidiSenderType senderType,
   GOMidiReceiverType receiverType,
-  GOMidiShortcutReceiver::ReceiverType shortcutType)
+  GOMidiShortcutReceiverType shortcutType)
   : GOMidiReceivingSendingObject(
-    organModel, midiTypeCode, midiTypeName, senderType, receiverType),
+    organModel, objectType, senderType, receiverType),
     m_ShortcutReceiver(shortcutType) {
   SetMidiShortcutReceiver(&m_ShortcutReceiver);
 }
@@ -24,20 +23,9 @@ GOMidiObjectWithShortcut::~GOMidiObjectWithShortcut() {
   SetMidiShortcutReceiver(nullptr);
 }
 
-void GOMidiObjectWithShortcut::LoadMidiObject(
-  GOConfigReader &cfg, const wxString &group, GOMidiMap &midiMap) {
-  GOMidiReceivingSendingObject::LoadMidiObject(cfg, group, midiMap);
-  if (!IsReadOnly()) {
-    m_ShortcutReceiver.Load(cfg, group);
-  }
-}
-
-void GOMidiObjectWithShortcut::SaveMidiObject(
-  GOConfigWriter &cfg, const wxString &group, GOMidiMap &midiMap) const {
-  GOMidiReceivingSendingObject::SaveMidiObject(cfg, group, midiMap);
-  if (!IsReadOnly()) {
-    m_ShortcutReceiver.Save(cfg, group);
-  }
+void GOMidiObjectWithShortcut::SetDefaultShortcutKey(unsigned key) {
+  if (!m_ShortcutReceiver.IsMidiConfigured())
+    m_ShortcutReceiver.SetShortcut(key);
 }
 
 void GOMidiObjectWithShortcut::HandleKey(int key) {

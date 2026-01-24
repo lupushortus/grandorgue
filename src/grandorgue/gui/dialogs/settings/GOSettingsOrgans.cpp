@@ -231,12 +231,14 @@ using StringSet = std::unordered_set<wxString, wxStringHash, wxStringEqual>;
 static StringSet collect_hashes_from_organ_files(
   const wxString &dirPath, const wxString &pattern) {
   StringSet hashSet;
-  wxArrayString files;
 
-  wxDir::GetAllFiles(dirPath, &files, pattern);
+  if (!dirPath.IsEmpty()) {
+    wxArrayString files;
 
-  for (const wxString &fileName : files)
-    hashSet.insert(GOStdFileName::extractOrganHash(fileName));
+    wxDir::GetAllFiles(dirPath, &files, pattern);
+    for (const wxString &fileName : files)
+      hashSet.insert(GOStdFileName::extractOrganHash(fileName));
+  }
   return hashSet;
 }
 
@@ -625,16 +627,13 @@ void GOSettingsOrgans::OnOrganMidi(wxCommandEvent &event) {
   if (currOrganIndex >= 0) {
     OrganSlot *pOrganSlot = m_OrganSlotPtrsByGridLine[currOrganIndex];
     GOMidiEventDialog dlg(
-      NULL,
       this,
       wxString::Format(
         _("MIDI settings for organ %s"),
         pOrganSlot->p_CurrentOrgan->GetChurchName()),
       m_config,
       wxT("Organs"),
-      &pOrganSlot->p_CurrentOrgan->GetMIDIReceiver(),
-      NULL,
-      NULL);
+      &pOrganSlot->p_CurrentOrgan->GetMIDIReceiver());
 
     dlg.RegisterMIDIListener(&m_midi);
     dlg.ShowModal();

@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2025 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2026 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -8,16 +8,17 @@
 #ifndef GOCONFIG_H
 #define GOCONFIG_H
 
+#include <filesystem>
+#include <unordered_map>
+#include <vector>
+
 #include <wx/gdicmn.h>
 #include <wx/string.h>
-
-#include <map>
-#include <vector>
 
 #include "gui/dialogs/common/GODialogSizeSet.h"
 #include "gui/size/GOLogicalRect.h"
 #include "midi/GOMidiMap.h"
-#include "midi/elements/GOMidiReceiverBase.h"
+#include "midi/events/GOMidiReceiverType.h"
 #include "settings/GOSettingBool.h"
 #include "settings/GOSettingDirectory.h"
 #include "settings/GOSettingEnum.h"
@@ -29,19 +30,15 @@
 #include "temperaments/GOTemperamentList.h"
 
 #include "GOAudioDeviceConfig.h"
+#include "GOConfigMidiObject.h"
 #include "GOMidiDeviceConfigList.h"
 #include "GOOrganList.h"
 #include "GOPortsConfig.h"
 #include "ptrvector.h"
 
-typedef struct {
-  GOMidiReceiverType type;
-  unsigned index;
-  const wxString group;
-  const wxString name;
-} GOMidiSetting;
-
 enum class GOInitialLoadType { LOAD_NONE, LOAD_LAST_USED, LOAD_FIRST };
+
+class GOMidiReceiver;
 
 class GOConfig : public GOSettingStore, public GOOrganList {
 public:
@@ -52,32 +49,41 @@ public:
 
 private:
   wxString m_InstanceName;
-  wxString m_ConfigFileName;
+  std::filesystem::path m_ConfigFilePath;
   wxString m_ResourceDir;
   std::vector<wxString> m_AudioGroups;
   GOPortsConfig m_SoundPortsConfig;
   std::vector<GOAudioDeviceConfig> m_AudioDeviceConfig;
 
   GOPortsConfig m_MidiPortsConfig;
-  ptr_vector<GOMidiReceiverBase> m_MIDIEvents;
+
+  /* Thre are two sets of initial MIDI objects: built-in and user-added.
+   * The built-in MIDI objects are matched by ReceiverType and MIDIInputNumber.
+   * The user-added MIDI objects are matched by path.
+   * In this vector the first indices correspond the built-in objects and the
+   * rest indices correspond the user-added objects.
+   */
+  ptr_vector<GOConfigMidiObject> m_InitialMidiObjects;
+  // Used for finding a user-added Initial MIDI object
+  std::
+    unordered_map<wxString, GOConfigMidiObject *, wxStringHash, wxStringEqual>
+      m_InitialMidiObjectsByPath;
+
   GOMidiMap m_MidiMap;
   GOTemperamentList m_Temperaments;
 
   GOLogicalRect m_MainWindowRect;
 
-  static const GOMidiSetting m_MIDISettings[];
-
   GOOrgan *CloneOrgan(const GOOrgan &newOrgan) const override;
+  bool IsValidOrgan(const GOOrgan *pOrgan) const override;
 
   void LoadOrgans(GOConfigReader &cfg);
   void SaveOrgans(GOConfigWriter &cfg);
 
-  wxString GetEventSection(unsigned index);
-
   void LoadDefaults();
 
 public:
-  GOConfig(wxString instance);
+  GOConfig(const std::string &instanceName, const std::string &confFilePath);
 
   GOSettingDirectory OrganSettingsPath;
   GOSettingDirectory OrganCachePath;
@@ -105,6 +111,7 @@ public:
   GOSettingBool ManagePolyphony;
   GOSettingBool ScaleRelease;
   GOSettingBool RandomizeSpeaking;
+  GOSettingBool NewBasMelBehaviour;
   GOSettingBool ReverbEnabled;
   GOSettingBool ReverbDirect;
   GOSettingUnsigned ReverbChannel;
@@ -173,15 +180,19 @@ public:
   const wxString &GetResourceDirectory() const { return m_ResourceDir; }
   const wxString GetPackageDirectory();
 
-  unsigned GetEventCount() const;
-  wxString GetEventGroup(unsigned index);
-  wxString GetEventTitle(unsigned index);
-  const GOMidiReceiverBase *GetMidiEvent(unsigned index) const;
-  unsigned GetEventInputNumber(unsigned index) const {
-    return m_MIDISettings[index].index;
-  }
-  const GOMidiReceiverBase *FindMidiEvent(
-    GOMidiReceiverType type, unsigned index) const;
+  // return count of built-in initial MIDI objects
+  static unsigned getMidiBuiltinCount();
+
+  // return count of all initial MIDI objects, both built-in and user-addeds
+  unsigned GetMidiInitialCount() const { return m_InitialMidiObjects.size(); }
+  GOConfigMidiObject *GetMidiInitialObject(unsigned index);
+  // search among built-in MIDI objects
+  GOConfigMidiObject *FindMidiInitialObject(
+    GOMidiObject::ObjectType type, unsigned index);
+  // search among user-added MIDI objects
+  GOConfigMidiObject *FindMidiInitialObject(const wxString &path);
+  void AssignToInitial(const GOMidiObject &pObjFrom);
+  void DelMidiInitial(unsigned index);
 
   const std::vector<wxString> &GetAudioGroups();
   void SetAudioGroups(const std::vector<wxString> &audio_groups);
@@ -209,9 +220,10 @@ public:
     m_MidiPortsConfig = portsConfig;
   }
 
-  GOMidiMap &GetMidiMap();
+  GOMidiMap &GetMidiMap() { return m_MidiMap; }
+  const GOMidiMap &GetMidiMap() const { return m_MidiMap; }
 
-  GOTemperamentList &GetTemperaments();
+  GOTemperamentList &GetTemperaments() { return m_Temperaments; }
 
   const GOLogicalRect &GetMainWindowRect() const { return m_MainWindowRect; }
   void SetMainWindowRect(const GOLogicalRect &rect) { m_MainWindowRect = rect; }

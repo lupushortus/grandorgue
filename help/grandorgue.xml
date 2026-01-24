@@ -14,7 +14,7 @@ License GPL-2.0 or later (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
       <holder>Milan Digital Audio LLC</holder>
     </copyright>
     <copyright>
-      <year>2009-2024</year>
+      <year>2009-2025</year>
       <holder>GrandOrgue contributors (see AUTHORS)</holder>
     </copyright>
     <legalnotice>
@@ -239,7 +239,7 @@ The use of the cache increases the necessary disk space.
           <simpara>File: file operations, exit</simpara>
         </listitem>
         <listitem>
-          <simpara>Audio/Midi: manage settings</simpara>
+          <simpara>Audio/MIDI: manage settings</simpara>
         </listitem>
         <listitem>
           <simpara>Panel: manage additional panels</simpara>
@@ -482,7 +482,7 @@ volume spinner value; temperament setting; fine tuning data.
         <sect3>
           <title id="audiomidisettings">Settings...</title>
           <indexterm>
-            <primary>Audio/Midi Settings</primary>
+            <primary>Audio/MIDI Settings</primary>
           </indexterm>
           <para>
 Displays a tabbed dialog containing the various settings.
@@ -509,17 +509,17 @@ free the RAM it required.
 Closes and exits the GrandOrgue app.
 </para>
         <para>
-          Exit can also be fired by a MIDI message, see Audio/Midi menu &rarr; <link linkend="midiobjects">MIDI Objects</link> (look for type Button, element Exit).
+          Exit can also be fired by a MIDI message, see Audio/MIDI menu, <link linkend="midiobjects">MIDI Objects</link> (look for type Button, element Exit).
 </para>
         </sect3>
       </sect2>
       <sect2>
-        <title>Audio/Midi Menu</title>
+        <title>Audio/MIDI Menu</title>
         <indexterm>
           <primary>Audio Menu</primary>
         </indexterm>
         <para>
-The Audio/Midi menu contains commands for dealing with loaded organs and
+The Audio/MIDI menu contains commands for dealing with loaded organs and
 associated settings.
 </para>
         <sect3 id="temperamentsMenu">
@@ -553,7 +553,7 @@ Opens a bunch of menus and sub menus allowing to select a new tuning temperament
         </sect3>
         <sect3 id="midiobjects">
           <title>MIDI Objects</title>
-          <indexterm><primary>Midi Objects</primary></indexterm>
+          <indexterm><primary>MIDI Objects</primary></indexterm>
           <figure>
             <title>MIDI Objects</title>
             <mediaobject>
@@ -565,6 +565,26 @@ Opens a bunch of menus and sub menus allowing to select a new tuning temperament
           <para>Opens a window displaying all GrandOrgue objects which can have a MIDI event assigned to them.</para>
           <para>The <emphasis role="strong">Configure</emphasis> button opens the <link linkend="midieventeditor">MIDI event editor</link> dialog for this element.</para>
           <para>Double-clicking on the element in the list opens the MIDI event editor as well.</para>
+          <para>
+	    The <emphasis role="strong">Export</emphasis> button opens a file
+	    selection dialog for selecting a file where current MIDI settings
+	    will be saved.
+	  </para>
+          <para>
+	    The <emphasis role="strong">Import</emphasis> button opens a file
+	    selection dialog for selecting a file to load previous saved MIDI
+	    settings from. Both MIDI settings files (*.yaml) and organ preset
+            files (*.cmb) are supported.
+	  </para>
+          <para>
+	    The <emphasis role="strong">To initial</emphasis> button copies the
+            MIDI settings of selected objects to the Initial MIDI settings. When
+            the user loads another organ that contains MIDI objects with the
+            same path as the selected ones, they will inherit the MIDI settings
+            from here unless they are not overriden in that organ preset. In the
+            future the user can alter the initial MIDI settings at 
+            <link linkend="initialconfiguration">Initial MIDI</link>.
+	  </para>
         </sect3>
         <sect3 id="accessibility-stops">
           <title>Stops</title>
@@ -609,7 +629,7 @@ unnecessary, although it may be useful if you need to quickly stop the
 sound output, or if the sound is breaking up due to CPU overload.
 </para>
           <para>
-Panic button can also be fired by a MIDI message, see Audio/Midi menu &rarr; <link linkend="midiobjects">MIDI Objects</link> (look for type Button, element Panic).
+Panic button can also be fired by a MIDI message, see Audio/MIDI menu, <link linkend="midiobjects">MIDI Objects</link> (look for type Button, element Panic).
 </para>
         </sect3>
         <sect3 id="memoryset">
@@ -726,7 +746,7 @@ program will jump directly to the appropriate topic.
           </imageobject>
         </mediaobject>
         <para>
-This "button" is a shortcut to <link linkend="memoryset">Memory Set</link> in the <emphasis>Audio/Midi menu</emphasis>.</para>
+This "button" is a shortcut to <link linkend="memoryset">Memory Set</link> in the <emphasis>Audio/MIDI menu</emphasis>.</para>
         <para>The <emphasis>Shift</emphasis> key on the computer keyboard is a fugitive shortcut to this button: when the user clicks on a piston while holding the <emphasis>Shift</emphasis> key, the currently pulled drawstops are stored in the piston memory.</para>
       </sect2>
       <sect2>
@@ -837,7 +857,7 @@ unnecessary, although it may be useful if you need to quickly stop the
 sound output, or if the sound is breaking up due to CPU overload.
         </para>
         <para>
-Panic button can also be fired by a MIDI message, see Audio/Midi menu &rarr; <link linkend="midiobjects">MIDI Objects</link> (look for type Button, element Panic).
+Panic button can also be fired by a MIDI message, see Audio/MIDI menu, <link linkend="midiobjects">MIDI Objects</link> (look for type Button, element Panic).
 </para>
       </sect2>
     </sect1>
@@ -941,7 +961,7 @@ displayed in chronological order: oldest on the first line.
   </chapter>
   <chapter id="midieventeditor">
     <title>MIDI Event Editor</title>
-    <indexterm><primary>Midi Event Editor</primary></indexterm>
+    <indexterm><primary>MIDI Event Editor</primary></indexterm>
     <para>
 Every console element, including those defined on <link
 linkend="panel">panels</link>, is configurable with this editor. The
@@ -3527,6 +3547,14 @@ sends the label contents following the Hauptwerk&#8482; standards.
         </sect3>
       </sect2>
     </sect1>
+    <para>
+      The "To initial" button copies the MIDI settings from the all tabs to the
+      Initial MIDI settings. When the user loads another organ that contains a
+      MIDI object with the same path as this one, it will inherit the MIDI
+      settings from here unless they are not overriden in tat organ preset. In
+      the future the user can alter the initial MIDI settings at 
+      <link linkend="initialconfiguration">Initial MIDI</link>.
+    </para>
   </chapter>
   <chapter>
     <title>Audio and Organ settings overview</title>
@@ -3738,6 +3766,35 @@ staccato. It will have little to no effect on "dry" sample sets.
           <para>
 This will apply a very small random detuning before each pipe begins to speak.
 The detuning is small enough so that the ear can't appreciate the tuning difference and large enough so that it approximates the tiny interferences (due to physical location) that occur when playing multiple real pipes in an organ.
+          </para>
+          <variablelist>
+            <varlistentry>
+              <term>Memory</term>
+              <listitem>
+                <simpara>No impact</simpara>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term>Polyphony</term>
+              <listitem>
+                <simpara>No impact</simpara>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term>Load time</term>
+              <listitem>
+                <simpara>No impact</simpara>
+              </listitem>
+            </varlistentry>
+          </variablelist>
+        </sect3>
+        <sect3>
+          <title>New Bas/Mel coupler behaviour</title>
+          <indexterm>
+            <primary>New Bas/Mel coupler behaviour</primary>
+          </indexterm>
+          <para>
+With this option checked an alternate algorithm will be used for Bas/Mel couplers that will reduce the number of missed notes at the expense of possibly having slightly more un-intended jumps between voices, depending on playing style.
           </para>
           <variablelist>
             <varlistentry>
@@ -4390,7 +4447,7 @@ role="strong">STOP</emphasis> button is depressed.
               </row>
               <row>
                 <entry><emphasis role="strong">MIDI player</emphasis></entry>
-                <entry>This is the folder where GrandOrgue looks for MIDI recording files. It is opened when the <link linkend="PlayMidi">Audio/Midi &gt; Load MIDI</link> menu item is selected.</entry>
+                <entry>This is the folder where GrandOrgue looks for MIDI recording files. It is opened when the <link linkend="PlayMidi">Audio/MIDI &gt; Load MIDI</link> menu item is selected.</entry>
                 <entry>Default: <emphasis>MIDI player</emphasis></entry>
               </row>
             </tbody>
@@ -4802,7 +4859,7 @@ role="strong">STOP</emphasis> button is depressed.
           </mediaobject>
         </figure>
         <para>
-          This dialog allows to define matching rules for audio/midi device
+          This dialog allows to define matching rules for audio/MIDI device
           names  
         </para>
         <variablelist>
@@ -4900,7 +4957,7 @@ role="strong">STOP</emphasis> button is depressed.
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term>Midi ports</term>
+          <term>MIDI ports</term>
           <listitem>
             <para>
               By checking or unchecking the MIDI ports it's possible to filter
@@ -5014,11 +5071,24 @@ Event dialogs that are accessible by right-clicking a control in the GUI (e.g.
 manual, stop, enclosure, piston, etc.).
       </para>
       <para>
-Customizations done by the user always supersede the matching initial setting.
-If customizations are <link linkend="save">saved</link> to a preset number, all
-subsequent loads will ignore the initial MIDI settings and all further updates to
-the sample set's MIDI configuration will be done by right-clicking on the elements
-in the user interface.
+        Customizations done by the user always supersede the matching initial 
+        setting. If customizations of some MIDI objects are 
+        <link linkend="save">saved</link> to a preset number, all subsequent
+        loads will ignore the initial MIDI settings for these objects and all 
+        further updates to the sample set's MIDI configuration will be done by 
+        right-clicking on the elements in the user interface.
+      </para>
+      <para>
+        There are two parts of initial MIDI objects: built-in ones and 
+        user-added ones. The built-in objects have different groups and they are
+        matched with ODF by MIDIInputNumber. The user-added objects have
+        "user-added" as their group and they are matched by their path.
+      </para>
+      <para>
+        A user can add more Initial MIDI objects from the right-click MIDI event
+        editor or from the <link linkend="midiobjects">MIDI Objects</link> 
+        dialog. The user-added Initial MIDI settings take precedence over the
+        built-in objects settings.
       </para>
       <para>
 When a loaded sample set is <link linkend="resettodefaults">reset to
@@ -5034,7 +5104,13 @@ and <link linkend="odfEnclosureEntry">enclosure mapping</link> to the initial
 MIDI settings work properly.
         </simpara>
       </note>
-      <para>The "Group" column shows which group the element is filed under; the "Element" column identifies the element; The "MIDI Event" column shows if the element is associated to MIDI event(s).</para>
+      <para>
+        The "Group" column shows which group the element is filed under. The
+        "Type column shows the MIDI object type. The "Name" column identifies
+        the object. The "Matching" column shows the value a particular MIDI
+        object in the loaded organ is matched by. The "Configured" column shows
+        if the object is associated to MIDI event(s).
+      </para>
       <para>The <link linkend="midieventeditor">MIDI Event Editor</link> can be displayed by selecting an element and pushing the "Properties" button, or by double-clicking on the element's entry.</para>
       <para>The available initial setting are those that are tied to the physical hardware and have no reason to change across dispositions:</para>
       <variablelist>
@@ -5098,7 +5174,22 @@ MIDI settings work properly.
             </variablelist>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term>User-added&#160;Group</term>
+          <listitem>
+            <simpara>
+              MIDI settings for any MIDI objects. If a MIDI object exists in any
+              loaded organ with the path equal to the value in the Matching
+              column then it inherits the MIDI settings from here unless they 
+              are not oveddiden in the organ preset.
+            </simpara>
+          </listitem>
+        </varlistentry>
       </variablelist>
+      <para>
+        The "Delete" button allows to delete the selected MIDI obects from the
+        list. Only user-added initial MIDI objects may be deleted.
+      </para>
     </sect1>
     <sect1>
       <title>Organs tab</title>
@@ -5349,14 +5440,14 @@ recorded release tail of wet samples.
         <title>User-defined Temperaments</title>
         <mediaobject><imageobject><imagedata fileref="images/settings_temperaments.png" /></imageobject></mediaobject>
       </figure>
-      <para>This tab enables the user to add his own custom temperaments. User-defined temperaments are displayed in dynamic submenus in the <emphasis>Audio/Midi &gt; Temperaments</emphasis> menu.</para>
+      <para>This tab enables the user to add his own custom temperaments. User-defined temperaments are displayed in dynamic submenus in the <emphasis>Audio/MIDI &gt; Temperaments</emphasis> menu.</para>
       <para>The <emphasis role="bold">Add</emphasis> button adds a new "empty" line.</para>
       <para>The <emphasis role="bold">Delete</emphasis> button deletes the selected line.</para>
       <variablelist>
         <varlistentry>
           <term>Group</term>
           <listitem><simpara>
-Defines the submenu label in the <emphasis>Audio/Midi &gt;
+Defines the submenu label in the <emphasis>Audio/MIDI &gt;
 Temperaments</emphasis> menu. The submenus are dynamically added as soon as
 this screen has entries. Entries having the same <emphasis
 role="bold">Group</emphasis> attribute are grouped in the same submenu.
@@ -6305,7 +6396,7 @@ controls.
           <varlistentry>
             <term>Hidden buttons</term>
             <listitem>
-              <simpara>There are two hidden buttons, <link linkend="panicButton">Panic</link> and <link linkend="fileExit">Exit GO</link>, that serve as MIDI receivers only, not visible in this panel for mouse interaction. To configure them, go to Audio/Midi menu &rarr; <link linkend="midiobjects">MIDI Objects</link> and look for type Button, elements Panic resp. Exit to assign MIDI events that will fire the two functions. 
+              <simpara>There are two hidden buttons, <link linkend="panicButton">Panic</link> and <link linkend="fileExit">Exit GO</link>, that serve as MIDI receivers only, not visible in this panel for mouse interaction. To configure them, go to Audio/MIDI menu, <link linkend="midiobjects">MIDI Objects</link> and look for type Button, elements Panic resp. Exit to assign MIDI events that will fire the two functions. 
               </simpara>
             </listitem>
           </varlistentry>
@@ -6474,7 +6565,7 @@ current preset file.
         <title>Temperament</title>
         <para>
 The second row controls the ability to navigate the temperaments list. The temperament selection in the master controls panels is mirrored in the
-<link linkend="temperamentsMenu">Temperament</link> menu item of the <emphasis>Audio/Midi</emphasis> menu.
+<link linkend="temperamentsMenu">Temperament</link> menu item of the <emphasis>Audio/MIDI</emphasis> menu.
         </para>
         <informaltable frame="none">
           <tgroup cols="2">
@@ -10353,7 +10444,7 @@ fraction in the sample to 0 unless Pipe999MIDIPitchFraction is also specified.
 	(float 0 - 100, default: -1) If -1, use pitch information from the
 	Pipe999 sample, else override the information in the sample with this
 	value. Describes the actual existing pitch fraction in cent over the
-	normal (440hz equal) tone of the midi key specified in the sample or in
+	normal (440hz equal) tone of the MIDI key specified in the sample or in
 	the Pipe999MIDIKeyNumber. This setting (together with
 	Pipe999MIDIKeyNumber) is used when retuning to other temperaments.
       </para>

@@ -1,3 +1,30 @@
+- Added capability to specify the config file path in the command line with the --config option https://github.com/GrandOrgue/grandorgue/issues/2328
+- Fixed displaying an invalid user-defined temperament name in the Master Control panel https://github.com/GrandOrgue/grandorgue/discussions/2362
+- Fixed saving a SYSEX ID https://github.com/GrandOrgue/grandorgue/issues/2353
+# 3.16.3 (2025-12-26)
+- Fixed resetting devices of MIDI events on editing if the device was missed
+- Added logging a warning message when importing MIDI objects referencing to a not-existing device https://github.com/GrandOrgue/grandorgue/issues/2281
+- Fixed exporting MIDI Settings to yaml file https://github.com/GrandOrgue/grandorgue/issues/2333
+- Fixed creating an organ cache https://github.com/GrandOrgue/grandorgue/issues/2325
+- Removed support of MacOs 13. Now MacOs 14+-arm64 and MacOs 15-intel are only supported
+- Fixed light of the Save combinations button https://github.com/GrandOrgue/grandorgue/issues/2305
+- Added validation of the device logical names for leading/trailing spaces in the Device Matching Dialog https://github.com/GrandOrgue/grandorgue/issues/2278
+# 3.16.2 (2025-11-10)
+- Added option of BAS/MEL coupler behaviour to fix missed notes https://github.com/GrandOrgue/grandorgue/issues/1672
+- Fixed displaying more than 10 enclosures on the CouplerManualsAndVolume panel https://github.com/GrandOrgue/grandorgue/issues/2100
+# 3.16.1 (2025-08-28)
+- Fixed sending 'ON' strings in sysex MIDI messages https://github.com/GrandOrgue/grandorgue/issues/2260
+- Fixed crash on exit from GrandOrgue on MacOs https://github.com/GrandOrgue/grandorgue/issues/2256
+- Fixed playing the last sample of a loop https://github.com/GrandOrgue/grandorgue/issues/2211
+# 3.16.0 (2025-08-03)
+- Added more columns to the Initial MIDI tab of the Organ settings  https://github.com/GrandOrgue/grandorgue/issues/1974
+- Added capability of assigning any MIDI object events to the initial MIDI configuration https://github.com/GrandOrgue/grandorgue/issues/1974
+- Added capability of setting Send, Division and Shortcut events for Initial MIDI objects https://github.com/GrandOrgue/grandorgue/issues/1974
+- Changed package names for Linux: grandorgue-wx30 requires wxWidgets 3.0 and grandorgue requires wxWidgets 3.2
+- Load pitch and show it to labels on organ load https://github.com/GrandOrgue/grandorgue/issues/2233
+- Reduced decimal numbers for PitchLabel https://github.com/GrandOrgue/grandorgue/issues/2234
+- Added support of exporting current midi settings to a text file and of importing them from both text and .cmb files https://github.com/GrandOrgue/grandorgue/issues/1199
+- Fixed crash on reloading an organ https://github.com/GrandOrgue/grandorgue/issues/2185
 - Removed support of linux distributions with GLIBC versions before 2.35 (ubuntu<22, debian<12, fedora<36, oracle linux<9)
 - Added capability of customising minimum amplitude level of enclosures added internally by GrandOrgue https://github.com/GrandOrgue/grandorgue/issues/782
 - Added resending midi events when exiting from MidiEventDialog https://github.com/GrandOrgue/grandorgue/issues/2062

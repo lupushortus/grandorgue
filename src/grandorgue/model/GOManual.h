@@ -15,19 +15,24 @@
 #include "combinations/control/GOCombinationButtonSet.h"
 #include "combinations/model/GOCombinationDefinition.h"
 #include "control/GOControl.h"
+#include "midi/objects/GOMidiObjectContext.h"
 #include "midi/objects/GOMidiObjectWithDivision.h"
 
 class GOConfigReader;
 class GOCoupler;
 class GODivisionalButtonControl;
+class GOOrganModel;
 class GOStop;
 class GOSwitch;
 class GOTremulant;
-class GOOrganModel;
 
 class GOManual : public GOControl,
                  public GOMidiObjectWithDivision,
                  private GOCombinationButtonSet {
+public:
+  static const wxString WX_MIDI_TYPE_CODE;
+  static const wxString WX_MIDI_TYPE_NAME;
+
 private:
   std::vector<GOCoupler *> m_InputCouplers;
   /* Keyboard state */
@@ -35,10 +40,17 @@ private:
   /* Internal state affected by couplers */
   std::vector<unsigned> m_RemoteVelocity;
   std::vector<unsigned> m_Velocity;
-  std::vector<unsigned> m_DivisionState;
-  std::vector<std::vector<unsigned>> m_Velocities;
+  std::vector<unsigned> m_DivisionKeyVelocities;
+  std::vector<std::vector<unsigned>> m_KeyVelocitiesByCoupler;
   GOMidiReceiver::KeyMap m_MidiKeyMap;
   unsigned m_manual_number;
+  wxString m_ShortName;
+  GOMidiObjectContext m_MidiContext;
+  GOMidiObjectContext m_MidiContextCouplers;
+  GOMidiObjectContext m_MidiContextDivisionals;
+  GOMidiObjectContext m_MidiContextStops;
+  GOMidiObjectContext m_MidiContextSwitches;
+  GOMidiObjectContext m_MidiContextVirtualCouplers;
   unsigned m_first_accessible_logical_key_nb;
   unsigned m_nb_logical_keys;
   unsigned m_first_accessible_key_midi_note_nb;
@@ -65,7 +77,14 @@ private:
     int key,
     int value) override;
   void HandleKey(int key) override;
-  void SetOutput(unsigned note, unsigned velocity);
+
+  /**
+   * Remember the key state (pressed, released) in m_DivisionKeyVelocities and
+   *   propagate it states to all stops
+   * @param keyIndex
+   * @param velocity
+   */
+  void SetDivisionKeyState(unsigned keyIndex, unsigned velocity);
 
   void AbortPlayback() override;
   void PreparePlayback() override;
@@ -80,26 +99,53 @@ private:
     GOButtonControl *buttonToLight, int manualIndexOnlyFor) override;
 
 public:
-  GOManual(GOOrganModel &organModel);
+  GOManual(
+    GOOrganModel &organModel,
+    unsigned manualNumber,
+    const GOMidiObjectContext *pParentContext = nullptr);
   ~GOManual();
 
   unsigned GetManulNumber() const { return m_manual_number; }
+  const GOMidiObjectContext *GetManualContext() const { return &m_MidiContext; }
+  const GOMidiObjectContext *GetCouplersContext() const {
+    return &m_MidiContextCouplers;
+  }
+  const GOMidiObjectContext *GetSwitchesContext() const {
+    return &m_MidiContextSwitches;
+  }
+  const GOMidiObjectContext *GetVirtualCouplersContext() const {
+    return &m_MidiContextVirtualCouplers;
+  }
 
   using GOMidiReceivingSendingObject::Init; // avoiding a compilation warning
   void Init(
     GOConfigReader &cfg,
     const wxString &group,
-    int manualNumber,
     unsigned firstMidi,
     unsigned keys);
   using GOMidiObjectWithDivision::Load; // avoiding a compilation warning
-  void Load(GOConfigReader &cfg, const wxString &group, int manualNumber);
+  void Load(GOConfigReader &cfg, const wxString &group);
   void LoadDivisionals(GOConfigReader &cfg);
   unsigned RegisterCoupler(GOCoupler *coupler);
   // send the key state to all outgoing couplers
-  void PropagateKeyToCouplers(unsigned note);
-  void SetKey(unsigned note, unsigned velocity, unsigned couplerID);
-  void Set(unsigned note, unsigned velocity);
+  void PropagateKeyToCouplers(unsigned keyIndex);
+
+  /**
+   * Set key state (pressed, released)
+   * @param keyIndex
+   * @param velocity
+   * @param couplerID
+   */
+  void SetKeyState(unsigned keyIndex, unsigned velocity, unsigned couplerID);
+
+  /**
+   * Set the note state (pressed, released), It is called from the MIDI receiver
+   * and from the GUI.
+   * This function converts midiNote to keyIndex and calls SetKeyState
+   * @param midiNote the midi note
+   * @param velocity the velocity of the key pressing. 0 means release
+   */
+  void SetMidiNoteState(unsigned midiNote, unsigned velocity);
   void SetUnisonOff(bool on);
   void Update();
   void Reset();

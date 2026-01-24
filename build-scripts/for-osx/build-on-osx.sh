@@ -32,6 +32,16 @@ case `arch` in
 esac
 GO_PRMS="-DCMAKE_BUILD_TYPE=Release $CMAKE_VERSION_PRMS"
 cmake -G "Unix Makefiles" $OS_PRMS $GO_PRMS . $SRC_DIR
-make -k $PARALLEL_PRMS VERBOSE=1 package
+
+echo "Phase 1"
+
+if ! make -k $PARALLEL_PRMS all; then
+  echo "Phase 2"
+  make -j1 VERBOSE=1 all
+fi
+
+echo "Phase 3"
+
+make VERBOSE=1 package
 
 popd

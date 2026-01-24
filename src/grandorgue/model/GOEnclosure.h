@@ -21,6 +21,10 @@ class GOConfigWriter;
 class GOOrganModel;
 
 class GOEnclosure : public GOControl, public GOMidiObjectWithShortcut {
+public:
+  static const wxString WX_MIDI_TYPE_CODE;
+  static const wxString WX_MIDI_TYPE_NAME;
+
 private:
   bool m_IsOdfDefined;
   uint8_t m_DefaultAmpMinimumLevel;
@@ -62,6 +66,7 @@ public:
     uint8_t defValue);
   using GOMidiObjectWithShortcut::Load; // for avoiding a warning
   void Load(GOConfigReader &cfg, const wxString &group);
+
   uint8_t GetDefaultAmpMinimumLevel() const { return m_DefaultAmpMinimumLevel; }
   uint8_t GetAmpMinimumLevel() const { return m_AmpMinimumLevel; }
   void SetAmpMinimumLevel(uint8_t v) { m_AmpMinimumLevel = v; }

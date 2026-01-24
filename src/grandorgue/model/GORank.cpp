@@ -19,12 +19,8 @@
 #include "GOSoundingPipe.h"
 #include "GOWindchest.h"
 
-static const wxString WX_MIDI_TYPE_CODE = wxT("Rank");
-static const wxString WX_MIDI_TYPE_NAME = _("Rank");
-
 GORank::GORank(GOOrganModel &organModel)
-  : GOMidiSendingObject(
-    organModel, WX_MIDI_TYPE_CODE, WX_MIDI_TYPE_NAME, MIDI_SEND_MANUAL),
+  : GOMidiSendingObject(organModel, OBJECT_TYPE_RANK, MIDI_SEND_MANUAL),
     r_OrganModel(organModel),
     m_StopCount(0),
     m_NoteStopVelocities(),
@@ -156,12 +152,12 @@ unsigned GORank::RegisterStop(GOStop *stop) {
   return id;
 }
 
-void GORank::SetKey(int note, unsigned velocity, unsigned stopID) {
-  if (note >= 0 && note < (int)m_Pipes.size()) {
-    auto &allStopVelocities = m_NoteStopVelocities[note];
+void GORank::SetPipeState(int pipeIndex, unsigned velocity, unsigned stopID) {
+  if (pipeIndex >= 0 && pipeIndex < (int)m_Pipes.size()) {
+    auto &allStopVelocities = m_NoteStopVelocities[pipeIndex];
     unsigned &thisStopVelocity = allStopVelocities[stopID];
     unsigned oldThisStopVelocity = thisStopVelocity;
-    unsigned &maxVelocity = m_MaxNoteVelocities[note];
+    unsigned &maxVelocity = m_MaxNoteVelocities[pipeIndex];
 
     thisStopVelocity = velocity;
     if (velocity > maxVelocity || velocity < oldThisStopVelocity) {
@@ -170,7 +166,7 @@ void GORank::SetKey(int note, unsigned velocity, unsigned stopID) {
       maxVelocity = velocity >= maxVelocity
         ? velocity
         : *std::max_element(allStopVelocities.begin(), allStopVelocities.end());
-      m_Pipes[note]->SetVelocity(maxVelocity);
+      m_Pipes[pipeIndex]->SetVelocity(maxVelocity);
     }
   }
 }

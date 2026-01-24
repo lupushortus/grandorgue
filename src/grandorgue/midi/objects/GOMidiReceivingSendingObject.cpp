@@ -11,13 +11,12 @@
 
 GOMidiReceivingSendingObject::GOMidiReceivingSendingObject(
   GOOrganModel &organModel,
-  const wxString &midiTypeCode,
-  const wxString &midiTypeName,
+  ObjectType objectType,
   GOMidiSenderType senderType,
   GOMidiReceiverType receiverType)
-  : GOMidiSendingObject(organModel, midiTypeCode, midiTypeName, senderType),
+  : GOMidiSendingObject(organModel, objectType, senderType),
     m_ReceiverType(receiverType),
-    m_receiver(organModel, receiverType),
+    m_receiver(receiverType),
     p_ReceiverKeyMap(nullptr),
     m_MidiInputNumber(-1) {
   SetMidiReceiver(&m_receiver);
@@ -27,6 +26,20 @@ GOMidiReceivingSendingObject::GOMidiReceivingSendingObject(
 GOMidiReceivingSendingObject::~GOMidiReceivingSendingObject() {
   r_OrganModel.UnRegisterEventHandler(this);
   SetMidiReceiver(nullptr);
+}
+
+const GOMidiObject *GOMidiReceivingSendingObject::FindInitialMidiObject()
+  const {
+  // at first, try to find among user-added initial MIDI objects
+  const GOMidiObject *pInitialObj
+    = GOMidiSendingObject::FindInitialMidiObject();
+
+  // if it is not configured then try to find among built-in MIDI objects
+  if (
+    !(pInitialObj && pInitialObj->IsMidiConfigured()) && m_MidiInputNumber >= 0)
+    pInitialObj = r_OrganModel.GetConfig().FindMidiInitialObject(
+      GetObjectType(), m_MidiInputNumber);
+  return pInitialObj;
 }
 
 void GOMidiReceivingSendingObject::Init(
@@ -52,30 +65,6 @@ void GOMidiReceivingSendingObject::Load(
   GOMidiSendingObject::Load(cfg, group, name);
 }
 
-void GOMidiReceivingSendingObject::LoadMidiObject(
-  GOConfigReader &cfg, const wxString &group, GOMidiMap &midiMap) {
-  GOMidiSendingObject::LoadMidiObject(cfg, group, midiMap);
-  if (!IsReadOnly()) {
-    m_receiver.Load(cfg, group, midiMap);
-    if (!m_receiver.IsMidiConfigured() && m_MidiInputNumber >= 0) {
-      const GOMidiReceiverBase *pInitialEvents
-        = r_OrganModel.GetConfig().FindMidiEvent(
-          m_ReceiverType, m_MidiInputNumber);
-
-      if (pInitialEvents)
-        m_receiver.RenewFrom(*pInitialEvents);
-    }
-  }
-}
-
-void GOMidiReceivingSendingObject::SaveMidiObject(
-  GOConfigWriter &cfg, const wxString &group, GOMidiMap &midiMap) const {
-  GOMidiSendingObject::SaveMidiObject(cfg, group, midiMap);
-  if (!IsReadOnly()) {
-    m_receiver.Save(cfg, group, midiMap);
-  }
-}
-
 void GOMidiReceivingSendingObject::SetElementId(int id) {
   if (!IsReadOnly()) {
     m_receiver.SetElementID(id);
@@ -92,8 +81,13 @@ void GOMidiReceivingSendingObject::ProcessMidi(const GOMidiEvent &event) {
   if (!IsReadOnly()) {
     int key;
     int value;
-    GOMidiMatchType matchType
-      = m_receiver.Match(event, p_ReceiverKeyMap, key, value);
+
+    GOMidiMatchType matchType = m_receiver.Match(
+      event,
+      p_ReceiverKeyMap,
+      r_OrganModel.GetConfig().Transpose(),
+      key,
+      value);
 
     if (matchType > MIDI_MATCH_NONE)
       OnMidiReceived(event, matchType, key, value);

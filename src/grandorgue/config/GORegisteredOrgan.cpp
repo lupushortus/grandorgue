@@ -7,11 +7,21 @@
 
 #include "GORegisteredOrgan.h"
 
+#include "config/GOConfig.h"
 #include "config/GOConfigReader.h"
 #include "config/GOConfigWriter.h"
 
+GORegisteredOrgan::GORegisteredOrgan(const GOOrgan &organ)
+  : GOOrgan(organ), m_midi(MIDI_RECV_ORGAN) {
+  const GORegisteredOrgan *pRegOrgan
+    = dynamic_cast<const GORegisteredOrgan *>(&organ);
+
+  if (pRegOrgan)
+    m_midi.RenewFrom(pRegOrgan->m_midi);
+}
+
 GORegisteredOrgan::GORegisteredOrgan(
-  GOConfigReader &cfg, const wxString &group, GOMidiMap &map)
+  GOConfig &config, GOConfigReader &cfg, const wxString &group)
   : GOOrgan(
     cfg.ReadString(CMBSetting, group, wxT("ODFPath")),
     cfg.ReadString(CMBSetting, group, wxT("Archiv"), false),
@@ -22,7 +32,7 @@ GORegisteredOrgan::GORegisteredOrgan(
     m_midi(MIDI_RECV_ORGAN) {
   m_LastUse = cfg.ReadInteger(
     CMBSetting, group, wxT("LastUse"), 0, INT_MAX, false, m_LastUse);
-  m_midi.Load(cfg, group, map);
+  m_midi.Load(config.ODFCheck(), cfg, group, config.GetMidiMap());
 }
 
 void GORegisteredOrgan::Save(

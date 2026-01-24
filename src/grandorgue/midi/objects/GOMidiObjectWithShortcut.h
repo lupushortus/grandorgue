@@ -21,27 +21,21 @@ private:
 protected:
   GOMidiObjectWithShortcut(
     GOOrganModel &organModel,
-    const wxString &midiTypeCode,
-    const wxString &midiTypeName,
+    ObjectType objectType,
     GOMidiSenderType senderType,
     GOMidiReceiverType receiverType,
-    GOMidiShortcutReceiver::ReceiverType shortcutType);
+    GOMidiShortcutReceiverType shortcutType);
 
   virtual ~GOMidiObjectWithShortcut();
-
-  void LoadMidiObject(
-    GOConfigReader &cfg, const wxString &group, GOMidiMap &midiMap) override;
-  void SaveMidiObject(
-    GOConfigWriter &cfg,
-    const wxString &group,
-    GOMidiMap &midiMap) const override;
 
   virtual void OnShortcutKeyReceived(
     GOMidiShortcutReceiver::MatchType matchType, int key)
     = 0;
 
 public:
-  void SetShortcutKey(unsigned key) { m_ShortcutReceiver.SetShortcut(key); }
+  // Set the shortcut key if it is not configured
+  // Should be called after Init()
+  void SetDefaultShortcutKey(unsigned key);
 };
 
 #endif /* GOMIDIOBJECTWITHSHORTCUT_H */

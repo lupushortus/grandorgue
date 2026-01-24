@@ -10,48 +10,47 @@
 #include "model/GOOrganModel.h"
 
 GOMidiSendingObject::GOMidiSendingObject(
-  GOOrganModel &organModel,
-  const wxString &midiTypeCode,
-  const wxString &midiTypeName,
-  GOMidiSenderType senderType)
-  : GOMidiObject(organModel, midiTypeCode, midiTypeName),
-    m_sender(organModel, senderType) {
+  GOOrganModel &organModel, ObjectType objectType, GOMidiSenderType senderType)
+  : GOMidiPlayingObject(organModel, objectType), m_sender(senderType) {
+  m_sender.SetProxy(&organModel);
   SetMidiSender(&m_sender);
 }
 
-GOMidiSendingObject::~GOMidiSendingObject() { SetMidiSender(nullptr); }
+GOMidiSendingObject::~GOMidiSendingObject() {
+  SetMidiSender(nullptr);
+  m_sender.SetProxy(nullptr);
+}
 
 void GOMidiSendingObject::LoadMidiObject(
   GOConfigReader &cfg, const wxString &group, GOMidiMap &midiMap) {
-  GOMidiObject::LoadMidiObject(cfg, group, midiMap);
+  GOMidiPlayingObject::LoadMidiObject(cfg, group, midiMap);
   m_sender.Load(cfg, group, midiMap);
 }
 
 void GOMidiSendingObject::SetElementId(int id) { m_sender.SetElementID(id); }
-
-void GOMidiSendingObject::SaveMidiObject(
-  GOConfigWriter &cfg, const wxString &group, GOMidiMap &midiMap) const {
-  GOMidiObject::SaveMidiObject(cfg, group, midiMap);
-  m_sender.Save(cfg, group, midiMap);
-}
 
 void GOMidiSendingObject::ResendMidi() {
   m_sender.SetName(GetName());
   SendCurrentMidiValue();
 }
 
+void GOMidiSendingObject::OnSettingsApplied() {
+  ResendMidi();
+  GOMidiPlayingObject::OnSettingsApplied();
+}
+
 void GOMidiSendingObject::PreparePlayback() {
-  GOMidiObject::PreparePlayback();
+  GOMidiPlayingObject::PreparePlayback();
   m_sender.SetName(GetName());
 }
 
 void GOMidiSendingObject::PrepareRecording() {
-  GOMidiObject::PrepareRecording();
+  GOMidiPlayingObject::PrepareRecording();
   SendCurrentMidiValue();
 }
 
 void GOMidiSendingObject::AbortPlayback() {
   SendEmptyMidiValue();
-  GOMidiObject::AbortPlayback();
+  GOMidiPlayingObject::AbortPlayback();
   m_sender.SetName(wxEmptyString);
 }
