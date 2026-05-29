@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <math.h>
+
 #include <wx/filename.h>
 #include <wx/log.h>
 #include <wx/msgdlg.h>
@@ -48,9 +49,9 @@
 #include "loader/GOLoaderFilename.h"
 #include "loader/cache/GOCache.h"
 #include "loader/cache/GOCacheWriter.h"
-#include "midi/GOMidi.h"
 #include "midi/GOMidiPlayer.h"
 #include "midi/GOMidiRecorder.h"
+#include "midi/GOMidiSystem.h"
 #include "midi/events/GOMidiEvent.h"
 #include "model/GOCoupler.h"
 #include "model/GODivisionalCoupler.h"
@@ -60,8 +61,8 @@
 #include "model/GOSoundingPipe.h"
 #include "model/GOSwitch.h"
 #include "model/GOTremulant.h"
-#include "sound/GOSoundEngine.h"
-#include "sound/GOSoundReleaseAlignTable.h"
+#include "sound/GOSoundOrganEngine.h"
+#include "sound/playing/GOSoundReleaseAlignTable.h"
 #include "temperaments/GOTemperament.h"
 #include "yaml/GOYamlModel.h"
 
@@ -115,14 +116,14 @@ GOOrganController::GOOrganController(GOConfig &config, bool isAppInitialized)
     m_MidiSamplesetMatch(),
     m_SampleSetId1(0),
     m_SampleSetId2(0),
-    m_bitmaps(nullptr),
+    mp_ImageCache(nullptr),
     m_PitchLabel(*this),
     m_TemperamentLabel(*this),
     m_MainWindowData(this, wxT("MainWindow")) {
   if (isAppInitialized) {
     // Load here objects that needs App (wx) to be loaded
     m_timer = new GOTimer();
-    m_bitmaps = new GOBitmapCache(this);
+    mp_ImageCache = new GOImageCache(m_FileStore);
   }
   GOOrganModel::SetModelModificationListener(this);
   m_setter = new GOSetter(this);
@@ -144,8 +145,8 @@ GOOrganController::~GOOrganController() {
   m_elementcreators.clear();
   // some elementcreator may reference to m_timer so we respect the deletion
   // order
-  if (m_bitmaps)
-    delete m_bitmaps;
+  if (mp_ImageCache)
+    delete mp_ImageCache;
   if (m_timer)
     delete m_timer;
 }
@@ -866,6 +867,7 @@ void GOOrganController::Abort() {
   m_AudioRecorder->SetAudioRecorder(NULL);
   if (p_OnStateButton)
     p_OnStateButton->AbortPlaybackExt();
+  GOOrganModel::GOSoundOrganInterfaceProxy::Disconnect();
   GOOrganModel::SetMidi(nullptr, nullptr);
   m_midi = NULL;
 }
@@ -878,7 +880,7 @@ void GOOrganController::PreconfigRecorder() {
 }
 
 void GOOrganController::PreparePlayback(
-  GOSoundEngine *engine, GOMidi *midi, GOSoundRecorder *recorder) {
+  GOSoundOrganEngine *engine, GOMidiSystem *midi, GOSoundRecorder *recorder) {
   m_soundengine = engine;
   m_midi = midi;
   m_MidiRecorder->SetOutputDevice(m_config.MidiRecorderOutputDevice());
@@ -891,6 +893,7 @@ void GOOrganController::PreparePlayback(
 
   m_MidiSamplesetMatch.clear();
   GOOrganModel::SetMidi(midi, m_MidiRecorder);
+  GOOrganModel::GOSoundOrganInterfaceProxy::Connect(engine);
   GOEventDistributor::PreparePlayback(engine);
 
   m_setter->UpdateModified(m_OrganModified);

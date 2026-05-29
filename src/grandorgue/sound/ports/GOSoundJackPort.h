@@ -1,12 +1,14 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2024 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2026 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
 
 #ifndef GOSOUNDJACKPORT_H
 #define GOSOUNDJACKPORT_H
+
+#include <vector>
 
 #if defined(GO_USE_JACK)
 #if defined(_WIN32) && !defined(WIN32)
@@ -25,21 +27,21 @@ class GOSoundJackPort : public GOSoundPort {
 public:
   static const wxString PORT_NAME;
 
-  GOSoundJackPort(GOSound *sound, wxString name);
+  GOSoundJackPort(GOSoundSystem *sound, wxString name);
   ~GOSoundJackPort();
 
 #if defined(GO_USE_JACK)
 private:
-  jack_client_t *m_JackClient = NULL;
-  jack_port_t **m_JackOutputPorts = NULL;
-  float *m_GoBuffer = NULL;
+  jack_client_t *mp_JackClient = nullptr;
+  std::vector<jack_port_t *> mp_JackOutPorts;
+  float *mp_GoBuffer = nullptr;
   bool m_IsOpen = false;
   bool m_IsStarted = false;
 
-  static void JackLatencyCallback(
-    jack_latency_callback_mode_t mode, void *data);
-  static int JackProcessCallback(jack_nframes_t nFrames, void *data);
-  static void JackShutdownCallback(void *data);
+  static void jackLatencyCallback(
+    jack_latency_callback_mode_t mode, void *pData);
+  static int jackProcessCallback(jack_nframes_t nFrames, void *pData);
+  static void jackShutdownCallback(void *pData);
 
   static wxString getName();
 
@@ -56,7 +58,7 @@ public:
   }
   static GOSoundPort *create(
     const GOPortsConfig &portsConfig,
-    GOSound *sound,
+    GOSoundSystem *sound,
     GODeviceNamePattern &pattern);
   static void addDevices(
     const GOPortsConfig &portsConfig, std::vector<GOSoundDevInfo> &list);

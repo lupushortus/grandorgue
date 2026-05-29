@@ -23,7 +23,7 @@
 #include "model/GOOrganModel.h"
 #include "modification/GOModificationProxy.h"
 
-#include "GOBitmapCache.h"
+#include "GOImageCache.h"
 #include "GOMemoryPool.h"
 #include "GOTimer.h"
 #include "GOVirtualCouplerController.h"
@@ -38,7 +38,7 @@ class GOCache;
 class GODialogSizeSet;
 class GODivisionalSetter;
 class GOElementCreator;
-class GOMidi;
+class GOMidiSystem;
 class GOMidiEvent;
 class GOMidiPlayer;
 class GOMidiRecorder;
@@ -48,7 +48,7 @@ class GOSetter;
 class GOConfig;
 class GOTemperament;
 class GODocument;
-class GOSoundEngine;
+class GOSoundOrganEngine;
 class GOSoundProvider;
 class GOSoundRecorder;
 typedef struct _GOHashType GOHashType;
@@ -95,14 +95,14 @@ private:
   ptr_vector<GOGUIPanelCreator> m_panelcreators;
   ptr_vector<GOElementCreator> m_elementcreators;
 
-  GOSoundEngine *m_soundengine;
-  GOMidi *m_midi;
+  GOSoundOrganEngine *m_soundengine;
+  GOMidiSystem *m_midi;
   std::vector<bool> m_MidiSamplesetMatch;
   int m_SampleSetId1, m_SampleSetId2;
   GOGUIMouseState m_MouseState;
 
   GOMemoryPool m_pool;
-  GOBitmapCache *m_bitmaps;
+  GOImageCache *mp_ImageCache;
   GOLabelControl m_PitchLabel;
   GOLabelControl m_TemperamentLabel;
   GOMainWindowData m_MainWindowData;
@@ -154,8 +154,8 @@ public:
     bool isGuiOnly);
   /**
    * Exports organ combinations in the yaml file
-   * @param fileName - the path to the taml file to export
-   * @return an empty string if successed otherwise the error message
+   * @param fileName - the path to the yaml file to export
+   * @return an empty string if succeeded otherwise the error message
    */
   wxString ExportCombination(const wxString &fileName);
   void LoadCombination(const wxString &cmb);
@@ -168,7 +168,7 @@ public:
   void DeleteSettings();
   void Abort();
   void PreparePlayback(
-    GOSoundEngine *engine, GOMidi *midi, GOSoundRecorder *recorder);
+    GOSoundOrganEngine *engine, GOMidiSystem *midi, GOSoundRecorder *recorder);
   void PrepareRecording();
   void Update();
   void Reset();
@@ -183,7 +183,7 @@ public:
   void AddPanel(GOGUIPanel *panel) { m_panels.push_back(panel); }
   GOMemoryPool &GetMemoryPool() { return m_pool; }
   GOConfig &GetSettings() { return m_config; }
-  GOBitmapCache &GetBitmapCache() const { return *m_bitmaps; }
+  GOImageCache &GetImageCache() const { return *mp_ImageCache; }
   void SetTemperament(const wxString &name);
   const wxString &GetTemperament() const { return m_Temperament; }
 
@@ -227,7 +227,7 @@ public:
   const wxString &GetRecordingDetails() const { return m_RecordingDetails; }
   const wxString &GetInfoFilename() const { return m_InfoFilename; }
 
-  GOMidi *GetMidi() { return m_midi; }
+  GOMidiSystem *GetMidi() { return m_midi; }
 
   GOGUIMouseState &GetMouseState() { return m_MouseState; }
 

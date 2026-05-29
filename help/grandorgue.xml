@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<!DOCTYPE book PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN" "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!DOCTYPE book PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 <book lang="en">
 <!--
 Copyright 2006 Milan Digital Audio LLC
@@ -5465,6 +5465,71 @@ role="bold">Group</emphasis> attribute are grouped in the same submenu.
       <para>To modify any value in the grid, double-click in the cell. Updated values are stored as soon as the <emphasis role="bold">OK</emphasis> button is depressed.</para>
       <para>Temperaments are stored in the system-wide <link linkend="settingstab">configuration file</link>.</para>
     </sect1>
+    <sect1>
+      <title>Metronome tab</title>
+      <indexterm>
+        <primary>Settings.Metronome</primary>
+      </indexterm>
+      <figure id="metronometab">
+        <title>Metronome</title>
+        <mediaobject>
+          <imageobject>
+            <imagedata scalefit="1" width="100%" fileref="images/settings_metronome.png"/>
+          </imageobject>
+        </mediaobject>
+      </figure>
+      <para>This tab allows to specify the internal GrandOrgue Metronome paramets.</para>
+      <para>The metronome is available in the <link linkend="metronome">metronome</link> panel.</para>
+      <sect2>
+        <title>BPM</title>
+        <para>These spinners provide default values for the number of beats per minute.</para>
+      </sect2>
+      <sect2>
+        <title>Ticks per Measure</title>
+        <para>These spinners provide default values for the number of beats per bar.</para>
+      </sect2>
+      <para>
+        Initialized to 80 beats per minute and 4 beats per bar on the very first
+        run of a GrandOrgue instance. They are <link linkend="save">saved</link>
+        to settings files.
+      </para>
+      <sect2>
+        <title>Metronome Sound Type</title>
+        <para>These radiobuttons allow to choose between different metronome sounds.</para>
+        <para>Bell and Click are some sounds provided by GrandOrgue.</para>
+        <para>
+          Custom requires a user to specify the path to wave files containing
+          the metronome sound in the next two fields.
+        </para>
+      </sect2>
+      <sect2>
+        <title>Custom Sound Wave Paths</title>
+        <para>
+          These fields for specifying the path to wave files for Custom sound.
+          They are ignored if Custom is not selected.
+        </para>  
+        <para>
+          Lots of different free metronome sound files may be downloaded from 
+          <ulink
+            url="https://www.reddit.com/r/audioengineering/comments/kg8gth/free_click_track_sound_archive"
+          >
+            https://www.reddit.com/r/audioengineering/comments/kg8gth/free_click_track_sound_archive
+          </ulink>.
+        </para>  
+      </sect2>
+      <sect2>
+        <title>First Beat</title>
+        <para>A sound file path with the first beat of a measure.</para>
+      </sect2>
+      <sect2>
+        <title>Beat</title>
+        <para>A sound file path with all other beats of a measure.</para>
+      </sect2>
+      <para>
+        A current loaded organ should be reloaded for changing the metronome
+        sound.
+      </para>
+    </sect1>
   </chapter>
   <chapter id="organsettings">
     <title>Organ settings</title>
@@ -6356,6 +6421,24 @@ controls.
         <varlistentry>
           <term>Set</term>
           <listitem><simpara>Shortcut to <link linkend="memoryset">Memory Set</link></simpara></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>N</term>
+          <listitem>
+            <simpara>
+              Activate the <emphasis role="strong">Numeric</emphasis> setter mode.
+            </simpara>
+            <simpara>
+              While this mode is active, the user may press three numeric 
+              buttons in the fourth line to switch to a combination with this
+              three-digit number, for example, 007, 143 etc. The numeric mode
+              is deactivated as soon as three numbers are entered.
+            </simpara>
+            <simpara>
+              Pressing <emphasis role="strong">N</emphasis> second time
+              deactivates the numeric mode.
+            </simpara>
+          </listitem>
         </varlistentry>
         <varlistentry>
           <term>Regular</term>
@@ -7734,6 +7817,16 @@ Recall combination with the specified digit as last digit button of
 the setter. The section must contain the GUI attributes of a button
 (displayed as drawstop per default).
      </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>SetterN</term>
+          <listitem>
+            <para>
+              Activate or deactivate the numeric setter mode as described on the
+              <emphasis>Combination Setter</emphasis> chapter. The section must
+              contain the GUI attributes of a button (displayed as drawstop per default).
+            </para>
           </listitem>
         </varlistentry>
         <varlistentry>

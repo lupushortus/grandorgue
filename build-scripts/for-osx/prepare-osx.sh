@@ -9,11 +9,13 @@ brew link --overwrite pkg-config
 cmake --version || brew install cmake
 
 brew install \
+  docbook \
   docbook-xsl \
   fftw wavpack \
   gettext \
   imagemagick \
   jack \
+  librsvg \
   wxwidgets \
   yaml-cpp
 brew link gettext --force
