@@ -1,15 +1,18 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2024 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2026 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
 
 #include "GOGUIPanelView.h"
 
+#include <wx/app.h>
 #include <wx/display.h>
 #include <wx/frame.h>
 #include <wx/image.h>
+#include <wx/toplevel.h>
+#include <wx/wupdlock.h>
 
 #include "gui/wxcontrols/go_gui_utils.h"
 
@@ -42,7 +45,7 @@ GOGUIPanelView *GOGUIPanelView::createWithFrame(
 GOGUIPanelView::GOGUIPanelView(
   GODocumentBase *doc, GOGUIPanel *panel, wxTopLevelWindow *topWindow)
   : wxScrolledWindow(topWindow),
-    GOView(doc, topWindow),
+    GODocumentView(doc, topWindow),
     m_panelwidget(new GOGUIPanelWidget(panel, this)),
     m_panel(panel),
     m_TopWindow(topWindow) {
@@ -66,7 +69,7 @@ GOGUIPanelView::GOGUIPanelView(
   // At this point, the new window may fill the whole display and still not be
   // large enough to show all contents. So, before showing anything, lets see
   // what scaling is needed to fit the content completely to the window.
-  wxSize scaledsize = m_panelwidget->UpdateSize(topWindow->GetClientSize());
+  wxSize scaledsize = m_panelwidget->SetInitialSize(topWindow->GetClientSize());
 
   topWindow->Show();
   topWindow->Update();
@@ -87,18 +90,51 @@ GOGUIPanelView::GOGUIPanelView(
     m_panelwidget->CentreOnParent(wxVERTICAL);
 
   m_panel->SetView(this);
+
+  // Forward key events from detached panel frames to the main window so that
+  // keyboard shortcuts (e.g. Escape/Panic, Ctrl+S, F2-F12) work regardless of
+  // which panel has focus. GOAppWindow's OnKeyCommand returns without Skip()
+  // for recognized shortcuts, causing ProcessEvent() to return true; in that
+  // case we suppress e.Skip() so the panel widget does not also process the key
+  // (e.g. organ note). For unrecognized keys (organ notes, Shift) Skip() is
+  // called and GOGUIPanelWidget handles them normally.
+  // Panels embedded directly inside GOAppWindow are skipped because
+  // GOAppWindow's own EVT_CHAR_HOOK already covers them.
+  if (topWindow != wxTheApp->GetTopWindow())
+    topWindow->Bind(wxEVT_CHAR_HOOK, &GOGUIPanelView::OnCharHook, this);
 }
 
 GOGUIPanelView::~GOGUIPanelView() {
+  if (m_TopWindow && m_TopWindow != wxTheApp->GetTopWindow())
+    m_TopWindow->Unbind(wxEVT_CHAR_HOOK, &GOGUIPanelView::OnCharHook, this);
   if (m_panel)
     m_panel->SetView(NULL);
+}
+
+void GOGUIPanelView::OnCharHook(wxKeyEvent &e) {
+  wxWindow *pMainAppWin = wxTheApp->GetTopWindow();
+  bool isProcessed = false;
+
+  if (pMainAppWin) {
+    /* Copy the event: SetEventObject() below must not mutate the original e,
+     * because e is still routed further via e.Skip() to topWindow's own
+     * handlers (e.g. GOGUIPanelWidget playing a note) when the key is not a
+     * recognized shortcut, and those expect GetEventObject() to stay the
+     * panel/frame, not the main window. */
+    wxKeyEvent eCopied(e);
+
+    eCopied.SetEventObject(pMainAppWin);
+    isProcessed = pMainAppWin->ProcessWindowEvent(eCopied);
+  }
+  if (!isProcessed)
+    e.Skip();
 }
 
 void GOGUIPanelView::RemoveView() {
   if (m_panel)
     m_panel->SetView(NULL);
   m_panel = NULL;
-  GOView::RemoveView();
+  GODocumentView::RemoveView();
 }
 
 void GOGUIPanelView::AddEvent(GOGUIControl *control) {
@@ -128,7 +164,17 @@ void GOGUIPanelView::OnSize(wxSizeEvent &event) {
     // Scale out the panel according the new size
 
     const wxSize newSize = event.GetSize();
-    const wxSize maxSize = m_panelwidget->UpdateSize(newSize);
+
+    // UpdatePreviewSize(), SetPosition() and CentreOnParent() below each
+    // move/resize m_panelwidget natively on their own. Without freezing, the
+    // window manager can paint the in-between states (e.g. still at the old
+    // centering position right after the size already changed), which is
+    // seen as a brief flicker/jump whenever the panel is dragged past its
+    // native size and centering kicks in. The update locker suppresses
+    // repaints until all the geometry changes below are settled.
+    wxWindowUpdateLocker lock(m_panelwidget);
+
+    const wxSize maxSize = m_panelwidget->UpdatePreviewSize(newSize);
 
     this->SetVirtualSize(maxSize);
 

@@ -8,146 +8,89 @@
 #ifndef GOSOUNDSYSTEM_H
 #define GOSOUNDSYSTEM_H
 
-#include <map>
+#include <memory>
 #include <vector>
 
 #include <wx/string.h>
 
-#include "config/GOPortsConfig.h"
-#include "midi/GOMidiSystem.h"
-#include "ports/GOSoundPortFactory.h"
-#include "threading/GOCondition.h"
+#include "interfaces/GOSoundCallbackConnector.h"
+#include "interfaces/GOSoundCloseListener.h"
 #include "threading/GOMutex.h"
 
-#include "ptrvector.h"
-
 #include "GOSoundDevInfo.h"
-#include "GOSoundOrganEngine.h"
-#include "GOSoundRecorder.h"
 
-class GODeviceNamePattern;
-class GOOrganController;
-class GOMidiSystem;
-class GOSoundThread;
-class GOSoundPort;
-class GOSoundRtPort;
-class GOSoundPortaudioPort;
 class GOConfig;
+class GODeviceNamePattern;
+class GOPortsConfig;
+class GOSoundPort;
 
 /**
  * This class represents a GrandOrgue-wide sound system. It may be used even
  * without a loaded organ
  */
 
-class GOSoundSystem {
-  class GOSoundOutput {
-  public:
-    GOSoundPort *port;
-    GOMutex mutex;
-    GOCondition condition;
-    bool wait;
-    bool waiting;
-
-    GOSoundOutput() : condition(mutex) {
-      port = 0;
-      wait = false;
-      waiting = false;
-    }
-
-    GOSoundOutput(const GOSoundOutput &old) : condition(mutex) {
-      port = old.port;
-      wait = old.wait;
-      waiting = old.waiting;
-    }
-
-    const GOSoundOutput &operator=(const GOSoundOutput &old) {
-      port = old.port;
-      wait = old.wait;
-      waiting = old.waiting;
-      return *this;
-    }
-  };
-
+class GOSoundSystem : public GOSoundCallbackConnector {
 private:
-  bool m_open;
-  std::atomic_bool m_IsRunning;
-
-  // counter of audio callbacks that have been entered but have not yet been
-  // exited
-  std::atomic_uint m_NCallbacksEntered;
-
-  // For waiting for and notifying when m_NCallbacksEntered bacomes 0
-  GOMutex m_CallbackMutex;
-  GOCondition m_CallbackCondition;
-
-  GOMutex m_lock;
-  GOMutex m_thread_lock;
-
-  bool logSoundErrors;
-
-  std::vector<GOSoundOutput> m_AudioOutputs;
-  std::atomic_uint m_WaitCount;
-  std::atomic_uint m_CalcCount;
-
-  unsigned m_SamplesPerBuffer;
-
-  unsigned meter_counter;
-
-  GOSoundDevInfo m_DefaultAudioDevice;
-
-  GOOrganController *m_OrganController;
-  GOSoundRecorder m_AudioRecorder;
-
-  GOSoundOrganEngine m_SoundEngine;
-  ptr_vector<GOSoundThread> m_Threads;
-
   GOConfig &m_config;
 
-  GOMidiSystem m_midi;
+  GOSoundCloseListener *p_CloseListener;
+
+  bool m_open;
+  bool logSoundErrors;
+  std::vector<std::unique_ptr<GOSoundPort>> mp_SoundPorts;
 
   wxString m_LastErrorMessage;
 
-  void StopThreads();
-  void StartThreads();
+  GOSoundDevInfo m_DefaultAudioDevice;
 
-  void ResetMeters();
+  GOMutex m_lock;
 
-  void OpenMidi();
-
-  void OpenSound();
-  void CloseSound();
+  unsigned meter_counter;
 
   void StartStreams();
+
   void UpdateMeter();
+  void ResetMeters();
+
+  /** Open audio ports and configure the sound engine (without organ setup) */
+  void OpenSoundSystem();
+  /** Close and delete audio ports, reset meters, mark system as closed */
+  void CloseSoundSystem();
+
+protected:
+  void OnBeforeConnectToEngine() override;
+  void OnNewAudioPeriod() override { UpdateMeter(); }
 
 public:
-  GOSoundSystem(GOConfig &settings);
-  ~GOSoundSystem();
-
-  bool AssureSoundIsOpen();
-  void AssureSoundIsClosed();
-
-  wxString getLastErrorMessage() const { return m_LastErrorMessage; }
-  wxString getState();
-
-  GOConfig &GetSettings();
-
-  void AssignOrganFile(GOOrganController *organController);
-  GOOrganController *GetOrganFile();
-
-  void SetLogSoundErrorMessages(bool settingsDialogVisible);
-
-  std::vector<GOSoundDevInfo> GetAudioDevices(const GOPortsConfig &portsConfig);
-  const GOSoundDevInfo &GetDefaultAudioDevice(const GOPortsConfig &portsConfig);
-
   static void FillDeviceNamePattern(
     const GOSoundDevInfo &deviceInfo, GODeviceNamePattern &pattern);
 
-  GOMidiSystem &GetMidi();
+  GOSoundSystem(GOConfig &settings);
+  ~GOSoundSystem();
 
-  GOSoundOrganEngine &GetEngine();
+  std::vector<GOSoundDevInfo> GetAudioDevices(const GOPortsConfig &portsConfig);
+  const GOSoundDevInfo &GetDefaultAudioDevice(const GOPortsConfig &portsConfig);
+  wxString getLastErrorMessage() const { return m_LastErrorMessage; }
 
-  bool AudioCallback(unsigned devIndex, GOSoundBufferMutable &outBuffer);
+  /** Returns true if the sound system is currently open (audio ports active).
+   */
+  bool IsOpen() const { return m_open; }
+
+  wxString getState();
+
+  void SetLogSoundErrorMessages(bool isVisible) { logSoundErrors = isVisible; }
+
+  /**
+   * Sets the listener to be notified before the sound system closes its audio
+   * ports. Pass nullptr to unregister. The caller must ensure the listener
+   * outlives this sound system (or unregisters before being destroyed).
+   */
+  void SetCloseListener(GOSoundCloseListener *pListener) {
+    p_CloseListener = pListener;
+  }
+
+  bool AssureSoundIsOpen();
+  void AssureSoundIsClosed();
 };
 
 #endif

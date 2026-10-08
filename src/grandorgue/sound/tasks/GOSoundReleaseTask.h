@@ -11,36 +11,36 @@
 #include <atomic>
 
 #include "sound/playing/GOSoundSimpleSamplerList.h"
-#include "sound/scheduler/GOSoundTask.h"
 
+#include "GOSoundTaskBase.h"
 #include "ptrvector.h"
 
-class GOSoundOrganEngine;
+class GOSchedulerThread;
 class GOSoundGroupTask;
 class GOSoundSampler;
+class GOSoundSamplerPlayer;
 
-class GOSoundReleaseTask : public GOSoundTask {
+class GOSoundReleaseTask : public GOSoundTaskBase {
 private:
-  GOSoundOrganEngine &m_engine;
-  ptr_vector<GOSoundGroupTask> &m_AudioGroups;
+  GOSoundSamplerPlayer &r_SamplerPlayer;
+  ptr_vector<GOSoundGroupTask> &r_AudioGroups;
   GOSoundSimpleSamplerList m_List;
   std::atomic_uint m_WaitCnt;
   std::atomic_uint m_Cnt;
-  std::atomic_bool m_Stop;
+
+  void DoNewRound() override;
 
 public:
   GOSoundReleaseTask(
-    GOSoundOrganEngine &sound_engine,
-    ptr_vector<GOSoundGroupTask> &audio_groups);
+    GOSoundSamplerPlayer &samplerPlayer,
+    ptr_vector<GOSoundGroupTask> &audioGroupTaskPtrs);
 
-  unsigned GetGroup();
-  unsigned GetCost();
-  bool GetRepeat();
-  void Run(GOSoundThread *thread = nullptr);
-  void Exec();
+  bool IsEmpty() const override { return m_List.IsEmpty(); }
 
-  void Clear();
-  void Reset();
+  void Run(GOSchedulerThread *pThread = nullptr) override;
+  void CompleteRound() override;
+
+  void DiscardContent() override { m_List.Clear(); }
 
   void Add(GOSoundSampler *sampler);
 };

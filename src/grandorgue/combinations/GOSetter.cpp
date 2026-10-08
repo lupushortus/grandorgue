@@ -758,7 +758,7 @@ GOSetter::GOSetter(GOOrganController *organController)
   SetSetterType(GOSetterState::SETTER_REGULAR);
   SetCrescendoType(m_crescendobank);
 
-  m_OrganController->RegisterSoundStateHandler(this);
+  m_OrganController->RegisterLifecycleListener(this);
   m_OrganController->RegisterCombinationButtonSet(this);
   m_OrganController->RegisterControlChangedHandler(this);
 }
@@ -828,10 +828,6 @@ void GOSetter::Load(GOConfigReader &cfg) {
   m_buttons[ID_SETTER_PREV]->Init(cfg, wxT("SetterPrev"), _("Previous"));
   m_buttons[ID_SETTER_NEXT]->Init(cfg, wxT("SetterNext"), _("Next"));
   m_buttons[ID_SETTER_SET]->Init(cfg, wxT("SetterSet"), _("Set"));
-  m_buttons[ID_SETTER_PREV]->SetDefaultShortcutKey(37);
-  m_buttons[ID_SETTER_NEXT]->SetDefaultShortcutKey(39);
-  m_buttons[ID_SETTER_CURRENT]->SetDefaultShortcutKey(40);
-
   m_buttons[ID_SETTER_M1]->Init(cfg, wxT("SetterM1"), _("-1"));
   m_buttons[ID_SETTER_M10]->Init(cfg, wxT("SetterM10"), _("-10"));
   m_buttons[ID_SETTER_M100]->Init(cfg, wxT("SetterM100"), _("-100"));
@@ -980,7 +976,7 @@ void GOSetter::NotifyCmbChanged() {
 
 void GOSetter::NotifyCmbPushed(bool isChanged, bool isForceSet) {
   if (
-    isChanged && (m_state.m_IsActive || isForceSet) && !m_state.m_IsModified) {
+    isChanged && (m_state.isSetActive || isForceSet) && !m_state.m_IsModified) {
     m_state.m_IsModified = true;
     // light the save button if the last loaded combination file  is displayed
     if (
@@ -1181,10 +1177,15 @@ void GOSetter::ButtonStateChanged(int id, bool newState) {
   case ID_SETTER_FULL:
     m_state.m_IsStoreInvisible = newState;
     break;
-  case ID_SETTER_SET:
-    m_state.m_IsActive = newState;
-    wxTheApp->GetTopWindow()->UpdateWindowUI();
+  case ID_SETTER_SET: {
+    m_state.isSetActive = newState;
+
+    wxWindow *const pTopWindow = wxTheApp ? wxTheApp->GetTopWindow() : nullptr;
+
+    if (pTopWindow)
+      pTopWindow->UpdateWindowUI();
     break;
+  }
   case ID_SETTER_M1:
     SetPosition(m_pos - 1, false);
     break;
@@ -1527,15 +1528,23 @@ void GOSetter::PushGeneral(
   }
 }
 
-void GOSetter::PushDivisional(
-  GODivisionalCombination &cmb,
-  unsigned startManual,
-  unsigned cmbManual,
-  GOButtonControl *pButtonToLight) {
-  if (cmbManual == startManual || !m_state.m_IsActive) {
-    NotifyCmbPushed(cmb.Push(m_state));
-    if (pButtonToLight || IsCurrentCrescendoOverride())
-      UpdateAllSetsButtonsLight(pButtonToLight, cmbManual);
+void GOSetter::ProcessPushDivisional(
+  unsigned startManualIndex,
+  std::function<std::pair<GOButtonControl *, GODivisionalCombination *>(
+    unsigned)> findManualDivisional) {
+  // loop across all coupled manual, including the startManual itself
+  for (unsigned coupledManualIndex :
+       m_OrganController->GetCoupledManualsForDivisional(startManualIndex)) {
+    auto coupled = findManualDivisional(coupledManualIndex);
+
+    if (
+      coupled.second
+      // Set affects only the startManual, not the coupled manuals
+      && (!m_state.isSetActive || coupledManualIndex == startManualIndex)) {
+      NotifyCmbPushed(coupled.second->Push(m_state));
+      if (coupled.first || IsCurrentCrescendoOverride())
+        UpdateAllSetsButtonsLight(coupled.first, coupledManualIndex);
+    }
   }
 }
 
@@ -1594,7 +1603,7 @@ void GOSetter::Crescendo(int newpos, bool force) {
     newpos = 0;
   if (newpos > CRESCENDO_STEPS - 1)
     newpos = CRESCENDO_STEPS - 1;
-  if (m_state.m_IsActive && !force)
+  if (m_state.isSetActive && !force)
     return;
   unsigned pos = newpos;
   if (pos == m_crescendopos)

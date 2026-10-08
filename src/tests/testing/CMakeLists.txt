@@ -1,17 +1,57 @@
 set(go_tests
     # Add here your tests files
+    combinations/GOTestDivisionalSetter.cpp
+    loader/GOTestOrganReader.cpp
+    midi/GOTestMidiPlayerContent.cpp
+    midi/GOTestMidiSendProxy.cpp
     model/GOTestDrawStop.cpp
     model/GOTestOrganModel.cpp
+    model/GOTestPipeConfigTreeNode.cpp
+    model/GOTestSoundingPipe.cpp
     model/GOTestSwitch.cpp
     model/GOTestWindchest.cpp
+    scheduler/GOTestScheduler.cpp
+    sound/buffer/GOTestPerfSoundBufferBase.cpp
     sound/buffer/GOTestPerfSoundBufferMutable.cpp
+    sound/buffer/GOTestPerfSoundBufferPlanarMutable.cpp
     sound/buffer/GOTestSoundBuffer.cpp
     sound/buffer/GOTestSoundBufferBase.cpp
     sound/buffer/GOTestSoundBufferManaged.cpp
+    sound/buffer/GOTestSoundBufferMono.cpp
     sound/buffer/GOTestSoundBufferMutable.cpp
     sound/buffer/GOTestSoundBufferMutableMono.cpp
+    sound/buffer/GOTestSoundBufferPlanar.cpp
+    sound/buffer/GOTestSoundBufferPlanarManaged.cpp
+    sound/buffer/GOTestSoundBufferPlanarMutable.cpp
+    sound/GOTestSoundCallbackConnector.cpp
+    sound/GOTestSoundOnePoleFilter.cpp
+    sound/GOTestSoundOrganEngine.cpp
+    sound/GOTestSoundOrganEngineBase.cpp
+    sound/GOTestSoundOrganEngineFactories.cpp
+    sound/GOTestSoundOrganEngineStress.cpp
+    sound/GOTestSoundWindchestGroupTaskGrid.cpp
+    sound/playing/GOTestReleaseAlignTable.cpp
+    sound/playing/GOTestSoundStream.cpp
+    sound/playing/GOTestSoundToneBalanceFilter.cpp
+    sound/processing/GOSoundProcessingTestImpls.cpp
+    sound/processing/GOTestSoundProcessingChain.cpp
+    sound/processing/GOTestSoundProcessorTyped.cpp
+    sound/reverb/GOTestSoundReverb.cpp
+    sound/tasks/GOSoundCooperativeTaskTestImpl.cpp
+    sound/tasks/GOSoundTaskTestImpl.cpp
+    sound/tasks/GOSoundWindchestGroupTestFixture.cpp
+    sound/tasks/GOTestPerfSoundTaskBase.cpp
+    sound/tasks/GOTestSoundOutputTask.cpp
+    sound/tasks/GOTestSoundRecorderTask.cpp
+    sound/tasks/GOTestSoundTaskBase.cpp
+    sound/tasks/GOTestSoundWindchestGroupTask.cpp
     GOTestNameMap.cpp
+    GOTestOrganController.cpp
 )
 add_library(GOTests STATIC ${go_tests})
 
 target_link_libraries(GOTests GOTestLib)
+target_compile_definitions(GOTests PUBLIC
+    GOTEST_FIXTURES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/combinations/fixtures")
+target_compile_definitions(GOTests PRIVATE
+    GO_TEST_RESOURCES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/resources")

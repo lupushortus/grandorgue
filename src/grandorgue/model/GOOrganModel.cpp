@@ -1,11 +1,14 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2025 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2026 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
 
 #include "GOOrganModel.h"
+
+#include <cassert>
+#include <ranges>
 
 #include <wx/intl.h>
 
@@ -21,6 +24,7 @@
 #include "GOManual.h"
 #include "GORank.h"
 #include "GOReferencingObject.h"
+#include "GOSoundingPipe.h"
 #include "GOSwitch.h"
 #include "GOTremulant.h"
 #include "GOWindchest.h"
@@ -57,7 +61,7 @@ GOOrganModel::GOOrganModel(GOConfig &config)
 GOOrganModel::~GOOrganModel() {}
 
 unsigned GOOrganModel::GetRecorderElementID(const wxString &name) {
-  return m_config.GetMidiMap().GetElementByString(name);
+  return m_config.GetMidiMap().EnsureRecorderElementName(name);
 }
 
 static const wxString WX_ORGAN = wxT("Organ");
@@ -83,9 +87,10 @@ void GOOrganModel::Load(GOConfigReader &cfg) {
     ODFSetting, WX_ORGAN, wxT("NumberOfWindchestGroups"), 1, 999);
 
   m_RootPipeConfigNode.Load(cfg, WX_ORGAN, wxEmptyString);
+  m_WindchestNByPipeConfig.clear();
   m_windchests.resize(0);
   for (unsigned i = 0; i < NumberOfWindchestGroups; i++)
-    m_windchests.push_back(new GOWindchest(*this));
+    AddWindchest(new GOWindchest(*this));
 
   m_ODFManualCount
     = cfg.ReadInteger(ODFSetting, WX_ORGAN, wxT("NumberOfManuals"), 1, 16) + 1;
@@ -244,6 +249,20 @@ void GOOrganModel::LoadCmbButtons(GOConfigReader &cfg) {
     m_manuals[i]->LoadDivisionals(cfg);
 }
 
+void GOOrganModel::Cleanup() {
+  GOEventHandlerList::Cleanup();
+  m_WindchestNByPipeConfig.clear();
+  m_windchests.clear();
+  m_manuals.clear();
+  m_enclosures.clear();
+  m_switches.clear();
+  m_tremulants.clear();
+  m_ranks.clear();
+  m_pistons.clear();
+  m_DivisionalCoupler.clear();
+  m_generals.clear();
+}
+
 void GOOrganModel::SetOrganModelModified(bool modified) {
   if (modified != m_OrganModelModified)
     m_OrganModelModified = modified;
@@ -263,7 +282,11 @@ void GOOrganModel::UpdateVolume() {
 
 unsigned GOOrganModel::AddWindchest(GOWindchest *windchest) {
   m_windchests.push_back(windchest);
-  return m_windchests.size();
+
+  const unsigned windchestN = m_windchests.size();
+
+  m_WindchestNByPipeConfig[&windchest->GetPipeConfig()] = windchestN;
+  return windchestN;
 }
 
 unsigned GOOrganModel::GetManualAndPedalCount() {
@@ -332,13 +355,54 @@ int GOOrganModel::FindTremulantByName(const wxString &name) const {
   return resIndex;
 }
 
-GORank *GOOrganModel::GetRank(unsigned index) { return m_ranks[index]; }
-
-unsigned GOOrganModel::GetODFRankCount() { return m_ODFRankCount; }
-
 void GOOrganModel::AddRank(GORank *rank) {
   rank->SetContext(&MIDI_CONTEXT_RANKS);
   m_ranks.push_back(rank);
+}
+
+std::set<std::pair<unsigned, unsigned>> GOOrganModel::
+  GetUsedWindchestGroupPairs() const {
+  std::set<std::pair<unsigned, unsigned>> pairs;
+
+  for (unsigned n = GetRankCount(), rankI = 0; rankI < n; rankI++) {
+    const GORank *pRank = GetRank(rankI);
+
+    for (unsigned m = pRank->GetPipeCount(), pipeI = 0; pipeI < m; pipeI++) {
+      const GOSoundingPipe *pPipe
+        = dynamic_cast<const GOSoundingPipe *>(pRank->GetPipe(pipeI));
+
+      if (pPipe)
+        pairs.insert(
+          {pPipe->GetWindchestN(), pPipe->GetEffectiveAudioGroupId()});
+    }
+  }
+
+  return pairs;
+}
+
+void GOOrganModel::CollectWindchestsForNode(
+  const GOPipeConfigNode &node, std::set<unsigned> &outWindchests) const {
+  const bool isWholeOrgan = &node == &m_RootPipeConfigNode;
+
+  if (isWholeOrgan) {
+    // selecting the organ root itself reassigns every windchest at once
+    const auto allWindchestNs
+      = std::views::iota(1u, static_cast<unsigned>(m_windchests.size()) + 1);
+
+    outWindchests.insert(allWindchestNs.begin(), allWindchestNs.end());
+  } else {
+    unsigned windchestN = 0;
+
+    for (const GOPipeConfigNode *p = &node; p && !windchestN;
+         p = p->GetParent()) {
+      const auto it = m_WindchestNByPipeConfig.find(p);
+
+      if (it != m_WindchestNByPipeConfig.end())
+        windchestN = it->second;
+    }
+    assert(windchestN); // a valid non-root node always has a windchest ancestor
+    outWindchests.insert(windchestN);
+  }
 }
 
 unsigned GOOrganModel::GetNumberOfReversiblePistons() {

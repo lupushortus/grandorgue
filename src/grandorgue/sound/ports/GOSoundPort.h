@@ -14,12 +14,12 @@
 
 #include "config/GOPortsConfig.h"
 
-class GOSoundBufferMutable;
-class GOSoundSystem;
+class GOSoundBufferPlanarMutable;
+class GOSoundCallbackConnector;
 
 class GOSoundPort {
 protected:
-  GOSoundSystem *m_Sound;
+  GOSoundCallbackConnector &r_CallbackConnector;
   unsigned m_Index;
   bool m_IsOpen;
   wxString m_Name;
@@ -30,10 +30,11 @@ protected:
   int m_ActualLatency;
 
   void SetActualLatency(double latency);
-  bool AudioCallback(GOSoundBufferMutable &outputBuffer);
+  bool AudioCallback(GOSoundBufferPlanarMutable &outputBuffer);
 
 public:
-  GOSoundPort(GOSoundSystem *sound, wxString name);
+  GOSoundPort(
+    GOSoundCallbackConnector &callbackConnector, const wxString &name);
   virtual ~GOSoundPort();
 
   void Init(

@@ -1,5 +1,5 @@
 # Copyright 2006 Milan Digital Audio LLC
-# Copyright 2009-2024 GrandOrgue contributors (see AUTHORS)
+# Copyright 2009-2026 GrandOrgue contributors (see AUTHORS)
 # License GPL-2.0 or later
 # (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
 
@@ -8,21 +8,57 @@ function(BUILD_EXECUTABLE TARGET)
     target_link_options(${TARGET} PRIVATE "LINKER:--as-needed")
   endif()
   file(MAKE_DIRECTORY ${BINDIR})
-  if (OBJECT_FIXUP_REQUIRED STREQUAL "ON")
+  # When cv2pdb is going to patch the binary (see below) the linked binary must stay in the
+  # build tree, still carrying its original DWARF debug info: cv2pdb needs to read that DWARF
+  # info every time it runs, and it must never read back a copy that itself has already been
+  # patched by a previous cv2pdb run. So this case reuses the same POST_BUILD-copy pattern as
+  # OBJECT_FIXUP_REQUIRED, just for a different reason: keeping BINDIR a derived copy rather
+  # than the linker's actual output.
+  if (OBJECT_FIXUP_REQUIRED STREQUAL "ON" OR (CV2PDB_EXE AND GO_SPLIT_DEBUG_SYMBOLS))
     ADD_CUSTOM_COMMAND(TARGET ${TARGET} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_CURRENT_BINARY_DIR}/$<TARGET_FILE_NAME:${TARGET}>" "${BINDIR}/$<TARGET_FILE_NAME:${TARGET}>")
   else()
     set_target_properties(${TARGET} PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${BINDIR}")
   endif()
   install(TARGETS ${TARGET} RUNTIME DESTINATION "${BININSTDIR}")
 
-  if(CV2PDB_EXE)
+  if(UNIX AND NOT APPLE AND GO_SPLIT_DEBUG_SYMBOLS)
+    install(CODE "
+      # \$ENV{DESTDIR} is empty for TGZ (CMAKE_INSTALL_PREFIX is the staging dir),
+      # but set to the staging root for RPM (CMAKE_INSTALL_PREFIX stays /usr).
+      set(_bin \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${BININSTDIR}/${TARGET}\")
+      # Extract debug info into a separate .dbg file alongside the binary.
+      execute_process(COMMAND ${CMAKE_OBJCOPY} --only-keep-debug \"\${_bin}\" \"\${_bin}.dbg\")
+      # objcopy needs to read the .dbg file to compute its CRC for the debuglink section.
+      # It looks for the file by bare name in WORKING_DIRECTORY, so we set that to the
+      # directory containing both the binary and the .dbg file.
+      get_filename_component(_dir \"\${_bin}\" DIRECTORY)
+      execute_process(COMMAND ${CMAKE_OBJCOPY} --strip-debug
+        --add-gnu-debuglink=${TARGET}.dbg \"\${_bin}\"
+        WORKING_DIRECTORY \"\${_dir}\")
+    ")
+  endif()
+
+  if(CV2PDB_EXE AND GO_SPLIT_DEBUG_SYMBOLS)
+    # cv2pdb reads the DWARF-carrying exe (still in the build tree, see above) and writes the
+    # actually shipped copy in BINDIR with the DWARF info replaced by a CodeView record (RSDS:
+    # pdb GUID + age + path). Without that record dbghelp cannot locate nor validate the pdb, so
+    # this patched copy, and not a plain copy of the linked exe, is what must end up in BINDIR.
+    if(CMAKE_HOST_WIN32)
+      # native/MSYS2 build: run cv2pdb directly, no wine involved
+      set(CV2PDB_ENV "PATH=${VC_PATH}")
+      set(CV2PDB_COMMAND "${CV2PDB_EXE}")
+    else()
+      # cross-compiling for Windows on a non-Windows host: run cv2pdb under wine
+      set(CV2PDB_ENV "WINEPATH=Z:${VC_PATH}")
+      set(CV2PDB_COMMAND wine "${CV2PDB_EXE}")
+    endif()
     add_custom_command(
       OUTPUT "${BINDIR}/${TARGET}.pdb"
       DEPENDS ${TARGET}
       COMMAND
 	${CMAKE_COMMAND}
-	  -E env "WINEPATH=Z:${VC_PATH}"
-	  wine "${CV2PDB_EXE}"
+	  -E env "${CV2PDB_ENV}"
+	  ${CV2PDB_COMMAND}
 	  "$<TARGET_FILE:${TARGET}>"
 	  "${CMAKE_CURRENT_BINARY_DIR}/$<TARGET_FILE_PREFIX:${TARGET}>$<TARGET_FILE_BASE_NAME:${TARGET}>-tmp$<TARGET_FILE_SUFFIX:${TARGET}>"
 	  "${BINDIR}/${TARGET}.pdb"

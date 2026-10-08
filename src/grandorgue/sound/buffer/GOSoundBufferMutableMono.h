@@ -65,18 +65,18 @@ public:
   }
 
   /**
-   * Copy mono data to a specific channel of a multi-channel destination buffer.
-   * This mono buffer must have the same number of frames as the destination
+   * Add data from a specific channel of a multi-channel source buffer.
+   * This mono buffer must have the same number of frames as the source
    * buffer.
-   * @param dstBuffer Destination buffer to copy to
-   * @param dstChannel Channel number in destination buffer to copy to (0-based)
+   * @param srcBuffer Source buffer to add from
+   * @param srcChannelI Channel index in source buffer to add from (0-based)
    */
-  inline void CopyChannelTo(
-    GOSoundBufferMutable &dstBuffer, unsigned dstChannel) {
-    AssertCompatibleWith(dstBuffer);
-    assert(dstChannel < dstBuffer.GetNChannels());
+  inline void AddChannelFrom(
+    const GOSoundBuffer &srcBuffer, unsigned srcChannelI) {
+    GOSoundBufferMutable::assertChannelsCompatible(
+      *this, srcBuffer, srcChannelI, 0);
 
-    dstBuffer.CopyChannelFrom(*this, 0, dstChannel);
+    GOSoundBufferMutable::AddChannelFrom(srcBuffer, srcChannelI, 0);
   }
 };
 

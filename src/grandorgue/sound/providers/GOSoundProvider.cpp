@@ -132,7 +132,9 @@ void GOSoundProvider::ComputeReleaseAlignmentInfo() {
   for (int8_t k = BOOL3_MIN; k <= BOOL3_MAX; ++k) {
     sections.clear();
     for (unsigned i = 0; i < m_Attack.size(); i++)
-      if (m_AttackInfo[i].m_WaveTremulantStateFor == k)
+      if (
+        m_AttackInfo[i].m_WaveTremulantStateFor == k
+        && !m_Attack[i]->IsEssentiallySilent())
         sections.push_back(m_Attack[i]);
     for (unsigned i = 0; i < m_Release.size(); i++)
       if (m_ReleaseInfo[i].m_WaveTremulantStateFor == k)
@@ -140,7 +142,9 @@ void GOSoundProvider::ComputeReleaseAlignmentInfo() {
 
     sections.clear();
     for (unsigned i = 0; i < m_Attack.size(); i++)
-      if (m_AttackInfo[i].m_WaveTremulantStateFor != k)
+      if (
+        m_AttackInfo[i].m_WaveTremulantStateFor != k
+        && !m_Attack[i]->IsEssentiallySilent())
         sections.push_back(m_Attack[i]);
     for (unsigned i = 0; i < m_Attack.size(); i++)
       if (m_AttackInfo[i].m_WaveTremulantStateFor == k)
@@ -174,7 +178,7 @@ void GOSoundProvider::SetToneBalanceValue(int8_t value) {
 }
 
 void GOSoundProvider::SetToneBalanceFilterSamplerate(unsigned samplerate) {
-  m_ToneBalance.SetFilterSamplerate(samplerate);
+  m_ToneBalance.SetSamplerate(samplerate);
   m_ToneBalance.Init(m_ToneBalanceValue);
 }
 

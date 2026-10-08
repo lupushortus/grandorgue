@@ -6,52 +6,123 @@
 
 #include <cstdio>
 #include <iostream>
+#include <optional>
+#include <string>
 
 #include "common/GOTestCollection.h"
 #include "testing/GOTestNameMap.h"
+#include "testing/GOTestOrganController.h"
+#include "testing/combinations/GOTestDivisionalSetter.h"
+#include "testing/loader/GOTestOrganReader.h"
+#include "testing/midi/GOTestMidiPlayerContent.h"
+#include "testing/midi/GOTestMidiSendProxy.h"
 #include "testing/model/GOTestDrawStop.h"
 #include "testing/model/GOTestOrganModel.h"
+#include "testing/model/GOTestPipeConfigTreeNode.h"
+#include "testing/model/GOTestSoundingPipe.h"
 #include "testing/model/GOTestSwitch.h"
 #include "testing/model/GOTestWindchest.h"
+#include "testing/scheduler/GOTestScheduler.h"
+#include "testing/sound/GOTestSoundCallbackConnector.h"
+#include "testing/sound/GOTestSoundOnePoleFilter.h"
+#include "testing/sound/GOTestSoundOrganEngine.h"
+#include "testing/sound/GOTestSoundOrganEngineFactories.h"
+#include "testing/sound/GOTestSoundOrganEngineStress.h"
+#include "testing/sound/GOTestSoundWindchestGroupTaskGrid.h"
 #include "testing/sound/buffer/GOTestPerfSoundBufferMutable.h"
+#include "testing/sound/buffer/GOTestPerfSoundBufferPlanarMutable.h"
 #include "testing/sound/buffer/GOTestSoundBuffer.h"
 #include "testing/sound/buffer/GOTestSoundBufferManaged.h"
+#include "testing/sound/buffer/GOTestSoundBufferMono.h"
 #include "testing/sound/buffer/GOTestSoundBufferMutable.h"
 #include "testing/sound/buffer/GOTestSoundBufferMutableMono.h"
+#include "testing/sound/buffer/GOTestSoundBufferPlanar.h"
+#include "testing/sound/buffer/GOTestSoundBufferPlanarManaged.h"
+#include "testing/sound/buffer/GOTestSoundBufferPlanarMutable.h"
+#include "testing/sound/playing/GOTestReleaseAlignTable.h"
+#include "testing/sound/playing/GOTestSoundStream.h"
+#include "testing/sound/playing/GOTestSoundToneBalanceFilter.h"
+#include "testing/sound/processing/GOTestSoundProcessingChain.h"
+#include "testing/sound/processing/GOTestSoundProcessorTyped.h"
+#include "testing/sound/reverb/GOTestSoundReverb.h"
+#include "testing/sound/tasks/GOTestPerfSoundTaskBase.h"
+#include "testing/sound/tasks/GOTestSoundOutputTask.h"
+#include "testing/sound/tasks/GOTestSoundRecorderTask.h"
+#include "testing/sound/tasks/GOTestSoundTaskBase.h"
+#include "testing/sound/tasks/GOTestSoundWindchestGroupTask.h"
 
-int main() {
+int main(int argc, char *argv[]) {
   /*
       This is the main function that will collect all tests in the collection,
       then run the whole bunch.
 
-      TODO: It should displays also the tests results
+      Supported arguments:
+        --perf-only   run only performance tests (GOTest::PERF)
+        --no-perf     run only functional tests (GOTest::FUNCTIONAL)
+        (no argument) run all tests
   */
 
+  std::optional<GOTest::Category> categoryFilter;
+
+  for (int argI = 1; argI < argc; ++argI) {
+    const std::string arg = argv[argI];
+
+    if (arg == "--perf-only")
+      categoryFilter = GOTest::PERF;
+    else if (arg == "--no-perf")
+      categoryFilter = GOTest::FUNCTIONAL;
+  }
+
   /* Instantiate all the test classes here */
+  GOTestDivisionalSetter testDivisionalSetter;
+  GOTestOrganReader testOrganReader;
+  GOTestOrganController testOrganController;
   GOTestDrawStop testDrawStop;
   GOTestOrganModel testOrganModel;
+  GOTestPipeConfigTreeNode testPipeConfigTreeNode;
+  GOTestSoundingPipe testSoundingPipe;
   GOTestSwitch testSwitch;
   GOTestWindchest testWindchest;
+  GOTestScheduler testScheduler;
   GOTestNameMap goTestNameMap;
+  GOTestMidiSendProxy testMidiSendProxy;
+  GOTestMidiPlayerContent testMidiPlayerContent;
   GOTestSoundBuffer goTestSoundBuffer;
   GOTestSoundBufferManaged testSoundBufferManaged;
+  GOTestSoundBufferMono testSoundBufferMono;
   GOTestSoundBufferMutable testSoundBufferMutable;
   GOTestSoundBufferMutableMono testSoundBufferMutableMono;
+  GOTestSoundBufferPlanar testSoundBufferPlanar;
+  GOTestSoundBufferPlanarMutable testSoundBufferPlanarMutable;
+  GOTestSoundBufferPlanarManaged testSoundBufferPlanarManaged;
   GOTestPerfSoundBufferMutable testPerfSoundBufferMutable;
+  GOTestPerfSoundBufferPlanarMutable testPerfSoundBufferPlanarMutable;
+  GOTestSoundProcessingChain testSoundProcessingChain;
+  GOTestSoundProcessorTyped testSoundProcessorTyped;
+  GOTestSoundOrganEngine testSoundOrganEngine;
+  GOTestSoundOrganEngineFactories testSoundOrganEngineFactories;
+  GOTestSoundCallbackConnector testSoundCallbackConnector;
+  GOTestSoundOrganEngineStress testSoundOrganEngineStress;
+  GOTestReleaseAlignTable testReleaseAlignTable;
+  GOTestSoundStream testSoundStream;
+  GOTestSoundOnePoleFilter testSoundOnePoleFilter;
+  GOTestSoundToneBalanceFilter testSoundToneBalanceFilter;
+  GOTestSoundReverb testSoundReverb;
+  GOTestSoundWindchestGroupTaskGrid testSoundWindchestGroupTaskGrid;
+  GOTestSoundTaskBase testSoundTaskBase;
+  GOTestSoundOutputTask testSoundOutputTask;
+  GOTestSoundRecorderTask testSoundRecorderTask;
+  GOTestSoundWindchestGroupTask testSoundWindchestGroupTask;
+  GOTestPerfSoundTaskBase testPerfSoundTaskBase;
   /* end of instanciation */
   GOTestResultCollection test_result_collection;
-  test_result_collection = GOTestCollection::Instance()->run();
+  test_result_collection = GOTestCollection::Instance()->Run(categoryFilter);
 
   // Display tests results
-  int run_number_ = 0;
-  std::vector<GOTestResult *> test_results
-    = test_result_collection.get_results();
   std::cout << "==================== TESTS RESULTS ====================\n";
-  for (auto current = test_results.begin(); current != test_results.end();
-       ++current, ++run_number_) {
-    auto test_result = *current;
+  for (GOTestResult &result : test_result_collection.get_results()) {
     std::cout << "-------------------------------------------------------\n";
-    std::cout << test_result->GetMessage() << "\n";
+    std::cout << result.GetMessage() << "\n";
   }
 
   const int failed_count = GOTestCollection::Instance()->get_failed_count();

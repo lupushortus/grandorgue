@@ -21,6 +21,7 @@
 #include "GOEvent.h"
 #include "GOMidiSystem.h"
 #include "GOOrganController.h"
+#include "GOTimer.h"
 #include "go_path.h"
 
 enum {
@@ -133,8 +134,8 @@ void GOMidiRecorder::PreconfigureMapping(const wxString &element, bool isNRPN) {
 
 void GOMidiRecorder::PreconfigureMapping(
   const wxString &element, bool isNRPN, const wxString &reference) {
-  unsigned id = m_Map.GetElementByString(element);
-  unsigned ref = m_Map.GetElementByString(reference);
+  unsigned id = m_Map.EnsureRecorderElementName(element);
+  unsigned ref = m_Map.EnsureRecorderElementName(reference);
   for (unsigned i = 0; i < m_Preconfig.size(); i++)
     if (m_Preconfig[i].elementID == ref) {
       GOMidiEvent e1;

@@ -14,17 +14,6 @@ class GOTestSoundBufferManaged : public GOTestSoundBufferBase {
 private:
   static const std::string TEST_NAME;
 
-  void TestDeepCopy(
-    const std::string &context,
-    GOSoundBuffer::Item *sourceData,
-    const GOSoundBuffer &buffer);
-  void AssertMoveResult(
-    const std::string &context,
-    const GOSoundBuffer &buffer,
-    const GOSoundBuffer::Item *originalPtr,
-    const GOSoundBuffer &source,
-    float offset);
-
   void TestDefaultConstructor();
   void TestConstructorWithDimensions();
   void TestCopyConstructorFromBuffer();

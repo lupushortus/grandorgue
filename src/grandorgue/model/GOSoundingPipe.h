@@ -126,6 +126,19 @@ public:
     const wxString &filename);
   void Load(GOConfigReader &cfg, const wxString &group, const wxString &prefix)
     override;
+
+  /** @return the 1-based windchest index this pipe belongs to */
+  unsigned GetWindchestN() const { return m_WindchestN; }
+
+  /**
+   * @return the audio group id this pipe would resolve to right now, from
+   *   live config - the same computation UpdateAudioGroup() uses to refresh
+   *   m_AudioGroupID. Does not depend on PreparePlayback() having already run
+   *   this session, so it is safe to call from GOOrganModel::
+   *   GetUsedWindchestGroupPairs() at BuildEngine() time, which runs before
+   *   PreparePlayback() in GOOrganController::StartOrgan().
+   */
+  unsigned GetEffectiveAudioGroupId() const;
 };
 
 #endif

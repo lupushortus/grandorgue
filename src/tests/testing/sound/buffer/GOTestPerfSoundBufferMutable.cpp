@@ -7,14 +7,13 @@
 
 #include "GOTestPerfSoundBufferMutable.h"
 
-#include <chrono>
 #include <cmath>
-#include <format>
-#include <functional>
 #include <iostream>
 
 #include "sound/buffer/GOSoundBufferMutable.h"
 #include "sound/buffer/GOSoundBufferMutableMono.h"
+
+#include "GOTestScope.h"
 
 const std::string GOTestPerfSoundBufferMutable::TEST_NAME
   = "GOTestPerfSoundBufferMutable";
@@ -22,137 +21,200 @@ const std::string GOTestPerfSoundBufferMutable::TEST_NAME
 // Number of channels (stereo)
 static constexpr unsigned NUM_CHANNELS = 2;
 
-// Number of iterations for performance tests
-static constexpr unsigned NUM_ITERATIONS = 1000000;
-
-// Baseline performance in millions of frames per second
-struct Baseline {
-  unsigned m_BufferSize;
-  double m_MFramesPerSecond;
-};
-
 // Baseline values for each function and buffer size
 // Format: {buffer_size, min_MFrames_per_second}
 // Baseline values updated based on actual performance measurements
 // from Intel i7-8700K (bare-metal) and AMD EPYC 7763 (Azure VM).
 // Baselines are set ~10% below the minimum observed value across all CI runs.
-static constexpr Baseline BASELINE_FILL_WITH_SILENCE[] = {
+// A recalibration pass (2026-08-29..09-01, ~9 CI runs across both
+// GrandOrgue/grandorgue and oleg68/GrandOrgue-official) found a couple of
+// entries were still failing under contention from concurrently-running
+// jobs on the shared runners; those were rebaselined to -20% of the lowest
+// throughput actually observed. See per-entry comments below.
+static constexpr GOTestPerfSoundBufferBaseline BASELINE_FILL_WITH_SILENCE[] = {
 #ifdef NDEBUG
-  {32, 7500},  // 7500 Mframes/sec (raised for modern hardware)
-  {128, 5900}, // 5900 Mframes/sec (measured: 6636.1, -10% margin)
-  {512, 5500}, // 5500 Mframes/sec (lowered: min observed 6112.9, -10% margin)
+  {32, 2370},  // 2370 Mframes/sec (lowered: min observed 2635.2, -10% margin)
+  {128, 5400}, // 5400 Mframes/sec (lowered: min observed 5120.3, -10% margin)
+  {512, 4840}, // 4840 Mframes/sec (lowered: min observed 5382.5, -10% margin)
   {2048, 8600} // 8600 Mframes/sec (lowered: min observed 9653.4, -10% margin)
 #else
-  {32, 160},   // 160 Mframes/sec (debug, raised for modern hardware)
-  {128, 600},  // 600 Mframes/sec (debug, raised for modern hardware)
-  {512, 2100}, // 2100 Mframes/sec (debug, raised for modern hardware)
-  {2048, 6000} // 6000 Mframes/sec (debug, raised for modern hardware)
+  {32, 1470}, // 1470 Mframes/sec (debug, rebaselined 2026-09-01: min
+              // observed 1843.0 under contention, -20% margin)
+  {128,
+   4050}, // 4050 Mframes/sec (debug, lowered: min observed 4507.3, -10% margin)
+  {512, 3780}, // 3780 Mframes/sec (debug, rebaselined 2026-09-21: min observed
+               // 4725.7 under contention, -20% margin)
+  {2048,
+   8080} // 8080 Mframes/sec (debug, lowered: min observed 8979.2, -10% margin)
 #endif
 };
 
-// Note: Large memcpy operations (512+ frames) show significant overhead
-// in Azure VM environments (~25x slower) due to hypervisor optimizations.
-// Baselines for large buffers are set conservatively to pass on both
-// bare-metal and virtualized environments.
-static constexpr Baseline BASELINE_COPY_FROM[] = {
+static constexpr GOTestPerfSoundBufferBaseline BASELINE_COPY_FROM[] = {
 #ifdef NDEBUG
-  {32, 3800},  // 3800 Mframes/sec (lowered: min observed 4308.0, -10% margin)
-  {128, 7500}, // 7500 Mframes/sec (lowered: min observed 8511.4, -10% margin)
-  {512, 220},  // 220 Mframes/sec (lowered: min observed 255.5, -10% margin)
-  {2048, 220}  // 220 Mframes/sec (lowered for Azure VM compatibility)
+  {32, 1740},  // 1740 Mframes/sec (lowered: min observed 1934.7, -10% margin)
+  {128, 4480}, // 4480 Mframes/sec (lowered: min observed 4982.2, -10% margin)
+  {512, 5670}, // 5670 Mframes/sec (lowered: min observed 6310.9, -10% margin)
+  {2048, 8530} // 8530 Mframes/sec (lowered: min observed 9483.2, -10% margin)
 #else
-  {32, 140},   // 140 Mframes/sec (debug, raised for modern hardware)
-  {128, 550},  // 550 Mframes/sec (debug, raised for modern hardware)
+  {32,
+   1550}, // 1550 Mframes/sec (debug, lowered: min observed 1727.1, -10% margin)
+  {128, 3620}, // 3620 Mframes/sec (debug, rebaselined 2026-09-17: min observed
+               // 4033.0, -10% margin)
   {512,
-   220}, // 220 Mframes/sec (debug, lowered: min observed 255.0, -10% margin)
-  {2048, 220} // 220 Mframes/sec (debug, lowered for Azure VM compatibility)
+   5410}, // 5410 Mframes/sec (debug, lowered: min observed 6018.0, -10% margin)
+  {2048,
+   7400} // 7400 Mframes/sec (debug, lowered: min observed 8231.6, -10% margin)
 #endif
 };
 
-static constexpr Baseline BASELINE_ADD_FROM[] = {
+static constexpr GOTestPerfSoundBufferBaseline BASELINE_ADD_FROM[] = {
 #ifdef NDEBUG
-  {32, 3100},  // 3100 Mframes/sec (measured: 3492.3, with 10% margin)
+  {32, 2450},  // 2450 Mframes/sec (lowered: min observed 2732.8, -10% margin)
   {128, 4000}, // 4000 Mframes/sec (lowered: min observed 4485.6, -10% margin)
-  {512, 4000}, // 4000 Mframes/sec (measured: 4476.4, with 10% margin)
-  {2048, 3400} // 3400 Mframes/sec (lowered: min observed 3861.3, -10% margin)
+  {512, 4240}, // 4240 Mframes/sec (lowered: min observed 4720.2, -10% margin)
+  {2048, 4010} // 4010 Mframes/sec (rebaselined 2026-09-04: min observed 5020.9,
+               // -20% margin)
 #else
-  {32, 50},   // 50 Mframes/sec (debug, raised for modern hardware)
-  {128, 70},  // 70 Mframes/sec (debug, raised for modern hardware)
-  {512, 80},  // 80 Mframes/sec (debug, raised for modern hardware)
-  {2048, 80}  // 80 Mframes/sec (debug, raised for modern hardware)
+  {32,
+   480}, // 480 Mframes/sec (debug, lowered: min observed 533.6, -10% margin)
+  {128,
+   580}, // 580 Mframes/sec (debug, lowered: min observed 650.5, -10% margin)
+  {512,
+   630}, // 630 Mframes/sec (debug, lowered: min observed 696.8, -10% margin)
+  {2048,
+   620} // 620 Mframes/sec (debug, lowered: min observed 691.8, -10% margin)
 #endif
 };
 
-static constexpr Baseline BASELINE_ADD_FROM_COEFF[] = {
+static constexpr GOTestPerfSoundBufferBaseline BASELINE_ADD_FROM_COEFF[] = {
 #ifdef NDEBUG
-  {32, 2800},  // 2800 Mframes/sec (lowered: min observed 3136.9, -10% margin)
-  {128, 3200}, // 3200 Mframes/sec (lowered: min observed 3654.9, -10% margin)
-  {512, 3500}, // 3500 Mframes/sec (measured: 3890.1, with 10% margin)
-  {2048, 3300} // 3300 Mframes/sec (lowered: min observed 3692.3, -10% margin)
+  {32, 2120},  // 2120 Mframes/sec (lowered: min observed 2358.9, -10% margin)
+  {128, 3940}, // 3940 Mframes/sec (lowered: min observed 4373.0, -10% margin)
+  {512, 4220}, // 4220 Mframes/sec (lowered: min observed 4689.3, -10% margin)
+  {2048, 4300} // 4300 Mframes/sec (lowered: min observed 4781.1, -10% margin)
 #else
-  {32, 50},   // 50 Mframes/sec (debug, raised for modern hardware)
-  {128, 70},  // 70 Mframes/sec (debug, raised for modern hardware)
-  {512, 80},  // 80 Mframes/sec (debug, raised for modern hardware)
-  {2048, 80}  // 80 Mframes/sec (debug, raised for modern hardware)
+  {32, 430},  // 430 Mframes/sec (debug, rebaselined 2026-09-25 after adding a
+              // size barrier to defeat constant-folding: min observed 487.1,
+              // -10% margin)
+  {128, 450}, // 450 Mframes/sec (debug, rebaselined 2026-09-25: min observed
+              // 510.5, -10% margin)
+  {512, 480}, // 480 Mframes/sec (debug, rebaselined 2026-09-25: min observed
+              // 534.6, -10% margin)
+  {2048, 470} // 470 Mframes/sec (debug, rebaselined 2026-09-25: min observed
+              // 533.2, -10% margin)
 #endif
 };
 
-static constexpr Baseline BASELINE_COPY_CHANNEL_FROM[] = {
+static constexpr GOTestPerfSoundBufferBaseline BASELINE_COPY_CHANNEL_FROM[] = {
 #ifdef NDEBUG
-  {32, 2400},  // 2400 Mframes/sec (raised for modern hardware)
-  {128, 2700}, // 2700 Mframes/sec (raised for modern hardware)
-  {512, 2800}, // 2800 Mframes/sec (raised for modern hardware)
-  {2048, 2800} // 2800 Mframes/sec (raised for modern hardware)
+  {32, 2150},  // 2150 Mframes/sec (lowered: min observed 2393.9, -10% margin)
+  {128, 2060}, // 2060 Mframes/sec (lowered: min observed 2293.9, -10% margin)
+  {512, 2470}, // 2470 Mframes/sec (lowered: min observed 2746.1, -10% margin)
+  {2048, 2510} // 2510 Mframes/sec (lowered: min observed 2797.1, -10% margin)
 #else
-  {32, 80},   // 80 Mframes/sec (debug, raised for modern hardware)
-  {128, 130}, // 130 Mframes/sec (debug, raised for modern hardware)
-  {512, 150}, // 150 Mframes/sec (debug, raised for modern hardware)
-  {2048, 160} // 160 Mframes/sec (debug, raised for modern hardware)
+  {32,
+   710}, // 710 Mframes/sec (debug, lowered: min observed 790.2, -10% margin)
+  {128,
+   1080}, // 1080 Mframes/sec (debug, lowered: min observed 1197.9, -10% margin)
+  {512,
+   1220}, // 1220 Mframes/sec (debug, lowered: min observed 1356.2, -10% margin)
+  {2048,
+   1260} // 1260 Mframes/sec (debug, lowered: min observed 1395.1, -10% margin)
 #endif
 };
 
-static constexpr Baseline BASELINE_ADD_CHANNEL_FROM[] = {
+static constexpr GOTestPerfSoundBufferBaseline BASELINE_ADD_CHANNEL_FROM[] = {
 #ifdef NDEBUG
-  {32, 1900},  // 1900 Mframes/sec (measured: 2139.4, with 10% margin)
+  {32, 1550},  // 1550 Mframes/sec (lowered: min observed 1724.9, -10% margin)
   {128, 2200}, // 2200 Mframes/sec (measured: 2430.7, with 10% margin)
   {512, 2400}, // 2400 Mframes/sec (measured: 2688.1, with 10% margin)
-  {2048, 2700} // 2700 Mframes/sec (raised for modern hardware)
+  {2048, 2400} // 2400 Mframes/sec (lowered: min observed 2693.2, -10% margin)
 #else
-  {32, 80},   // 80 Mframes/sec (debug, raised for modern hardware)
-  {128, 130}, // 130 Mframes/sec (debug, raised for modern hardware)
-  {512, 150}, // 150 Mframes/sec (debug, raised for modern hardware)
-  {2048, 160} // 160 Mframes/sec (debug, raised for modern hardware)
+  {32,
+   820}, // 820 Mframes/sec (debug, lowered: min observed 908.9, -10% margin)
+  {128,
+   1020}, // 1020 Mframes/sec (debug, lowered: min observed 1132.4, -10% margin)
+  {512,
+   1160}, // 1160 Mframes/sec (debug, lowered: min observed 1293.8, -10% margin)
+  {2048,
+   1300} // 1300 Mframes/sec (debug, raised: min observed 1496.9, -10% margin)
 #endif
 };
 
-static constexpr Baseline BASELINE_ADD_CHANNEL_FROM_COEFF[] = {
+static constexpr GOTestPerfSoundBufferBaseline BASELINE_ADD_CHANNEL_FROM_COEFF[]
+  = {
 #ifdef NDEBUG
-  {32, 1800},  // 1800 Mframes/sec (measured: 2016.6, with 10% margin)
-  {128, 2200}, // 2200 Mframes/sec (measured: 2425.6, with 10% margin)
-  {512, 2400}, // 2400 Mframes/sec (raised for modern hardware)
-  {2048, 2500} // 2500 Mframes/sec (raised for modern hardware)
+    {32, 1800},  // 1800 Mframes/sec (measured: 2016.6, with 10% margin)
+    {128, 1900}, // 1900 Mframes/sec (rebaselined 2026-09-28: min observed
+                 // 2181.2 under CI contention, -10% margin, rounded down to 2
+                 // significant figures)
+    {512, 2050}, // 2050 Mframes/sec (lowered: min observed 2284.6, -10% margin)
+    {2048, 1900} // 1900 Mframes/sec (rebaselined 2026-09-28: min observed
+                 // 2168.3 under CI contention, -10% margin, rounded down to 2
+                 // significant figures)
 #else
-  {32, 80},   // 80 Mframes/sec (debug, raised for modern hardware)
-  {128, 130}, // 130 Mframes/sec (debug, raised for modern hardware)
-  {512, 150}, // 150 Mframes/sec (debug, raised for modern hardware)
-  {2048, 160} // 160 Mframes/sec (debug, raised for modern hardware)
+    {32, 920},   // 920 Mframes/sec (debug, rebaselined 2026-09-28: min
+                 // observed 1031.1 under CI contention, -10% margin, rounded
+                 // down to 2 significant figures)
+    {128, 1300}, // 1300 Mframes/sec (debug, rebaselined 2026-09-25: min
+                 // observed 1450.0, -10% margin)
+    {512, 1200}, // 1200 Mframes/sec (debug, rebaselined 2026-09-28: min
+                 // observed 1386.7 under CI contention, -10% margin, rounded
+                 // down to 2 significant figures)
+    {2048, 1200} // 1200 Mframes/sec (debug, rebaselined 2026-09-28: min
+                 // observed 1409.0 under CI contention, -10% margin, rounded
+                 // down to 2 significant figures)
 #endif
 };
 
 // Extract one channel from stereo source to mono, then vectorizable AddFrom —
 // compare with AddChannelFrom+coeff (stereo dst) to evaluate benefit of
 // using a mono destination buffer with channel extraction.
-static constexpr Baseline BASELINE_MONO_COPY_ADD_FROM_COEFF[] = {
+static constexpr GOTestPerfSoundBufferBaseline
+  BASELINE_MONO_COPY_ADD_FROM_COEFF[]
+  = {
 #ifdef NDEBUG
-  {32, 1600},  // 1600 Mframes/sec (measured: 1829.5, -10% margin)
-  {128, 2000}, // 2000 Mframes/sec (measured: 2250.6, -10% margin)
-  {512, 2100}, // 2100 Mframes/sec (measured: 2434.9, -10% margin)
-  {2048, 2100} // 2100 Mframes/sec (measured: 2435.9, -10% margin)
+    {32, 1040},  // 1040 Mframes/sec (rebaselined 2026-09-04: min observed
+                 // 1301.2, -20% margin)
+    {128, 1790}, // 1790 Mframes/sec (lowered: min observed 1996.9, -10% margin)
+    {512, 1640}, // 1640 Mframes/sec (rebaselined 2026-09-04: min observed
+                 // 2050.4, -20% margin)
+    {2048, 1690} // 1690 Mframes/sec (rebaselined 2026-09-04: min observed
+                 // 2121.4, -20% margin)
 #else
-  {32, 50},   // 50 Mframes/sec (debug, measured: 57.3, -10% margin)
-  {128, 60},  // 60 Mframes/sec (debug, measured: 74.4, -10% margin)
-  {512, 70},  // 70 Mframes/sec (debug, measured: 79.4, -10% margin)
-  {2048, 70}  // 70 Mframes/sec (debug, measured: 81.7, -10% margin)
+    {32,
+     450}, // 450 Mframes/sec (debug, lowered: min observed 502.5, -10% margin)
+    {128, 500}, // 500 Mframes/sec (debug, widened to -20% margin: CI runner
+                // variance exceeds 10%, observed as low as 547.8 on
+                // 2026-08-26/28)
+    {512,
+     640}, // 640 Mframes/sec (debug, raised: min observed 724.3, -10% margin)
+    {2048,
+     660} // 660 Mframes/sec (debug, raised: min observed 744.4, -10% margin)
+#endif
+};
+
+static constexpr GOTestPerfSoundBufferBaseline BASELINE_ADD_CHANNEL_FROM_MONO[]
+  = {
+#ifdef NDEBUG
+    {32, 1100},  // 1100 Mframes/sec (rebaselined 2026-09-04: min observed
+                 // 1382.9, -20% margin)
+    {128, 2050}, // 2050 Mframes/sec (widened to -20% margin: CI runs
+                 // 33182952642/33186258064 observed 2763.5/2568.0)
+    {512, 2110}, // 2110 Mframes/sec (widened to -20% margin: CI runs
+                 // 33182952642/33186258064 observed 2937.9/2648.2)
+    {2048, 2150} // 2150 Mframes/sec (widened to -20% margin: CI runs
+                 // 33182952642/33186258064 observed 3028.5/2696.7)
+#else
+    {32, 800},   // 800 Mframes/sec (debug, widened to -20% margin: CI run
+                 // 33184580207 observed 1008.5, below the previous 1030
+                 // baseline)
+    {128, 940},  // 940 Mframes/sec (debug, rebaselined 2026-09-01: min
+                 // observed 1176.2 under contention, -20% margin)
+    {512, 1080}, // 1080 Mframes/sec (debug, rebaselined 2026-09-04: min
+                 // observed 1352.2, -20% margin)
+    {2048, 1120} // 1120 Mframes/sec (debug, rebaselined 2026-09-04: min
+                 // observed 1400.3, -20% margin)
 #endif
 };
 
@@ -178,63 +240,11 @@ static void fill_with_sine_wave(GOSoundBufferMutable &buffer) {
   }
 }
 
-// Helper function to measure performance
-// Returns performance in millions of frames per second
-static double measure_performance(
-  unsigned bufferSize,
-  unsigned numIterations,
-  std::function<void()> operation) {
-  auto start = std::chrono::high_resolution_clock::now();
-
-  for (unsigned i = 0; i < numIterations; ++i) {
-    operation();
-  }
-
-  auto end = std::chrono::high_resolution_clock::now();
-  std::chrono::duration<double> elapsed = end - start;
-
-  // Calculate millions of frames per second
-  double totalFrames = static_cast<double>(bufferSize) * numIterations;
-  return (totalFrames / elapsed.count()) / 1e6;
-}
-
-void GOTestPerfSoundBufferMutable::RunAndEvaluateTest(
-  const std::string &functionName,
-  const Baseline &baseline,
-  std::function<void()> operation) {
-  double mFramesPerSecond
-    = measure_performance(baseline.m_BufferSize, NUM_ITERATIONS, operation);
-  bool passed = mFramesPerSecond >= baseline.m_MFramesPerSecond;
-  double ratio = mFramesPerSecond / baseline.m_MFramesPerSecond;
-
-#ifdef NDEBUG
-  const char *buildMode = "Release";
-#else
-  const char *buildMode = "Debug  ";
-#endif
-
-  std::string message = std::format(
-    "{:<7} {:<21} (size={:4}): {:8.1f} Mframes/sec (baseline: {:8.1f}, "
-    "ratio: {:5.2f}x)",
-    buildMode,
-    functionName,
-    baseline.m_BufferSize,
-    mFramesPerSecond,
-    baseline.m_MFramesPerSecond,
-    ratio);
-
-  const char *status = passed ? "PASS" : "FAIL";
-  std::cout << std::format("  [{}] {}\n", status, message);
-
-  if (!passed) {
-    m_failedTests.push_back(message);
-  }
-}
-
 void GOTestPerfSoundBufferMutable::TestPerfFillWithSilence() {
   std::cout << "\nPerformance test: FillWithSilence\n";
 
-  for (const Baseline &baseline : BASELINE_FILL_WITH_SILENCE) {
+  for (const GOTestPerfSoundBufferBaseline &baseline :
+       BASELINE_FILL_WITH_SILENCE) {
     // Use macro to declare local buffer on stack
     GO_DECLARE_LOCAL_SOUND_BUFFER(buffer, NUM_CHANNELS, baseline.m_BufferSize)
 
@@ -248,7 +258,7 @@ void GOTestPerfSoundBufferMutable::TestPerfFillWithSilence() {
 void GOTestPerfSoundBufferMutable::TestPerfCopyFrom() {
   std::cout << "\nPerformance test: CopyFrom\n";
 
-  for (const Baseline &baseline : BASELINE_COPY_FROM) {
+  for (const GOTestPerfSoundBufferBaseline &baseline : BASELINE_COPY_FROM) {
     // Declare source and destination buffers using macro
     GO_DECLARE_LOCAL_SOUND_BUFFER(
       srcBuffer, NUM_CHANNELS, baseline.m_BufferSize)
@@ -267,7 +277,7 @@ void GOTestPerfSoundBufferMutable::TestPerfCopyFrom() {
 void GOTestPerfSoundBufferMutable::TestPerfAddFrom() {
   std::cout << "\nPerformance test: AddFrom\n";
 
-  for (const Baseline &baseline : BASELINE_ADD_FROM) {
+  for (const GOTestPerfSoundBufferBaseline &baseline : BASELINE_ADD_FROM) {
     // Declare source and destination buffers using macro
     GO_DECLARE_LOCAL_SOUND_BUFFER(
       srcBuffer, NUM_CHANNELS, baseline.m_BufferSize)
@@ -286,7 +296,8 @@ void GOTestPerfSoundBufferMutable::TestPerfAddFrom() {
 void GOTestPerfSoundBufferMutable::TestPerfAddFromWithCoefficient() {
   std::cout << "\nPerformance test: AddFrom (with coefficient)\n";
 
-  for (const Baseline &baseline : BASELINE_ADD_FROM_COEFF) {
+  for (const GOTestPerfSoundBufferBaseline &baseline :
+       BASELINE_ADD_FROM_COEFF) {
     // Declare source and destination buffers using macro
     GO_DECLARE_LOCAL_SOUND_BUFFER(
       srcBuffer, NUM_CHANNELS, baseline.m_BufferSize)
@@ -298,8 +309,18 @@ void GOTestPerfSoundBufferMutable::TestPerfAddFromWithCoefficient() {
 
     constexpr float coeff = 0.5f;
 
-    RunAndEvaluateTest("AddFrom+coeff", baseline, [&dstBuffer, &srcBuffer]() {
-      dstBuffer.AddFrom(srcBuffer, coeff);
+    // Opaque view with a size the optimizer can no longer prove constant -
+    // without this, the compiler fully unrolls AddFrom() into straight-line
+    // scalar code instead of the packed vector loop real (runtime-sized)
+    // buffers get, making this test measure a code path production traffic
+    // never actually takes.
+    unsigned nFrames = GOTestPerfOpaqueSize(baseline.m_BufferSize);
+
+    GOSoundBufferMutable srcView(srcBuffer.GetData(), NUM_CHANNELS, nFrames);
+    GOSoundBufferMutable dstView(dstBuffer.GetData(), NUM_CHANNELS, nFrames);
+
+    RunAndEvaluateTest("AddFrom+coeff", baseline, [&dstView, &srcView]() {
+      dstView.AddFrom(srcView, coeff);
     });
   }
 }
@@ -307,7 +328,8 @@ void GOTestPerfSoundBufferMutable::TestPerfAddFromWithCoefficient() {
 void GOTestPerfSoundBufferMutable::TestPerfCopyChannelFrom() {
   std::cout << "\nPerformance test: CopyChannelFrom\n";
 
-  for (const Baseline &baseline : BASELINE_COPY_CHANNEL_FROM) {
+  for (const GOTestPerfSoundBufferBaseline &baseline :
+       BASELINE_COPY_CHANNEL_FROM) {
     // Declare source and destination buffers using macro
     GO_DECLARE_LOCAL_SOUND_BUFFER(
       srcBuffer, NUM_CHANNELS, baseline.m_BufferSize)
@@ -326,7 +348,8 @@ void GOTestPerfSoundBufferMutable::TestPerfCopyChannelFrom() {
 void GOTestPerfSoundBufferMutable::TestPerfAddChannelFrom() {
   std::cout << "\nPerformance test: AddChannelFrom\n";
 
-  for (const Baseline &baseline : BASELINE_ADD_CHANNEL_FROM) {
+  for (const GOTestPerfSoundBufferBaseline &baseline :
+       BASELINE_ADD_CHANNEL_FROM) {
     // Declare source and destination buffers using macro
     GO_DECLARE_LOCAL_SOUND_BUFFER(
       srcBuffer, NUM_CHANNELS, baseline.m_BufferSize)
@@ -345,7 +368,8 @@ void GOTestPerfSoundBufferMutable::TestPerfAddChannelFrom() {
 void GOTestPerfSoundBufferMutable::TestPerfAddChannelFromWithCoefficient() {
   std::cout << "\nPerformance test: AddChannelFrom (with coefficient)\n";
 
-  for (const Baseline &baseline : BASELINE_ADD_CHANNEL_FROM_COEFF) {
+  for (const GOTestPerfSoundBufferBaseline &baseline :
+       BASELINE_ADD_CHANNEL_FROM_COEFF) {
     // Declare source and destination buffers using macro
     GO_DECLARE_LOCAL_SOUND_BUFFER(
       srcBuffer, NUM_CHANNELS, baseline.m_BufferSize)
@@ -357,9 +381,15 @@ void GOTestPerfSoundBufferMutable::TestPerfAddChannelFromWithCoefficient() {
 
     constexpr float coeff = 0.5f;
 
+    // See TestPerfAddFromWithCoefficient() above for why this view exists.
+    unsigned nFrames = GOTestPerfOpaqueSize(baseline.m_BufferSize);
+
+    GOSoundBufferMutable srcView(srcBuffer.GetData(), NUM_CHANNELS, nFrames);
+    GOSoundBufferMutable dstView(dstBuffer.GetData(), NUM_CHANNELS, nFrames);
+
     RunAndEvaluateTest(
-      "AddChannelFrom+coeff", baseline, [&dstBuffer, &srcBuffer]() {
-        dstBuffer.AddChannelFrom(srcBuffer, 0, 1, coeff);
+      "AddChannelFrom+coeff", baseline, [&dstView, &srcView]() {
+        dstView.AddChannelFrom(srcView, 0, 1, coeff);
       });
   }
 }
@@ -368,7 +398,8 @@ void GOTestPerfSoundBufferMutable::TestPerfAddChannelFromMonoRecipient() {
   std::cout << "\nPerformance test: extract channel to mono + AddFrom+coeff\n";
   std::cout << "  Compare with AddChannelFrom+coeff (stereo dst) above\n";
 
-  for (const Baseline &baseline : BASELINE_MONO_COPY_ADD_FROM_COEFF) {
+  for (const GOTestPerfSoundBufferBaseline &baseline :
+       BASELINE_MONO_COPY_ADD_FROM_COEFF) {
     GO_DECLARE_LOCAL_SOUND_BUFFER(
       srcBuffer, NUM_CHANNELS, baseline.m_BufferSize)
 
@@ -391,6 +422,28 @@ void GOTestPerfSoundBufferMutable::TestPerfAddChannelFromMonoRecipient() {
   }
 }
 
+void GOTestPerfSoundBufferMutable::TestPerfAddChannelFromMono() {
+  std::cout << "\nPerformance test: AddChannelFrom (mono destination)\n";
+  std::cout << "  Compare with MonoCopyThenAdd+coeff (two-step) above\n";
+
+  for (const GOTestPerfSoundBufferBaseline &baseline :
+       BASELINE_ADD_CHANNEL_FROM_MONO) {
+    GO_DECLARE_LOCAL_SOUND_BUFFER(
+      srcBuffer, NUM_CHANNELS, baseline.m_BufferSize)
+
+    GOSoundBuffer::Item dstMonoMemory[baseline.m_BufferSize];
+    GOSoundBufferMutableMono dstMono(dstMonoMemory, baseline.m_BufferSize);
+
+    fill_with_sine_wave(srcBuffer);
+    fill_with_sine_wave(dstMono);
+
+    RunAndEvaluateTest(
+      "AddChannelFromMono", baseline, [&dstMono, &srcBuffer]() {
+        dstMono.AddChannelFrom(srcBuffer, 0);
+      });
+  }
+}
+
 void GOTestPerfSoundBufferMutable::run() {
   m_failedTests.clear();
 
@@ -406,24 +459,17 @@ void GOTestPerfSoundBufferMutable::run() {
   std::cout << "Buffer configuration: " << NUM_CHANNELS
             << " channels (stereo)\n";
 
-  TestPerfFillWithSilence();
-  TestPerfCopyFrom();
-  TestPerfAddFrom();
-  TestPerfAddFromWithCoefficient();
-  TestPerfCopyChannelFrom();
-  TestPerfAddChannelFrom();
-  TestPerfAddChannelFromWithCoefficient();
-  TestPerfAddChannelFromMonoRecipient();
+  GO_RUN_TEST(TestPerfFillWithSilence())
+  GO_RUN_TEST(TestPerfCopyFrom())
+  GO_RUN_TEST(TestPerfAddFrom())
+  GO_RUN_TEST(TestPerfAddFromWithCoefficient())
+  GO_RUN_TEST(TestPerfCopyChannelFrom())
+  GO_RUN_TEST(TestPerfAddChannelFrom())
+  GO_RUN_TEST(TestPerfAddChannelFromWithCoefficient())
+  GO_RUN_TEST(TestPerfAddChannelFromMonoRecipient())
+  GO_RUN_TEST(TestPerfAddChannelFromMono())
 
   std::cout << "\n========== Performance Tests Completed ==========\n";
 
-  // Report all failures at the end
-  if (!m_failedTests.empty()) {
-    std::string errorMsg
-      = std::format("{} performance test(s) failed:\n", m_failedTests.size());
-    for (const auto &failedTest : m_failedTests) {
-      errorMsg += "  - " + failedTest + "\n";
-    }
-    GOAssert(false, errorMsg);
-  }
+  GO_RUN_TEST(ReportFailedTests())
 }

@@ -8,8 +8,11 @@
 #ifndef GOORGANCONTROLLER_H
 #define GOORGANCONTROLLER_H
 
+#include <set>
+#include <utility>
 #include <vector>
 
+#include <wx/filefn.h>
 #include <wx/string.h>
 
 #include "ptrvector.h"
@@ -17,68 +20,65 @@
 #include "config/GOConfig.h"
 #include "control/GOEventDistributor.h"
 #include "control/GOLabelControl.h"
-#include "gui/frames/GOMainWindowData.h"
-#include "gui/panels/GOGUIMouseState.h"
 #include "loader/GOFileStore.h"
+#include "loader/GOLoadedOrganInfo.h"
+#include "loader/GOProgressMonitor.h"
 #include "model/GOOrganModel.h"
 #include "modification/GOModificationProxy.h"
 
-#include "GOImageCache.h"
+#include "sound/GOSoundOrganEngine.h"
+
 #include "GOMemoryPool.h"
-#include "GOTimer.h"
+#include "GOOrgan.h"
 #include "GOVirtualCouplerController.h"
 
-class GOGUIPanel;
-class GOGUIPanelCreator;
-class GOGUICouplerPanel;
 class GOArchive;
 class GOAudioRecorder;
 class GOButtonControl;
 class GOCache;
+class GOConfigWriter;
 class GODialogSizeSet;
 class GODivisionalSetter;
 class GOElementCreator;
-class GOMidiSystem;
+class GOGuiOrgan;
 class GOMidiEvent;
 class GOMidiPlayer;
 class GOMidiRecorder;
-class GOOrgan;
-class GOProgressDialog;
+class GOMidiSystem;
 class GOSetter;
-class GOConfig;
-class GOTemperament;
-class GODocument;
-class GOSoundOrganEngine;
 class GOSoundProvider;
-class GOSoundRecorder;
+class GOSoundRecorderTask;
+class GOSoundSystem;
+class GOTemperament;
+class GOTimer;
 typedef struct _GOHashType GOHashType;
 
 class GOOrganController : public GOEventDistributor,
                           public GOOrganModel,
                           public GOModificationProxy {
+  // Exercises LoadOrganCoreData()/LoadObjects()/SaveOrganCoreData()/
+  // ClearObjects()/ClearOrganCoreData() directly, bypassing Load()'s
+  // unconditional call to LoadObjects() (which needs a live GUI display for
+  // its error path).
+  friend class GOTestOrganController;
+
 private:
   GOConfig &m_config;
-  wxString m_odf;
-  wxString m_ArchiveID;
-  wxString m_ArchivePath;
-  wxString m_hash;
+  GOOrgan m_ConfiguredOrgan;
+  GOLoadedOrganInfo m_LoadedOrganInfo;
   GOFileStore m_FileStore;
-  wxString m_CacheFilename;
-  wxString m_SettingFilename;
-  wxString m_ODFHash;
   bool m_Cacheable;
+  bool m_IsOrganCoreDataLoaded;
+  bool m_IsObjectsLoaded;
   GOSetter *m_setter;
   GODivisionalSetter *m_DivisionalSetter;
   GOAudioRecorder *m_AudioRecorder;
   GOMidiPlayer *m_MidiPlayer;
   GOMidiRecorder *m_MidiRecorder;
-  GOSizeKeeper m_StopWindowSizeKeeper;
   GOTimer *m_timer;
   GOButtonControl *p_OnStateButton;
-  int m_volume;
   wxString m_Temperament;
 
-  bool m_b_customized;
   float m_CurrentPitch; // organ pitch
   bool m_OrganModified; // always m_IsOrganModified >= IsModelModified()
 
@@ -91,21 +91,22 @@ private:
 
   GOVirtualCouplerController m_VirtualCouplers;
 
-  ptr_vector<GOGUIPanel> m_panels;
-  ptr_vector<GOGUIPanelCreator> m_panelcreators;
   ptr_vector<GOElementCreator> m_elementcreators;
 
-  GOSoundOrganEngine *m_soundengine;
   GOMidiSystem *m_midi;
   std::vector<bool> m_MidiSamplesetMatch;
   int m_SampleSetId1, m_SampleSetId2;
-  GOGUIMouseState m_MouseState;
 
   GOMemoryPool m_pool;
-  GOImageCache *mp_ImageCache;
+  GOSoundOrganEngine m_SoundEngine;
+  /** Non-owning; set in StartOrgan(), cleared in StopOrgan(). Doubles as the
+   * "organ is started" guard: SuspendOrgan()/ResumeOrgan() may only be
+   * called while it is non-null, and AssertSoundRoutingFor()/
+   * EnsureSoundRoutingFor() are no-ops while it is null - there is nothing
+   * to check against or to suspend/resume yet. */
+  GOSoundSystem *p_SoundSystem = nullptr;
   GOLabelControl m_PitchLabel;
   GOLabelControl m_TemperamentLabel;
-  GOMainWindowData m_MainWindowData;
 
   // if modified changes m_IsOrganModified then make a side effect
   void SetOrganModified(bool modified);
@@ -113,20 +114,58 @@ private:
   // if modified then sets m_IsOrganModified
   void OnIsModifiedChanged(bool modified);
 
-  void ReadOrganFile(GOConfigReader &cfg);
+  /** Reads the non-GUI ODF/CMB data (church info, model, element creators,
+   * combinations) into this controller. Sets m_IsOrganCoreDataLoaded. */
+  void LoadOrganCoreData(GOConfigReader &cfg);
+  /** Loads pipe/sample data from the cache or, failing that, from the
+   * sample files in parallel worker threads. Sets m_IsObjectsLoaded. */
+  void LoadObjects(GOProgressMonitor &monitor);
+  /** Writes the non-GUI organ state (church info, volume, temperament,
+   * saveable objects, virtual couplers) to cfg. */
+  void SaveOrganCoreData(GOConfigWriter &cfg);
+  /** Undoes LoadObjects if it ran. Idempotent. */
+  void ClearObjects();
+  /** Undoes LoadOrganCoreData if it ran. Idempotent. */
+  void ClearOrganCoreData();
   GOHashType GenerateCacheHash();
-  wxString GenerateSettingFileName();
-  wxString GenerateCacheFileName();
   void SetTemperament(const GOTemperament &temperament);
   void PreconfigRecorder();
 
-  const wxString &GetOrganHash() const { return m_hash; }
+  /**
+   * Hook for a subclass to load GUI-only data, called after
+   * LoadOrganCoreData() and before the ODF/CMB unused-key report. Empty by
+   * default - a bare GOOrganController has no GUI.
+   * @param cfg the config reader for the ODF/CMB currently being loaded,
+   *   the same one passed to LoadOrganCoreData()
+   */
+  virtual void OnLoad(GOConfigReader &cfg) {}
+  /**
+   * Hook for a subclass to sync any live UI state (e.g. window
+   * position/size) into its own data before Save() writes anything. Called
+   * first, before any config writer exists. Empty by default. Takes no
+   * parameters - it reads live state (e.g. window position) directly from
+   * whatever the subclass holds, not from anything Save() has yet.
+   */
+  virtual void BeforeSave() {}
+  /**
+   * Hook for a subclass to save GUI-only data, called after
+   * SaveOrganCoreData() and before the file is written. Empty by default.
+   * @param cfg the config writer Save() is assembling; core data has
+   *   already been written to it by the time this runs
+   */
+  virtual void OnSave(GOConfigWriter &cfg) {}
+  /**
+   * Hook for a subclass to clear GUI-only data, called after ClearObjects()
+   * and before ClearOrganCoreData() (GUI data may reference core model
+   * objects that ClearOrganCoreData() frees). Empty by default. Takes no
+   * parameters - it just tears down whatever the subclass loaded in
+   * OnLoad().
+   */
+  virtual void OnClear() {}
 
 public:
-  GOOrganController(GOConfig &config, bool isAppInitialized = false);
+  GOOrganController(GOConfig &config);
   virtual ~GOOrganController();
-
-  GOSizeKeeper &GetStopWindowSizeKeeper() { return m_StopWindowSizeKeeper; }
 
   // Returns organ modification flag
   bool IsOrganModified() const { return m_OrganModified; }
@@ -148,10 +187,22 @@ public:
   }
 
   wxString Load(
-    GOProgressDialog *dlg,
     const GOOrgan &organ,
     const wxString &cmb,
-    bool isGuiOnly);
+    bool isGuiOnly,
+    GOProgressMonitor &monitor);
+  /** Undoes whatever Load() built (core data, GUI, cached objects), in
+   * reverse order. Idempotent - safe to call any number of times.
+   * Callers must call this explicitly before destroying the object (stack,
+   * member, or heap): Clear() calls the virtual OnClear(), and a call made
+   * from within ~GOOrganController() would only ever reach
+   * GOOrganController::OnClear(), never a subclass override, since C++
+   * virtual dispatch during base-class destruction is restricted to the
+   * base class. The destructor only asserts that ClearObjects()/OnClear()
+   * already ran; it still re-runs the non-virtual ClearOrganCoreData() on
+   * its own as a safety net regardless of whether the caller called
+   * Clear(). */
+  void Clear();
   /**
    * Exports organ combinations in the yaml file
    * @param fileName - the path to the yaml file to export
@@ -159,17 +210,73 @@ public:
    */
   wxString ExportCombination(const wxString &fileName);
   void LoadCombination(const wxString &cmb);
-  bool Save();
-  bool Export(const wxString &cmb);
-  bool CachePresent() const { return wxFileExists(m_CacheFilename); }
+  /**
+   * Writes the organ's core data (and, for GUI-aware subclasses, GUI data
+   * via OnSave()) to a config file.
+   * @param path the file to write to; empty (the default) means the path
+   *   this organ was loaded from (m_LoadedOrganInfo.settingsFilePath) - a
+   *   default member expression can't be used here since default arguments
+   *   can't reference `this`, so the sentinel is resolved in the body.
+   *   An explicit non-empty path is treated as an export to a copy and does
+   *   not reset the modified flag.
+   * @return true if the file was written successfully
+   */
+  bool Save(const wxString &path = wxEmptyString);
+  bool CachePresent() const {
+    return wxFileExists(m_LoadedOrganInfo.cacheFilePath);
+  }
   bool IsCacheable() const { return m_Cacheable; }
-  bool UpdateCache(GOProgressDialog *dlg, bool compress);
+  bool UpdateCache(bool compress, GOProgressMonitor &monitor);
   void DeleteCache();
   void DeleteSettings();
-  void Abort();
-  void PreparePlayback(
-    GOSoundOrganEngine *engine, GOMidiSystem *midi, GOSoundRecorder *recorder);
   void PrepareRecording();
+
+  /** Returns true if the organ sound engine is currently running. */
+  bool IsOrganStarted() const { return m_SoundEngine.IsWorking(); }
+
+  /**
+   * Starts the organ sound engine: builds audio tasks, connects to the sound
+   * system, and begins MIDI and audio playback.
+   */
+  void StartOrgan(GOSoundSystem &soundSystem, GOMidiSystem &midi);
+
+  /**
+   * Stops the organ sound engine: aborts playback, disconnects from the sound
+   * system, and tears down audio tasks.
+   */
+  void StopOrgan(GOSoundSystem &soundSystem);
+
+  /**
+   * Quiesces the sound engine for a live reconfiguration that needs it held
+   * still - currently EnsureSoundRoutingFor(), which needs the scheduler and
+   * the GOSoundGroupTask input lists to stay put while pipes keep sounding
+   * (see GOSoundOrganEngine::CommitSoundRoutingFor()):
+   * drains in-flight audio callbacks, then stops the engine. Sounding notes
+   * are preserved - only the engine's own processing pauses. Must be paired
+   * with ResumeOrgan(); may only be called while the organ is started (see
+   * p_SoundSystem).
+   */
+  void SuspendOrgan();
+
+  /** Undoes SuspendOrgan(): restarts the engine and reconnects audio
+   * callbacks. */
+  void ResumeOrgan();
+
+  GOSoundOrganEngine &GetSoundEngine() { return m_SoundEngine; }
+
+  /**
+   * @see GOOrganModel::AssertSoundRoutingFor(). No-op while the sound engine
+   * does not exist yet (p_SoundSystem null, e.g. during initial
+   * PreparePlayback() at organ-load time) - there is nothing to check
+   * against.
+   */
+  void AssertSoundRoutingFor(
+    unsigned windchestN, unsigned audioGroupId) const override;
+
+  /** @see GOOrganModel::EnsureSoundRoutingFor(). */
+  void EnsureSoundRoutingFor(
+    const std::set<std::pair<unsigned, unsigned>> &pairs) override;
+
   void Update();
   void Reset();
   void ProcessMidi(const GOMidiEvent &event);
@@ -178,23 +285,45 @@ public:
 
   /* Access to internal ODF objects */
   GOSetter *GetSetter() const { return m_setter; }
-  GOGUIPanel *GetPanel(unsigned index) { return m_panels[index]; }
-  unsigned GetPanelCount() const { return m_panels.size(); }
-  void AddPanel(GOGUIPanel *panel) { m_panels.push_back(panel); }
   GOMemoryPool &GetMemoryPool() { return m_pool; }
   GOConfig &GetSettings() { return m_config; }
-  GOImageCache &GetImageCache() const { return *mp_ImageCache; }
   void SetTemperament(const wxString &name);
   const wxString &GetTemperament() const { return m_Temperament; }
 
   GOLabelControl *GetPitchLabel() { return &m_PitchLabel; }
   GOLabelControl *GetTemperamentLabel() { return &m_TemperamentLabel; }
-  GOMainWindowData *GetMainWindowData() { return &m_MainWindowData; }
 
-  void LoadMIDIFile(const wxString &filename);
+  /** @return the virtual coupler configuration for this organ, used by
+   * GOGUICouplerPanel when building the coupler panel. */
+  const GOVirtualCouplerController &GetVirtualCouplers() const {
+    return m_VirtualCouplers;
+  }
 
-  void SetVolume(int volume) { m_volume = volume; }
-  int GetVolume() const { return m_volume; }
+  /**
+   * Loads a MIDI file for playback via the MIDI player.
+   * @param filename the MIDI file to load
+   * @param chooseMapping see GOMidiPlayer::LoadFile()
+   */
+  void LoadMIDIFile(
+    const wxString &filename,
+    const GOConfig::MidiChannelMappingChooser &chooseMapping);
+
+  int GetGain() const { return m_SoundEngine.GetGain(); }
+  /** Sets the master gain and forwards it to the sound engine. */
+  void SetGain(int gain) { m_SoundEngine.SetGain(gain); }
+
+  /** Returns true if the sound engine is running. */
+  bool IsStarted() const { return m_SoundEngine.IsWorking(); }
+
+  /** Sets the polyphony hard limit in the sound engine. */
+  void SetHardPolyphony(unsigned polyphony) {
+    m_SoundEngine.SetHardPolyphony(polyphony);
+  }
+
+  /**
+   * Returns meter info from the sound engine.
+   */
+  std::vector<float> GetMeterInfo() { return m_SoundEngine.GetMeterInfo(); }
 
   unsigned GetReleaseTail() {
     return GetRootPipeConfigNode().GetEffectiveReleaseTail();
@@ -209,14 +338,20 @@ public:
     const wxString &name, bool is_panel = false);
 
   /* TODO: can somebody figure out what this thing is */
-  bool IsCustomized() const { return m_b_customized; }
+  bool IsCustomized() const { return m_LoadedOrganInfo.isCustomized; }
 
   /* Filename of the organ definition used to load */
-  const wxString &GetODFFilename() const { return m_odf; }
+  const wxString &GetODFFilename() const {
+    return m_ConfiguredOrgan.GetODFPath();
+  }
   const wxString GetOrganPathInfo();
   GOOrgan GetOrganInfo();
-  const wxString &GetSettingFilename() const { return m_SettingFilename; }
-  const wxString &GetCacheFilename() const { return m_CacheFilename; }
+  const wxString &GetSettingFilename() const {
+    return m_LoadedOrganInfo.settingsFilePath;
+  }
+  const wxString &GetCacheFilename() const {
+    return m_LoadedOrganInfo.cacheFilePath;
+  }
   wxString GetCombinationsDir() const;
 
   /* Organ and Building general information */
@@ -228,8 +363,6 @@ public:
   const wxString &GetInfoFilename() const { return m_InfoFilename; }
 
   GOMidiSystem *GetMidi() { return m_midi; }
-
-  GOGUIMouseState &GetMouseState() { return m_MouseState; }
 
   /**
    * Return the Timer Manager for Metronome, Midi recorder, ...

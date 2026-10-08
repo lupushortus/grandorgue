@@ -18,6 +18,8 @@
 #define WIN32 1
 #endif
 #include <jack/jack.h>
+
+#include "sound/buffer/GOSoundBufferPlanarManaged.h"
 #endif
 
 #include "GOSoundPort.h"
@@ -27,14 +29,18 @@ class GOSoundJackPort : public GOSoundPort {
 public:
   static const wxString PORT_NAME;
 
-  GOSoundJackPort(GOSoundSystem *sound, wxString name);
+  GOSoundJackPort(
+    GOSoundCallbackConnector &callbackConnector, const wxString &name);
   ~GOSoundJackPort();
 
 #if defined(GO_USE_JACK)
 private:
   jack_client_t *mp_JackClient = nullptr;
   std::vector<jack_port_t *> mp_JackOutPorts;
-  float *mp_GoBuffer = nullptr;
+  // JACK is natively planar (one mono port per channel); this planar buffer
+  // is what GOSoundPort::AudioCallback() fills, then jackProcessCallback()
+  // copies each contiguous channel straight into its JACK port buffer
+  GOSoundBufferPlanarManaged m_GoBuffer;
   bool m_IsOpen = false;
   bool m_IsStarted = false;
 
@@ -58,7 +64,7 @@ public:
   }
   static GOSoundPort *create(
     const GOPortsConfig &portsConfig,
-    GOSoundSystem *sound,
+    GOSoundCallbackConnector &callbackConnector,
     GODeviceNamePattern &pattern);
   static void addDevices(
     const GOPortsConfig &portsConfig, std::vector<GOSoundDevInfo> &list);

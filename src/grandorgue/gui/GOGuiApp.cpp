@@ -1,0 +1,267 @@
+/*
+ * Copyright 2006 Milan Digital Audio LLC
+ * Copyright 2009-2026 GrandOrgue contributors (see AUTHORS)
+ * License GPL-2.0 or later
+ * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
+ */
+
+#include "GOGuiApp.h"
+
+#include <wx/cmdline.h>
+
+#if wxDEBUG_LEVEL && defined(GO_HAS_CPPTRACE)
+#include <cpptrace/cpptrace.hpp>
+#endif
+#include <wx/filesys.h>
+#include <wx/fs_zip.h>
+#include <wx/regex.h>
+
+#include "config/GOConfig.h"
+#include "frames/GOAppWindow.h"
+#include "midi/GOMidiSystem.h"
+#include "sound/GOSoundSystem.h"
+
+#include "GOCrashHandler.h"
+#include "GOGuiLog.h"
+#include "GOStdPath.h"
+#include "go_defs.h"
+
+#ifdef __WXMAC__
+#include <ApplicationServices/ApplicationServices.h>
+#endif
+
+#ifdef __WIN32__
+#include <windows.h>
+#endif
+
+IMPLEMENT_APP(GOGuiApp)
+
+GOGuiApp::~GOGuiApp() = default;
+
+/**
+ * A temporary logging class.
+ * It logs all Warning and Error log messages to stderr, all other messages to
+ * stdout. It also displays all Error messages to a modal message box.
+ * It is used only before initializing the GOGuiLog instance, including during
+ * reading the GrandOrgueConfig
+ */
+class TemporaryLog : public wxLog {
+protected:
+  void DoLogTextAtLevel(wxLogLevel level, const wxString &msg) override;
+};
+
+void TemporaryLog::DoLogTextAtLevel(wxLogLevel level, const wxString &msg) {
+  FILE *output = (level <= wxLOG_Warning) ? stderr : stdout;
+
+  fprintf(output, "%s\n", msg.mb_str().data());
+  if (level <= wxLOG_Error)
+    wxMessageBox(msg, "Error", wxOK | wxICON_ERROR);
+}
+
+static const char *const SWITCH_GUI = "g";
+static const char *const SWITCH_HELP = "h";
+static const char *const OPTION_INSTANCE = "i";
+static const char *const OPTION_CONFIG_FILE = "c";
+
+static const wxCmdLineEntryDesc cmd_line_desc[] = {
+  {wxCMD_LINE_SWITCH,
+   SWITCH_GUI,
+   "gui-only",
+   wxTRANSLATE("Load just GUI. Not to load any sound samples"),
+   wxCMD_LINE_VAL_NONE,
+   0},
+  {wxCMD_LINE_SWITCH,
+   SWITCH_HELP,
+   "help",
+   wxTRANSLATE("displays help on the command line parameters"),
+   wxCMD_LINE_VAL_NONE,
+   wxCMD_LINE_OPTION_HELP},
+  {wxCMD_LINE_OPTION,
+   OPTION_INSTANCE,
+   "instance",
+   wxTRANSLATE("specify GrandOrgue instance name"),
+   wxCMD_LINE_VAL_STRING,
+   wxCMD_LINE_PARAM_OPTIONAL},
+  {wxCMD_LINE_OPTION,
+   OPTION_CONFIG_FILE,
+   "config",
+   wxTRANSLATE("specify GrandOrgue config file name"),
+   wxCMD_LINE_VAL_STRING,
+   wxCMD_LINE_PARAM_OPTIONAL},
+  {wxCMD_LINE_SWITCH,
+   "v",
+   "verbose",
+   wxTRANSLATE("generate verbose log messages"),
+   wxCMD_LINE_VAL_NONE,
+   0x0},
+  {wxCMD_LINE_PARAM,
+   NULL,
+   NULL,
+   wxTRANSLATE("organ file"),
+   wxCMD_LINE_VAL_STRING,
+   wxCMD_LINE_PARAM_OPTIONAL},
+  {wxCMD_LINE_NONE}};
+
+void GOGuiApp::OnInitCmdLine(wxCmdLineParser &parser) {
+  parser.SetLogo(wxString::Format(
+    _("GrandOrgue %s - Virtual Pipe Organ Software"), wxT(APP_VERSION)));
+  parser.SetDesc(cmd_line_desc);
+}
+
+bool GOGuiApp::OnCmdLineParsed(wxCmdLineParser &parser) {
+  bool res = wxApp::OnCmdLineParsed(parser);
+  wxString str;
+
+  if (res)
+    m_IsGuiOnly = parser.FoundSwitch(SWITCH_GUI) == wxCMD_SWITCH_ON;
+  if (res && parser.Found(OPTION_INSTANCE, &str)) {
+    wxRegEx r(wxT("^[A-Za-z0-9]+$"), wxRE_ADVANCED);
+
+    if (r.Matches(str))
+      m_InstanceName = std::string("-") + str.ToStdString();
+    else {
+      wxMessageOutput::Get()->Printf(_("Invalid instance name"));
+      res = false;
+    }
+  }
+  if (res && parser.Found(OPTION_CONFIG_FILE, &str))
+    m_ConfigFilePath = str.ToStdString();
+  if (res)
+    for (unsigned i = 0; i < parser.GetParamCount(); i++)
+      m_FileName = parser.GetParam(i);
+  return res;
+}
+
+bool GOGuiApp::OnInit() {
+  // Ownership is transferred to wxWidgets: wxEntryCleanup() calls the deleting
+  // destructor on the active log target, so we must not delete it ourselves.
+  wxLog::SetActiveTarget(new TemporaryLog());
+
+#ifdef __WXMAC__
+  /* This ensures that the executable (when it is not in the form of an OS X
+   * bundle, is brought into the foreground). GetCurrentProcess() should not
+   * be used as it has been deprecated as of 10.9. We use a "Process
+   * Identification Constant" instead. See the "Process Manager Reference"
+   * document for more information. */
+  static const ProcessSerialNumber PSN = {0, kCurrentProcess};
+  TransformProcessType(&PSN, kProcessTransformToForegroundApplication);
+#endif
+
+  SetAppName(wxT("GrandOrgue"));
+  SetClassName(wxT("GrandOrgue"));
+  SetVendorName(wxT("Our Organ"));
+
+  wxIdleEvent::SetMode(wxIDLE_PROCESS_SPECIFIED);
+  wxFileSystem::AddHandler(new wxZipFSHandler);
+  wxImage::AddHandler(new wxJPEGHandler);
+  wxImage::AddHandler(new wxGIFHandler);
+  wxImage::AddHandler(new wxPNGHandler);
+  wxImage::AddHandler(new wxBMPHandler);
+  wxImage::AddHandler(new wxICOHandler);
+  srand(::wxGetUTCTime());
+
+#ifdef __WIN32__
+  SetThreadExecutionState(
+    ES_CONTINUOUS | ES_DISPLAY_REQUIRED | ES_SYSTEM_REQUIRED);
+#endif
+
+  if (!wxApp::OnInit())
+    return false;
+
+  mp_config = std::make_unique<GOConfig>(m_InstanceName, m_ConfigFilePath);
+  mp_config->Load();
+
+  GOStdPath::InitLocaleDir();
+  m_locale.Init(mp_config->GetLanguageId());
+  m_locale.AddCatalog(wxT("GrandOrgue"));
+
+  /*
+   * Install it as early as possible, but after InitLocaleDir() because the
+   * report directory is resolved with wxStandardPaths configured there. The
+   * subdirectory name is not translated: it is used at the crash time when no
+   * conversion is possible.
+   */
+  GOCrashHandler::ensureInstalled(
+    GOStdPath::GetGrandOrgueSubDir(wxT("CrashReports")));
+
+  mp_SoundSystem = std::make_unique<GOSoundSystem>(*mp_config);
+  mp_MidiSystem = std::make_unique<GOMidiSystem>(*mp_config);
+
+  p_AppWindow = new GOAppWindow(
+    *this,
+    NULL,
+    wxID_ANY,
+    wxString::Format(_("GrandOrgue %s"), wxT(APP_VERSION)),
+    wxDefaultPosition,
+    wxDefaultSize,
+    wxMINIMIZE_BOX | wxRESIZE_BORDER | wxSYSTEM_MENU | wxCAPTION | wxCLOSE_BOX
+      | wxCLIP_CHILDREN | wxFULL_REPAINT_ON_RESIZE,
+    *mp_config,
+    *mp_SoundSystem,
+    *mp_MidiSystem);
+  SetTopWindow(p_AppWindow);
+  mp_log = std::make_unique<GOGuiLog>(p_AppWindow);
+  // SetActiveTarget returns the previous logger (TemporaryLog, released from
+  // mp_TemporaryLog), which wxWidgets won't delete because it's no longer
+  // active. Delete it explicitly now that we are done with it.
+  delete wxLog::SetActiveTarget(mp_log.get());
+  p_AppWindow->Init(m_FileName, m_IsGuiOnly);
+
+  return true;
+}
+
+#ifdef __WXMAC__
+void GOGuiApp::MacOpenFile(const wxString &filename) {
+  if (p_AppWindow)
+    p_AppWindow->SendLoadFile(filename);
+}
+#endif
+
+int GOGuiApp::OnRun() { return wxApp::OnRun(); }
+
+int GOGuiApp::OnExit() {
+  wxLog::FlushActive();
+  wxLog::SetActiveTarget(nullptr);
+
+  int rc = wxApp::OnExit();
+
+  if (m_IsToRestartAfterExit) {
+    wchar_t **cmdargs(argv);
+
+    wxExecute(cmdargs);
+  }
+  return rc;
+}
+
+#if wxDEBUG_LEVEL
+void GOGuiApp::OnAssertFailure(
+  const wxChar *file,
+  int line,
+  const wxChar *func,
+  const wxChar *cond,
+  const wxChar *msg) {
+  fprintf(
+    stderr,
+    "wxWidgets assertion failed: %s(%d): %s(): condition \"%s\"%s%s\n",
+    (const char *)wxString(file).mb_str(),
+    line,
+    (const char *)wxString(func).mb_str(),
+    (const char *)wxString(cond).mb_str(),
+    msg ? ": " : "",
+    msg ? (const char *)wxString(msg).mb_str() : "");
+#if defined(GO_HAS_CPPTRACE)
+  cpptrace::generate_trace().print(std::cerr);
+#endif
+  wxApp::OnAssertFailure(file, line, func, cond, msg);
+}
+#endif
+
+void GOGuiApp::CleanUp() {
+  // Ensure that GOAppWindow and other objects are destroyed before deleting
+  wxApp::CleanUp();
+  // CleanUp() may be called even if OnInit() has not succeed, so unique_ptr
+  // reset() is safe to call even if the objects were never created
+  mp_SoundSystem.reset();
+  mp_config.reset();
+  mp_log.reset();
+}

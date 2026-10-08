@@ -8,15 +8,14 @@
 #include "GOSoundWindchestTask.h"
 
 #include "sound/GOSoundOrganEngine.h"
-#include "threading/GOMutexLocker.h"
 
 #include "GOSoundTremulantTask.h"
 
 GOSoundWindchestTask::GOSoundWindchestTask(
   GOSoundOrganEngine &soundEngine, GOWindchest *pWindchest)
-  : r_engine(soundEngine),
-    m_volume(0),
-    m_done(false),
+  : GOSoundTaskBase(PRIORITY_WINDCHEST, false),
+    r_engine(soundEngine),
+    m_amplitude(0),
     p_windchest(pWindchest) {}
 
 void GOSoundWindchestTask::Init(
@@ -28,26 +27,15 @@ void GOSoundWindchestTask::Init(
         tremulantTasks[p_windchest->GetTremulantId(i)]);
 }
 
-void GOSoundWindchestTask::Reset() {
-  GOMutexLocker locker(m_mutex);
+bool GOSoundWindchestTask::DoRun(GOSchedulerThread *pThread) {
+  float amplitude = r_engine.GetAmplitude();
 
-  m_done.store(false);
-}
-
-void GOSoundWindchestTask::Run(GOSoundThread *pThread) {
-  if (!m_done.load()) {
-    GOMutexLocker locker(m_mutex);
-
-    if (!m_done.load()) {
-      float volume = r_engine.GetGain();
-
-      if (p_windchest) {
-        volume *= p_windchest->GetVolume();
-        for (unsigned i = 0; i < m_pTremulantTasks.size(); i++)
-          volume *= m_pTremulantTasks[i]->GetVolume();
-      }
-      m_volume = volume;
-      m_done.store(true);
-    }
+  if (p_windchest) {
+    amplitude *= p_windchest->GetAmplitude();
+    for (unsigned i = 0; i < m_pTremulantTasks.size(); i++)
+      amplitude *= m_pTremulantTasks[i]->GetAmplitude();
   }
+  m_amplitude = amplitude;
+
+  return true;
 }

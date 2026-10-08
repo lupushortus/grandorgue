@@ -1,0 +1,210 @@
+/*
+ * Copyright 2009-2026 GrandOrgue contributors (see AUTHORS)
+ * License GPL-2.0 or later
+ * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
+ */
+
+#include "GOTestSoundRecorderTask.h"
+
+#include <format>
+#include <vector>
+
+#include <wx/file.h>
+#include <wx/filename.h>
+
+#include "sound/tasks/GOSoundBufferTaskBase.h"
+#include "sound/tasks/GOSoundRecorderTask.h"
+
+#include "GOTestScope.h"
+
+const std::string GOTestSoundRecorderTask::TEST_NAME
+  = "GOTestSoundRecorderTask";
+
+static constexpr unsigned N_SAMPLES_PER_BUFFER = 4;
+
+namespace {
+
+// A stub GOSoundBufferTaskBase input with a fixed, caller-chosen channel
+// count - lets the test combine two outputs with different channel counts,
+// the case ConvertData<T>()'s start_pos/m_Channels-stride logic exists for.
+class StubBufferTask : public GOSoundBufferTaskBase {
+public:
+  StubBufferTask(unsigned nChannels)
+    : GOSoundBufferTaskBase(
+      PRIORITY_AUDIOGROUP, false, nChannels, N_SAMPLES_PER_BUFFER) {}
+
+  bool DoRun(GOSchedulerThread *) override { return true; }
+  void EnsureBufferReady(bool, GOSchedulerThread * = nullptr) override {}
+};
+
+// A distinct, small value per (stub index, channel, frame): float bit depth
+// (m_BytesPerSample=4) uses the identity convertValue(), so what is written
+// into the stub is exactly what must come back out of the WAV file.
+float rampValue(unsigned stubI, unsigned channelI, unsigned frameI) {
+  return 0.01f * static_cast<float>(stubI * 100 + channelI * 10 + frameI);
+}
+
+void fillWithRamp(GOSoundBufferTaskBase &task, unsigned stubI) {
+  for (unsigned channelI = 0, nChannels = task.GetNChannels();
+       channelI < nChannels;
+       channelI++) {
+    float *pData = task.GetChannelBuffer(channelI).GetData();
+
+    for (unsigned frameI = 0; frameI < N_SAMPLES_PER_BUFFER; frameI++)
+      pData[frameI] = rampValue(stubI, channelI, frameI);
+  }
+}
+
+} // namespace
+
+void GOTestSoundRecorderTask::TestGathersDistinctChannelCountsInOrder() {
+  StubBufferTask stub0(1);
+  StubBufferTask stub1(2);
+
+  fillWithRamp(stub0, 0);
+  fillWithRamp(stub1, 1);
+
+  GOSoundRecorderTask recorder;
+
+  recorder.SetSampleRate(44100);
+  recorder.SetBytesPerSample(4); // float: convertValue() is the identity
+  recorder.SetOutputs({&stub0, &stub1}, N_SAMPLES_PER_BUFFER);
+
+  const wxString path = wxFileName::CreateTempFileName(wxT("goRecTest"));
+
+  recorder.Open(path);
+  GOAssert(recorder.IsOpen(), "recorder should be open after Open()");
+  recorder.Run();
+  recorder.Close();
+
+  wxFile file(path);
+
+  GOAssert(file.IsOpened(), "the recorded WAV file should be readable back");
+
+  const unsigned nTotalChannels = 1 + 2;
+  const unsigned nDataBytes
+    = N_SAMPLES_PER_BUFFER * nTotalChannels * sizeof(float);
+  const wxFileOffset fileLength = file.Length();
+
+  GOAssert(
+    fileLength
+      == static_cast<wxFileOffset>(
+        GOSoundRecorderTask::WAV_HEADER_SIZE + nDataBytes),
+    "the WAV file should hold exactly the header plus one buffer's worth of "
+    "data, not extra buffered rounds");
+  file.Seek(GOSoundRecorderTask::WAV_HEADER_SIZE);
+
+  std::vector<float> data(N_SAMPLES_PER_BUFFER * nTotalChannels);
+
+  const ssize_t nRead = file.Read(data.data(), nDataBytes);
+
+  file.Close();
+  wxRemoveFile(path);
+
+  GOAssert(
+    nRead == static_cast<ssize_t>(nDataBytes),
+    "the WAV data section should hold exactly one buffer's worth of "
+    "interleaved float samples");
+
+  // stub0 (1 channel) occupies channel slot 0 of every frame; stub1
+  // (2 channels) occupies slots 1 and 2, in the order SetOutputs() listed
+  // them - this is the exact gather/scatter path Stage 3's ConvertData<T>()
+  // rewrite inverted from a raw interleaved read to a per-channel gather.
+  for (unsigned frameI = 0; frameI < N_SAMPLES_PER_BUFFER; frameI++) {
+    const unsigned frameBase = frameI * nTotalChannels;
+
+    GOAssert(
+      data[frameBase + 0] == rampValue(0, 0, frameI),
+      std::format("frame {}: stub0 channel 0 mismatch", frameI));
+    GOAssert(
+      data[frameBase + 1] == rampValue(1, 0, frameI),
+      std::format("frame {}: stub1 channel 0 mismatch", frameI));
+    GOAssert(
+      data[frameBase + 2] == rampValue(1, 1, frameI),
+      std::format("frame {}: stub1 channel 1 mismatch", frameI));
+  }
+}
+
+void GOTestSoundRecorderTask::TestDiscardContentClosesOpenRecording() {
+  StubBufferTask stub(1);
+
+  fillWithRamp(stub, 0);
+
+  GOSoundRecorderTask recorder;
+
+  recorder.SetSampleRate(44100);
+  recorder.SetBytesPerSample(4); // float: convertValue() is the identity
+  recorder.SetOutputs({&stub}, N_SAMPLES_PER_BUFFER);
+
+  const wxString path = wxFileName::CreateTempFileName(wxT("goRecTest"));
+
+  recorder.Open(path);
+  GOAssert(recorder.IsOpen(), "recorder should be open after Open()");
+  recorder.Run();
+  GOAssert(
+    !recorder.IsEmpty(),
+    "an open recorder must not be IsEmpty(), matching GOScheduler::Add()'s "
+    "assertion");
+
+  recorder.DiscardContent();
+
+  GOAssert(
+    !recorder.IsOpen(),
+    "DiscardContent() must close an open recording, not just reset the "
+    "round, so a task deregistered mid-recording is safe to Add() back");
+  GOAssert(
+    !recorder.HasOpenFileHandle(),
+    "DiscardContent() must release the underlying file descriptor, not "
+    "just clear the recording flag, so no handle leaks when the task is "
+    "later Add()'d back");
+  GOAssert(
+    recorder.IsEmpty(),
+    "after DiscardContent() the recorder must be IsEmpty(), as "
+    "GOScheduler::Add() requires");
+
+  wxFile file(path);
+
+  GOAssert(file.IsOpened(), "the recorded WAV file should be readable back");
+
+  const unsigned nDataBytes = N_SAMPLES_PER_BUFFER * sizeof(float);
+  const wxFileOffset fileLength = file.Length();
+
+  GOAssert(
+    fileLength
+      == static_cast<wxFileOffset>(
+        GOSoundRecorderTask::WAV_HEADER_SIZE + nDataBytes),
+    "DiscardContent() must finalize the WAV header over exactly the one "
+    "buffer recorded before it was called, like a normal Close()");
+
+  GOSoundRecorderTask::PcmWaveHeader header;
+  const ssize_t nHeaderRead = file.Read(&header, sizeof(header));
+
+  GOAssert(
+    nHeaderRead == static_cast<ssize_t>(sizeof(header)),
+    "the WAV header should be fully readable back");
+  GOAssert(
+    header.dataHeader.dwSize == nDataBytes,
+    "DiscardContent() must rewrite the data chunk size to reflect the "
+    "recorded buffer, not leave it at the zero-data placeholder written by "
+    "Open()");
+
+  std::vector<float> data(N_SAMPLES_PER_BUFFER);
+  const ssize_t nRead = file.Read(data.data(), nDataBytes);
+
+  file.Close();
+  wxRemoveFile(path);
+
+  GOAssert(
+    nRead == static_cast<ssize_t>(nDataBytes),
+    "the WAV data section should hold exactly one buffer's worth of "
+    "samples");
+  for (unsigned frameI = 0; frameI < N_SAMPLES_PER_BUFFER; frameI++)
+    GOAssert(
+      data[frameI] == rampValue(0, 0, frameI),
+      std::format("frame {}: recorded sample mismatch", frameI));
+}
+
+void GOTestSoundRecorderTask::run() {
+  GO_RUN_TEST(TestGathersDistinctChannelCountsInOrder())
+  GO_RUN_TEST(TestDiscardContentClosesOpenRecording())
+}

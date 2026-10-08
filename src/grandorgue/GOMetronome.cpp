@@ -19,6 +19,7 @@
 #include "model/GOWindchest.h"
 
 #include "GOOrganController.h"
+#include "GOTimer.h"
 
 static const GOMidiObjectContext MIDI_CONTEXT(wxT("Metronome"), _("Metronome"));
 
@@ -82,7 +83,7 @@ GOMetronome::GOMetronome(GOOrganController *organController)
     m_rank(NULL),
     m_StopID(0) {
   CreateButtons(*m_OrganController, BUTTON_DEFS);
-  m_OrganController->RegisterSoundStateHandler(this);
+  m_OrganController->RegisterLifecycleListener(this);
 }
 
 GOMetronome::~GOMetronome() { StopTimer(); }

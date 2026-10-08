@@ -1,5 +1,5 @@
 /*
- * Copyright 2009-2024 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2026 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -7,8 +7,12 @@
 #ifndef GOTEST_H
 #define GOTEST_H
 
+#include <optional>
+
 #include "GOOrganController.h"
 #include "GOTestUtils.h"
+
+#include "config/GOConfig.h"
 
 class GOTest : public GOTestUtils {
   /*
@@ -18,19 +22,41 @@ class GOTest : public GOTestUtils {
           - A tear down method
   */
 
+public:
+  enum Category { FUNCTIONAL, PERF };
+
 private:
   std::string name = "GOTest";
+  Category m_Category;
 
 public:
-  GOTest();
+  GOTest(Category category = FUNCTIONAL);
   virtual ~GOTest();
   virtual bool setUp();
   virtual void run();
   virtual bool tearDown();
-  virtual std::string GetName() { return name; };
+  virtual std::string GetName() { return name; }
+  Category GetCategory() const { return m_Category; }
 };
 
 class GOCommonControllerTest : public GOTest {
+private:
+  // mkdtemp() writes the actual directory name into this buffer and
+  // organ_directory points into it, so it must outlive setUp() (a member,
+  // not a setUp()-local string).
+  std::string m_OrganDirectoryTemplate;
+
+  // Owns the GOConfig that controller's GOOrganController::m_config
+  // reference points to. GOConfig has no default constructor and needs
+  // GetName(), which only resolves to the derived test's actual name once
+  // the derived constructor has run - so this is constructed in setUp(),
+  // not in the constructor's initializer list, via std::optional's
+  // deferred-construction (hence the mp_ prefix, matching this codebase's
+  // convention for members that are absent until explicitly constructed).
+  // Must outlive controller: tearDown() deletes controller before
+  // resetting mp_config (see GOTest.cpp), since ~GOOrganController() may
+  // still read m_config.
+  std::optional<GOConfig> mp_config;
 
 public:
   GOCommonControllerTest();

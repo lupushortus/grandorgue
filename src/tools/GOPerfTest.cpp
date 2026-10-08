@@ -14,9 +14,8 @@
 
 #include "config/GOConfig.h"
 #include "model/GOWindchest.h"
-#include "sound/GOSoundOrganEngine.h"
-#include "sound/GOSoundRecorder.h"
-#include "sound/buffer/GOSoundBufferMutable.h"
+#include "sound/buffer/GOSoundBufferPlanarMutable.h"
+#include "sound/playing/GOSoundSamplerPlayer.h"
 #include "sound/providers/GOSoundProviderWave.h"
 
 #include "GOOrganController.h"
@@ -78,8 +77,8 @@ void GOPerfTestApp::RunTest(
 
     organController->InitOrganDirectory(testsDir);
     organController->AddWindchest(new GOWindchest(*organController));
-    GOSoundOrganEngine *engine = new GOSoundOrganEngine();
-    GOSoundRecorder recorder;
+
+    GOSoundOrganEngine &engine = organController->GetSoundEngine();
 
     try {
       ptr_vector<GOSoundProvider> pipes;
@@ -118,36 +117,32 @@ void GOPerfTestApp::RunTest(
           true);
         pipes.push_back(w);
       }
-      engine->SetSamplesPerBuffer(samples_per_frame);
-      engine->SetVolume(10);
-      engine->SetSampleRate(sample_rate);
-      engine->SetPolyphonyLimiting(false);
-      engine->SetHardPolyphony(10000);
-      engine->SetScaledReleases(true);
-      engine->SetAudioGroupCount(1);
-      engine->SetInterpolationType(interpolation);
-
-      std::vector<GOAudioOutputConfiguration> engine_config;
-      engine_config.resize(1);
-      engine_config[0].channels = 2;
-      engine_config[0].scale_factors.resize(2);
-      engine_config[0].scale_factors[0].resize(2);
-      engine_config[0].scale_factors[0][0] = 0;
-      engine_config[0].scale_factors[0][1] = -121;
-      engine_config[0].scale_factors[1].resize(2);
-      engine_config[0].scale_factors[1][0] = -121;
-      engine_config[0].scale_factors[1][1] = 0;
-      engine->SetAudioOutput(engine_config);
-      engine->SetAudioRecorder(&recorder, false);
-
-      engine->Setup(*organController, organController->GetMemoryPool());
+      engine.SetGain(10);
+      engine.SetPolyphonyLimiting(false);
+      engine.SetHardPolyphony(10000);
+      engine.SetScaledReleases(true);
+      engine.SetInterpolationType(interpolation);
+      engine.BuildEngine(
+        GOSoundOrganEngine::createDefaultOutputConfigs(),
+        samples_per_frame,
+        sample_rate);
+      // StartPipeSample() below always targets windchestN=1, audioGroup=0,
+      // but BuildEngine() only builds grid cells for pairs coming from the
+      // organ model's ranks/pipes - which this tool bypasses entirely. Build
+      // that one cell explicitly before the engine starts.
+      engine.CommitSoundRoutingFor(engine.PrepareSoundRoutingFor({{1, 0}}));
+      engine.StartEngine();
+      engine.SetUsed(true);
+      engine.SetStreaming(true);
 
       std::vector<GOSoundSampler *> handles;
-      float output_buffer[samples_per_frame * 2];
+      GO_DECLARE_LOCAL_SOUND_BUFFER_PLANAR(outputBuffer, 2, samples_per_frame)
+      GOSoundSamplerPlayer &samplerPlayer = engine.GetSamplerPlayer();
 
-      for (unsigned i = 0; i < pipes.size(); i++) {
+      for (GOSoundProvider *pPipe : pipes) {
         GOSoundSampler *handle
-          = engine->StartPipeSample(pipes[i], 1, 0, 127, 0, 0);
+          = samplerPlayer.StartPipeSample(pPipe, 1, 0, 127, 0, 0);
+
         if (handle)
           handles.push_back(handle);
       }
@@ -155,15 +150,12 @@ void GOPerfTestApp::RunTest(
       wxMilliClock_t start = getCPUTime();
       wxMilliClock_t end;
       wxMilliClock_t diff;
-      unsigned batch_size = 1 * engine->GetSampleRate() / samples_per_frame;
+      unsigned batch_size = 1 * engine.GetSampleRate() / samples_per_frame;
       unsigned blocks = 0;
-      GOSoundBufferMutable outputBufferMutable(
-        output_buffer, 2, samples_per_frame);
 
       do {
         for (unsigned i = 0; i < batch_size; i++) {
-          engine->GetAudioOutput(0, false, outputBufferMutable);
-          engine->NextPeriod();
+          engine.ProcessAudioCallback(0, outputBuffer);
           blocks++;
         }
         end = getCPUTime();
@@ -171,7 +163,8 @@ void GOPerfTestApp::RunTest(
       } while (diff < 30000);
 
       float playback_time
-        = blocks * (double)samples_per_frame / engine->GetSampleRate();
+        = blocks * (double)samples_per_frame / engine.GetSampleRate();
+
       wxLogMessage(
         wxT("%u sampler, %f seconds, %u bits, %u, %s, %s, %u block: "
             "%ld ms cpu time, limit: %f"),
@@ -185,12 +178,16 @@ void GOPerfTestApp::RunTest(
         diff.ToLong(),
         playback_time * 1000.0 * pipes.size() / diff.ToLong());
 
+      engine.SetStreaming(false);
+      engine.SetUsed(false);
+      engine.StopEngine();
+      engine.DestroyEngine();
       pipes.clear();
     } catch (wxString msg) {
       wxLogError(wxT("Error: %s"), msg.c_str());
     }
 
-    delete engine;
+    organController->Clear();
     delete organController;
   } catch (wxString msg) {
     wxLogError(wxT("Error: %s"), msg.c_str());

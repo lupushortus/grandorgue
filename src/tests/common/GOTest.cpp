@@ -8,19 +8,15 @@
 #include "GOTestCollection.h"
 #include "config/GOConfig.h"
 #include <cstdio>
-#include <iostream>
+#include <filesystem>
 
-GOTest::GOTest() {
+GOTest::GOTest(Category category) : m_Category(category) {
   // This is the magic to auto register tests in TestCollection
   GOTestCollection::Instance()->add_test(this);
 }
 GOTest::~GOTest() {}
 
-bool GOTest::setUp() {
-  std::cout << "==================== " << this->GetName()
-            << " - BEGIN ====================";
-  return true;
-}
+bool GOTest::setUp() { return true; }
 
 void GOTest::run() {}
 
@@ -36,18 +32,22 @@ bool GOCommonControllerTest::setUp() {
 
   // Make organ temporary directory
   GOTest::setUp();
-  char path[] = ".";
-  this->organ_directory = mkdtemp(path);
-  GOConfig settings(GetName(), "");
-  this->controller = new GOOrganController(settings);
+  m_OrganDirectoryTemplate = "./GOTestXXXXXX";
+  this->organ_directory = mkdtemp(&m_OrganDirectoryTemplate[0]);
+  mp_config.emplace(GetName(), "");
+  this->controller = new GOOrganController(*mp_config);
   this->controller->InitOrganDirectory(this->organ_directory);
   return true;
 }
 
 bool GOCommonControllerTest::tearDown() {
-  // This initialize a new GOOrganController object that will be destroyed
-  // during test teardown().
+  // Delete controller before resetting mp_config: ~GOOrganController() may
+  // still read m_config, so mp_config must outlive it.
+  this->controller->Clear();
+  delete this->controller;
   this->controller = nullptr;
-  unlink(this->organ_directory);
+  mp_config.reset();
+  if (this->organ_directory)
+    std::filesystem::remove_all(this->organ_directory);
   return true;
 }

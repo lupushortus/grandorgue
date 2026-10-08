@@ -7,7 +7,10 @@
 
 #include "GOGUIPanel.h"
 
+#include <algorithm>
+
 #include <wx/image.h>
+#include <wx/toplevel.h>
 
 #include "combinations/GOSetter.h"
 #include "combinations/control/GODivisionalButtonControl.h"
@@ -15,13 +18,14 @@
 #include "config/GOConfigReader.h"
 #include "config/GOConfigWriter.h"
 #include "control/GOPistonControl.h"
+#include "gui/GOGuiImageCache.h"
+#include "gui/panels/GOGUIMouseState.h"
 #include "model/GOCoupler.h"
 #include "model/GODivisionalCoupler.h"
 #include "model/GOManual.h"
 #include "model/GOStop.h"
 #include "model/GOSwitch.h"
 #include "model/GOTremulant.h"
-#include "primitives/GODC.h"
 
 #include "GOGUIButton.h"
 #include "GOGUIControl.h"
@@ -37,11 +41,14 @@
 #include "GOGUIPanelView.h"
 #include "GOGUIPanelWidget.h"
 #include "GOOrganController.h"
-#include "Images.h"
 
-GOGUIPanel::GOGUIPanel(GOOrganController *organController)
+GOGUIPanel::GOGUIPanel(
+  GOOrganController *organController,
+  GOGuiImageCache &imageCache,
+  GOGUIMouseState &mouseState)
   : m_OrganController(organController),
-    m_MouseState(organController->GetMouseState()),
+    r_ImageCache(imageCache),
+    m_MouseState(mouseState),
     m_controls(0),
     m_BackgroundControls(0),
     m_Name(),
@@ -62,13 +69,22 @@ bool GOGUIPanel::InitialOpenWindow() { return m_InitialOpenWindow; }
 
 GOOrganController *GOGUIPanel::GetOrganFile() { return m_OrganController; }
 
+bool GOGUIPanel::IsKeyboardInputUsed() const {
+  return std::any_of(
+    m_controls.begin(), m_controls.end(), [](const GOGUIControl *pGuiCtrl) {
+      const GOControl *pCtrl = pGuiCtrl->GetControl();
+
+      return pCtrl && pCtrl->IsKeyboardInputUsed();
+    });
+}
+
 const wxString &GOGUIPanel::GetName() { return m_Name; }
 
 const wxString &GOGUIPanel::GetGroupName() { return m_GroupName; }
 
 const wxImage *GOGUIPanel::LoadImage(
   const wxString &filename, const wxString &maskname) {
-  return m_OrganController->GetImageCache().LoadImage(filename, maskname);
+  return r_ImageCache.LoadImage(filename, maskname);
 }
 
 GODocumentBase *GOGUIPanel::GetDocument() const {
@@ -848,5 +864,5 @@ void GOGUIPanel::HandleMouseScroll(int x, int y, int amount) {
 }
 
 const wxImage *GOGUIPanel::GetWoodImage(unsigned woodImageNumber) const {
-  return m_OrganController->GetImageCache().GetWoodImage(woodImageNumber);
+  return r_ImageCache.GetWoodImage(woodImageNumber);
 }

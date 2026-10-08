@@ -65,8 +65,9 @@ control/GOElementCreator.cpp
 control/GOEventDistributor.cpp
 control/GOLabelControl.cpp
 control/GOPistonControl.cpp
-document-base/GODocumentBase.cpp
-document-base/GOView.cpp
+gui/GOGuiImageCache.cpp
+gui/GOGuiLog.cpp
+gui/GOGuiOrgan.cpp
 gui/dialogs/common/GODialogCloser.cpp
 gui/dialogs/common/GODialogSizeSet.cpp
 gui/dialogs/common/GODialogTab.cpp
@@ -94,6 +95,7 @@ gui/dialogs/settings/GOSettingsOptions.cpp
 gui/dialogs/settings/GOSettingsOrgans.cpp
 gui/dialogs/settings/GOSettingsReverb.cpp
 gui/dialogs/settings/GOSettingsTemperaments.cpp
+gui/dialogs/GOMidiChannelMappingDialog.cpp
 gui/dialogs/GOMidiObjectsDialog.cpp
 gui/dialogs/GONewReleaseDialog.cpp
 gui/dialogs/GOProgressDialog.cpp
@@ -101,7 +103,9 @@ gui/dialogs/GOPropertiesDialog.cpp
 gui/dialogs/GOSelectOrganDialog.cpp
 gui/dialogs/GOSplash.cpp
 gui/dialogs/go-message-boxes.cpp
-gui/frames/GOFrame.cpp
+gui/document-base/GODocumentBase.cpp
+gui/document-base/GODocumentView.cpp
+gui/frames/GOAppWindow.cpp
 gui/frames/GOLogWindow.cpp
 gui/frames/GOMainWindowData.cpp
 gui/frames/GOStopsWindow.cpp
@@ -144,6 +148,7 @@ loader/GOFileStore.cpp
 loader/GOLoaderFilename.cpp
 loader/GOLoadThread.cpp
 loader/GOLoadWorker.cpp
+loader/GOOrganReader.cpp
 loader/cache/GOCache.cpp
 loader/cache/GOCacheCleaner.cpp
 loader/cache/GOCacheWriter.cpp
@@ -202,14 +207,16 @@ model/GOSwitch.cpp
 model/GOTremulant.cpp
 model/GOWindchest.cpp
 modification/GOModificationProxy.cpp
-sound/buffer/GOSoundBufferManaged.cpp
+scheduler/GOScheduler.cpp
+scheduler/GOSchedulerThread.cpp
+sound/dsp-kernels/GOSoundOnePoleFilter.cpp
+sound/dsp-kernels/GOSoundResample.cpp
+sound/interfaces/GOSoundCallbackConnector.cpp
 sound/playing/GOSoundAudioSection.cpp
 sound/playing/GOSoundFader.cpp
-sound/playing/GOSoundFilter.cpp
 sound/playing/GOSoundReleaseAlignTable.cpp
-sound/playing/GOSoundResample.cpp
+sound/playing/GOSoundSamplerPlayer.cpp
 sound/playing/GOSoundSamplerPool.cpp
-sound/playing/GOSoundStateHandler.cpp
 sound/playing/GOSoundStream.cpp
 sound/playing/GOSoundToneBalanceFilter.cpp
 sound/ports/GOSoundJackPort.cpp
@@ -217,34 +224,34 @@ sound/ports/GOSoundPort.cpp
 sound/ports/GOSoundPortFactory.cpp
 sound/ports/GOSoundPortaudioPort.cpp
 sound/ports/GOSoundRtPort.cpp
+sound/processing/GOSoundProcessingChain.cpp
+sound/processing/GOSoundProcessingChainState.cpp
 sound/providers/GOSoundProvider.cpp
 sound/providers/GOSoundProviderSynthedTrem.cpp
 sound/providers/GOSoundProviderWave.cpp
 sound/reverb/GOSoundReverb.cpp
 sound/reverb/GOSoundReverbEngine.cpp
 sound/reverb/GOSoundReverbPartition.cpp
-sound/scheduler/GOSoundScheduler.cpp
-sound/scheduler/GOSoundThread.cpp
 sound/tasks/GOSoundGroupTask.cpp
 sound/tasks/GOSoundOutputTask.cpp
+sound/tasks/GOSoundRecorderTask.cpp
 sound/tasks/GOSoundReleaseTask.cpp
+sound/tasks/GOSoundTaskBase.cpp
 sound/tasks/GOSoundTouchTask.cpp
 sound/tasks/GOSoundTremulantTask.cpp
+sound/tasks/GOSoundWindchestGroupTask.cpp
 sound/tasks/GOSoundWindchestTask.cpp
 sound/GOSoundDevInfo.cpp
 sound/GOSoundOrganEngine.cpp
-sound/GOSoundRecorder.cpp
+sound/GOSoundWindchestGroupTaskGrid.cpp
 sound/GOSoundSystem.cpp
 updater/GOUpdateChecker.cpp
 yaml/GOSaveableToYaml.cpp
 yaml/GOYamlModel.cpp
 yaml/go-wx-yaml.cpp
 GOAudioRecorder.cpp
-GOImageCache.cpp
-GODocument.cpp
 GOEvent.cpp
 GOKeyConvert.cpp
-GOLog.cpp
 GOMetronome.cpp
 GOOrganController.cpp
 GOVirtualCouplerController.cpp
@@ -263,11 +270,11 @@ link_directories(${go_libdir})
 
 if (WIN32)
   set_source_files_properties("${RESOURCEDIR}/GrandOrgue.rc" PROPERTIES GENERATED "YES")
-  add_executable(GrandOrgue WIN32 GOApp.cpp "${RESOURCEDIR}/GrandOrgue.rc")
+  add_executable(GrandOrgue WIN32 gui/GOGuiApp.cpp "${RESOURCEDIR}/GrandOrgue.rc")
   add_dependencies(GrandOrgue resources) # GrandOrgue.rc and GrandOrgue.manifest & GOIcon.ico referenced from GrandOrgue.rc
   add_linker_option(GrandOrgue large-address-aware)
 else ()
-   add_executable(GrandOrgue GOApp.cpp)
+   add_executable(GrandOrgue gui/GOGuiApp.cpp)
 endif ()
 
 BUILD_EXECUTABLE(GrandOrgue)

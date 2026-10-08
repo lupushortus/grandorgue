@@ -12,8 +12,6 @@
 #include <vector>
 
 #include "sound/reverb/GOSoundReverb.h"
-#include "sound/scheduler/GOSoundTask.h"
-#include "threading/GOMutex.h"
 
 #include "GOSoundBufferTaskBase.h"
 
@@ -24,28 +22,25 @@ private:
   unsigned m_OutputCount;
   std::vector<float> m_MeterInfo;
   GOSoundReverb *m_Reverb;
-  GOMutex m_Mutex;
-  std::atomic_bool m_Done;
-  std::atomic_bool m_Stop;
+
+  bool DoRun(GOSchedulerThread *pThread) override;
 
 public:
   GOSoundOutputTask(
     unsigned channels,
-    std::vector<float> scale_factors,
-    unsigned samples_per_buffer);
+    std::vector<float> scaleFactors,
+    unsigned samplesPerBuffer);
   ~GOSoundOutputTask();
 
   void SetOutputs(std::vector<GOSoundBufferTaskBase *> outputs);
 
-  unsigned GetGroup();
-  unsigned GetCost();
-  bool GetRepeat();
-  void Run(GOSoundThread *pThread = nullptr);
-  void Exec();
-  void Finish(bool stop, GOSoundThread *pThread = nullptr);
+  bool IsEmpty() const override;
 
-  void Clear();
-  void Reset();
+  void CompleteRound() override { Run(); }
+  void EnsureBufferReady(
+    bool isToComplete, GOSchedulerThread *pThread = nullptr) override;
+
+  void DiscardContent() override;
 
   void SetupReverb(
     const GOSoundReverb::ReverbConfig &config,

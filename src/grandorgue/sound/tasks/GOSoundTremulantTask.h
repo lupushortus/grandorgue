@@ -9,38 +9,34 @@
 #define GOSOUNDTREMULANTTASK_H
 
 #include "sound/playing/GOSoundSamplerList.h"
-#include "sound/scheduler/GOSoundTask.h"
-#include "threading/GOMutex.h"
 
-class GOSoundOrganEngine;
+#include "GOSoundTaskBase.h"
 
-class GOSoundTremulantTask : public GOSoundTask {
+class GOSchedulerThread;
+class GOSoundSamplerPlayer;
+
+class GOSoundTremulantTask : public GOSoundTaskBase {
 private:
-  GOSoundOrganEngine &m_engine;
+  GOSoundSamplerPlayer &r_SamplerPlayer;
   GOSoundSamplerList m_Samplers;
-  GOMutex m_Mutex;
-  float m_Volume;
+  float m_amplitude;
   unsigned m_SamplesPerBuffer;
-  bool m_Done;
+
+  bool DoRun(GOSchedulerThread *pThread) override;
 
 public:
   GOSoundTremulantTask(
-    GOSoundOrganEngine &sound_engine, unsigned samples_per_buffer);
+    GOSoundSamplerPlayer &samplerPlayer, unsigned nFramesPerBuffer);
 
-  unsigned GetGroup();
-  unsigned GetCost();
-  bool GetRepeat();
-  void Run(GOSoundThread *thread = nullptr);
-  void Exec();
+  bool IsEmpty() const override { return m_Samplers.IsEmpty(); }
 
-  void Reset();
-  void Clear();
+  void DiscardContent() override { m_Samplers.Clear(); }
   void Add(GOSoundSampler *sampler);
 
-  float GetVolume() {
-    if (!m_Done)
+  float GetAmplitude() {
+    if (!IsDone())
       Run();
-    return m_Volume;
+    return m_amplitude;
   }
 };
 

@@ -8,55 +8,47 @@
 #ifndef GOSOUNDGROUPTASK_H
 #define GOSOUNDGROUPTASK_H
 
-#include <atomic>
-
-#include "sound/playing/GOSoundSamplerList.h"
-#include "sound/scheduler/GOSoundTask.h"
-#include "sound/scheduler/GOSoundThread.h"
-#include "threading/GOCondition.h"
-#include "threading/GOMutex.h"
+#include <vector>
 
 #include "GOSoundBufferTaskBase.h"
 
-class GOSoundOrganEngine;
-
+/**
+ * Sums the buffers of one audio group's windchest-group tasks (see
+ * GOSoundWindchestGroupTask) into its own buffer. Unlike
+ * GOSoundWindchestGroupTask, this task does no cooperative per-sampler
+ * mixing of its own: it treats its inputs as already-computed buffers, the
+ * same way GOSoundOutputTask treats its audio-group inputs.
+ */
 class GOSoundGroupTask : public GOSoundBufferTaskBase {
 private:
-  GOSoundOrganEngine &m_engine;
-  GOSoundSamplerList m_Active;
-  GOSoundSamplerList m_Release;
-  GOMutex m_Mutex;
-  GOCondition m_Condition;
+  /** The windchest-group tasks summed into this task's buffer, one per
+   * (windchest, this audio group) pair that is actually used. Set by
+   * SetInputs() during BuildEngine(); not owned by this task */
+  std::vector<GOSoundBufferTaskBase *> mp_inputs;
 
-  // the number of threads are processing the samples
-  std::atomic_uint m_ActiveCount;
-
-  // processing state
-  //   0 - no threads are processing the samples
-  //   1 - some threads are processing the samples and none has finished
-  //   2 - some thread has finished processing samples but not all
-  //   3 - all threads have finished processing samples
-  std::atomic_uint m_Done;
-  std::atomic_bool m_Stop;
-
-  void ProcessList(
-    GOSoundSamplerList &list, bool toDropOld, float *output_buffer);
+  /** Sums mp_inputs into this task's buffer, see GOSoundTaskBase::DoRun() */
+  bool DoRun(GOSchedulerThread *pThread) override;
 
 public:
-  GOSoundGroupTask(
-    GOSoundOrganEngine &sound_engine, unsigned samples_per_buffer);
+  /** @param nFramesPerBuffer the number of frames in this task's buffer */
+  GOSoundGroupTask(unsigned nFramesPerBuffer);
 
-  unsigned GetGroup();
-  unsigned GetCost();
-  bool GetRepeat();
-  void Run(GOSoundThread *pThread = nullptr);
-  void Exec();
-  void Finish(bool stop, GOSoundThread *pThread = nullptr);
+  /** @return the windchest-group tasks summed into this task's buffer */
+  const std::vector<GOSoundBufferTaskBase *> &GetInputs() const {
+    return mp_inputs;
+  }
 
-  void Reset();
-  void Clear();
-  void Add(GOSoundSampler *sampler);
-  void WaitAndClear();
+  /** Sets the windchest-group tasks to sum into this task's buffer */
+  void SetInputs(std::vector<GOSoundBufferTaskBase *> inputs);
+
+  /** Forces the round to complete synchronously before returning, see
+   * GOSoundOutputTask::EnsureBufferReady() */
+  void EnsureBufferReady(
+    bool isToComplete, GOSchedulerThread *pThread = nullptr) override;
+
+  /** Not cooperative, so a plain synchronous Run() suffices, see
+   * GOSoundOutputTask::CompleteRound() */
+  void CompleteRound() override { Run(); }
 };
 
 #endif

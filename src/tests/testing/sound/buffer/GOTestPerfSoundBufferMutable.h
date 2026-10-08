@@ -8,21 +8,13 @@
 #ifndef GOTESTPERFSOUNDBUFFERMUTABLE_H
 #define GOTESTPERFSOUNDBUFFERMUTABLE_H
 
-#include "GOTest.h"
+#include "GOTestPerfSoundBufferBase.h"
 
 #include <string>
-#include <vector>
 
-class GOTestPerfSoundBufferMutable : public GOTest {
+class GOTestPerfSoundBufferMutable : public GOTestPerfSoundBufferBase {
 private:
   static const std::string TEST_NAME;
-
-  std::vector<std::string> m_failedTests;
-
-  void RunAndEvaluateTest(
-    const std::string &functionName,
-    const struct Baseline &baseline,
-    std::function<void()> operation);
 
   void TestPerfFillWithSilence();
   void TestPerfCopyFrom();
@@ -32,6 +24,7 @@ private:
   void TestPerfAddChannelFrom();
   void TestPerfAddChannelFromWithCoefficient();
   void TestPerfAddChannelFromMonoRecipient();
+  void TestPerfAddChannelFromMono();
 
 public:
   std::string GetName() override { return TEST_NAME; }

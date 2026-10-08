@@ -9,6 +9,7 @@
 #define GOORGANMODEL_H
 
 #include <set>
+#include <unordered_map>
 
 #include "ptrvector.h"
 
@@ -19,7 +20,7 @@
 #include "modification/GOModificationProxy.h"
 #include "pipe-config/GOPipeConfigListener.h"
 #include "pipe-config/GOPipeConfigTreeNode.h"
-#include "sound/GOSoundOrganInterfaceProxy.h"
+#include "sound/interfaces/GOSoundSamplerPlayerProxy.h"
 
 #include "GOEventHandlerList.h"
 
@@ -38,7 +39,7 @@ class GOWindchest;
 class GOOrganModel : private GOCombinationButtonSet,
                      public GOCombinationControllerProxy,
                      public GOEventHandlerList,
-                     public GOSoundOrganInterfaceProxy,
+                     public GOSoundSamplerPlayerProxy,
                      public GOMidiSendProxy,
                      public GOPipeConfigListener {
 private:
@@ -55,6 +56,13 @@ private:
   bool m_CombinationsStoreNonDisplayedDrawstops;
 
   GOPipeConfigTreeNode m_RootPipeConfigNode;
+
+  /** One entry per windchest, populated by AddWindchest(): maps a windchest's
+   * own GOPipeConfigNode to its windchest number. Membership in this map is
+   * the only test CollectWindchestsForNode() uses for "is this node a
+   * windchest's own config node", not tree depth. */
+  std::unordered_map<const GOPipeConfigNode *, unsigned>
+    m_WindchestNByPipeConfig;
 
   bool m_OrganModelModified;
 
@@ -82,14 +90,10 @@ protected:
   unsigned m_ODFManualCount;
   unsigned m_ODFRankCount;
 
-  void Load(GOConfigReader &cfg);
-
-  /**
-   * Called after Load() and InitCmbTemplates();
-   * Init general and divisional templates
-   * Load generals and divisionals from ODF/cmb
-   */
-  void LoadCmbButtons(GOConfigReader &cfg);
+  /** Undoes Load()/LoadCmbButtons(): clears the windchest/manual/enclosure/
+   * switch/tremulant/rank/piston/divisional-coupler/general elements they
+   * populated, plus the inherited GOEventHandlerList registrations. */
+  void Cleanup();
 
   /**
    * Update all generals buttons light.
@@ -103,6 +107,15 @@ protected:
 public:
   GOOrganModel(GOConfig &config);
   virtual ~GOOrganModel();
+
+  void Load(GOConfigReader &cfg);
+
+  /**
+   * Called after Load() and InitCmbTemplates();
+   * Init general and divisional templates
+   * Load generals and divisionals from ODF/cmb
+   */
+  void LoadCmbButtons(GOConfigReader &cfg);
 
   const GOConfig &GetConfig() const { return m_config; }
   GOConfig &GetConfig() { return m_config; }
@@ -185,9 +198,66 @@ public:
   unsigned GetFirstManualIndex();
   GOManual *GetManual(unsigned index);
 
-  GORank *GetRank(unsigned index);
-  unsigned GetODFRankCount();
+  /** @return the number of ranks declared in the ODF [Ranks] section only;
+   * excludes ranks added later via AddRank(), such as inline stop ranks and
+   * the metronome rank */
+  unsigned GetODFRankCount() const { return m_ODFRankCount; }
+
+  /** @return the total number of ranks, including ODF ranks and ranks added
+   * later via AddRank() */
+  unsigned GetRankCount() const { return m_ranks.size(); }
+
+  const GORank *GetRank(unsigned index) const { return m_ranks[index]; }
+  GORank *GetRank(unsigned index) { return m_ranks[index]; }
   void AddRank(GORank *rank);
+
+  /**
+   * Scans every sounding pipe of every rank and collects the distinct
+   * (windchestN, audioGroupId) pairs actually used - the pairs the sound
+   * engine needs a GOSoundWindchestGroupTask for. Tremulant-only samplers
+   * are not pipes, so they are not part of this scan.
+   * @return the distinct (windchestN, audioGroupId) pairs used by the
+   *   organ's pipes
+   */
+  std::set<std::pair<unsigned, unsigned>> GetUsedWindchestGroupPairs() const;
+
+  /**
+   * Verifies, in Debug builds, that a pipe on windchestN is already routable
+   * to audioGroupId - i.e. that whoever is about to change a pipe's audio
+   * group ran the necessary pre-scan (GOOrganController::
+   * EnsureSoundRoutingFor()) first. The base implementation is a no-op:
+   * GOOrganModel alone has no engine to check against, so it trusts the
+   * caller. GOOrganController overrides it once an engine exists.
+   * @param windchestN the pipe's windchest
+   * @param audioGroupId the audio group the pipe is about to be assigned to
+   */
+  virtual void AssertSoundRoutingFor(
+    unsigned windchestN, unsigned audioGroupId) const {}
+
+  /**
+   * Makes every pair in pairs routable, suspending and resuming the organ
+   * exactly once if (and only if) any pair was actually missing. Callers
+   * must run this before changing any pipe's audio group to one of these
+   * pairs - GOSoundingPipe::UpdateAudioGroup() only asserts routability, it
+   * does not establish it. The base implementation is a no-op: GOOrganModel
+   * alone has no engine to route with. GOOrganController overrides it once
+   * an engine exists.
+   * @param pairs the (windchestN, audioGroupId) pairs that must be routable
+   *   afterwards; windchestN first, audioGroupId second
+   */
+  virtual void EnsureSoundRoutingFor(
+    const std::set<std::pair<unsigned, unsigned>> &pairs) {}
+
+  /**
+   * Finds every windchest reached by node: node itself if it is the organ
+   * root (every windchest), otherwise the single windchest owning the
+   * nearest GOPipeConfigNode ancestor (including node itself) found in
+   * m_WindchestNByPipeConfig.
+   * @param node the tree node about to have its audio group reassigned
+   * @param outWindchests windchest numbers reached by node are inserted here
+   */
+  void CollectWindchestsForNode(
+    const GOPipeConfigNode &node, std::set<unsigned> &outWindchests) const;
 
   unsigned GetNumberOfReversiblePistons();
   GOPistonControl *GetPiston(unsigned index);

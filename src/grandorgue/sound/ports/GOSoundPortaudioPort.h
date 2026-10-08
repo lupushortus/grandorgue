@@ -11,11 +11,20 @@
 #include "GOSoundPort.h"
 #include "GOSoundPortFactory.h"
 #include "portaudio.h"
+#include "sound/buffer/GOSoundBufferPlanarManaged.h"
 
 class GOSoundPortaudioPort : public GOSoundPort {
 private:
   unsigned m_PaDevIndex;
   PaStream *m_stream;
+  // PortAudio's non-interleaved callback buffer is an array of per-channel
+  // pointers (float **), not one contiguous block, so it cannot be wrapped
+  // as a single GOSoundBufferPlanar directly. This staging buffer is what
+  // GOSoundPort::AudioCallback() fills; Callback() then copies each channel
+  // into the corresponding output[i] pointer. See the Stage 3 plan's escape
+  // hatch if this staging copy proves too costly on a real device: fall back
+  // to an interleaved stream and convert here instead.
+  GOSoundBufferPlanarManaged m_StagingBuffer;
 
   static int Callback(
     const void *input,
@@ -32,7 +41,9 @@ public:
   static const wxString PORT_NAME_OLD;
 
   GOSoundPortaudioPort(
-    GOSoundSystem *sound, unsigned paDevIndex, const wxString &name);
+    GOSoundCallbackConnector &callbackConnector,
+    unsigned paDevIndex,
+    const wxString &name);
   virtual ~GOSoundPortaudioPort();
 
   void Open();
@@ -45,7 +56,7 @@ public:
 
   static GOSoundPort *create(
     const GOPortsConfig &portsConfig,
-    GOSoundSystem *sound,
+    GOSoundCallbackConnector &callbackConnector,
     GODeviceNamePattern &pattern);
   static void addDevices(
     const GOPortsConfig &portsConfig, std::vector<GOSoundDevInfo> &list);

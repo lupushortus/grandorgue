@@ -13,7 +13,8 @@
 #include <wx/string.h>
 
 #include "pipe-config/GOPipeConfigTreeNode.h"
-#include "sound/playing/GOSoundStateHandler.h"
+
+#include "GOOrganLifecycleListener.h"
 
 class GOConfigReader;
 class GOEnclosure;
@@ -22,7 +23,7 @@ class GORank;
 class GOTremulant;
 class GOOrganModel;
 
-class GOWindchest : private GOSoundStateHandler {
+class GOWindchest : private GOOrganLifecycleListener {
 private:
   GOOrganModel &r_OrganModel;
   wxString m_Name;
@@ -30,7 +31,7 @@ private:
   // used
   wxString m_HardName;
 
-  float m_Volume;
+  float m_amplitude;
   std::vector<GOEnclosure *> m_enclosure;
   std::vector<unsigned> m_tremulant;
   std::vector<GORank *> m_ranks;
@@ -49,7 +50,7 @@ public:
   void Load(GOConfigReader &cfg, wxString group, unsigned index);
   void UpdateTremulant(GOTremulant *tremulant);
   void UpdateVolume();
-  float GetVolume();
+  float GetAmplitude() const { return m_amplitude; }
   unsigned GetTremulantCount();
   unsigned GetTremulantId(unsigned index);
   unsigned GetRankCount();

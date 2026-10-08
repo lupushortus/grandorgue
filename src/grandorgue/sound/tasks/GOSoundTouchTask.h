@@ -8,30 +8,21 @@
 #ifndef GOSOUNDTOUCHTASK_H
 #define GOSOUNDTOUCHTASK_H
 
-#include <atomic>
-
-#include "sound/scheduler/GOSoundTask.h"
-#include "threading/GOMutex.h"
+#include "GOSoundTaskBase.h"
 
 class GOMemoryPool;
+class GOSchedulerThread;
 
-class GOSoundTouchTask : public GOSoundTask {
+class GOSoundTouchTask : public GOSoundTaskBase {
 private:
   GOMemoryPool &m_Pool;
-  GOMutex m_Mutex;
-  std::atomic_bool m_Stop;
+
+  bool DoRun(GOSchedulerThread *pThread) override;
 
 public:
   GOSoundTouchTask(GOMemoryPool &pool);
 
-  unsigned GetGroup();
-  unsigned GetCost();
-  bool GetRepeat();
-  void Run(GOSoundThread *thread = nullptr);
-  void Exec();
-
-  void Clear();
-  void Reset();
+  void CompleteRound() override;
 };
 
 #endif

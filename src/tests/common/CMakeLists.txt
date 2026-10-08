@@ -1,10 +1,10 @@
-find_package(cpptrace REQUIRED)
 set(go_test_common
     # Test framework - Don't modify
     GOTestResult.cpp
     GOTestResultCollection.cpp
     GOTest.cpp
     GOTestCollection.cpp
+    GOTestScope.cpp
 )
 
 add_library(GOTestLib STATIC ${go_test_common})

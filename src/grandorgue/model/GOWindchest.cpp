@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2025 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2026 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -19,13 +19,13 @@
 GOWindchest::GOWindchest(GOOrganModel &organModel)
   : r_OrganModel(organModel),
     m_Name(),
-    m_Volume(1),
+    m_amplitude(1),
     m_enclosure(0),
     m_tremulant(0),
     m_ranks(0),
     m_pipes(0),
     m_PipeConfig(&organModel.GetRootPipeConfigNode(), &organModel, NULL) {
-  organModel.RegisterSoundStateHandler(this);
+  organModel.RegisterLifecycleListener(this);
 }
 
 void GOWindchest::Init(GOConfigReader &cfg, wxString group, wxString name) {
@@ -84,10 +84,8 @@ void GOWindchest::UpdateVolume() {
   float f = 1.0f;
   for (unsigned i = 0; i < m_enclosure.size(); i++)
     f *= m_enclosure[i]->GetAttenuation();
-  m_Volume = f;
+  m_amplitude = f;
 }
-
-float GOWindchest::GetVolume() { return m_Volume; }
 
 unsigned GOWindchest::GetTremulantCount() { return m_tremulant.size(); }
 

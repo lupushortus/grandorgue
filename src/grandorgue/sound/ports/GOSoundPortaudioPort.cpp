@@ -7,11 +7,13 @@
 
 #include "GOSoundPortaudioPort.h"
 
+#include <cassert>
+
 #include <wx/intl.h>
 #include <wx/regex.h>
 
 #include "config/GODeviceNamePattern.h"
-#include "sound/buffer/GOSoundBufferMutable.h"
+#include "sound/buffer/GOSoundBufferMutableMono.h"
 
 const wxString GOSoundPortaudioPort::PORT_NAME = wxT("PortAudio");
 const wxString GOSoundPortaudioPort::PORT_NAME_OLD = wxT("Pa");
@@ -38,8 +40,12 @@ wxString GOSoundPortaudioPort::getLastError(PaError error) {
 }
 
 GOSoundPortaudioPort::GOSoundPortaudioPort(
-  GOSoundSystem *sound, unsigned paDevIndex, const wxString &name)
-  : GOSoundPort(sound, name), m_PaDevIndex(paDevIndex), m_stream(nullptr) {}
+  GOSoundCallbackConnector &callbackConnector,
+  unsigned paDevIndex,
+  const wxString &name)
+  : GOSoundPort(callbackConnector, name),
+    m_PaDevIndex(paDevIndex),
+    m_stream(nullptr) {}
 
 GOSoundPortaudioPort::~GOSoundPortaudioPort() { Close(); }
 
@@ -61,7 +67,11 @@ void GOSoundPortaudioPort::Open() {
 
   stream_parameters.device = m_PaDevIndex;
   stream_parameters.channelCount = m_Channels;
-  stream_parameters.sampleFormat = paFloat32;
+  // Ask for a planar (channel-major) callback buffer, so the port interface
+  // stays planar. Unlike RtAudio's, PortAudio's non-interleaved buffer is an
+  // array of per-channel pointers rather than one contiguous block, so
+  // Callback() still stages into m_StagingBuffer and copies out per channel.
+  stream_parameters.sampleFormat = paFloat32 | paNonInterleaved;
   stream_parameters.suggestedLatency = m_Latency / 1000.0;
   stream_parameters.hostApiSpecificStreamInfo = NULL;
 
@@ -79,6 +89,7 @@ void GOSoundPortaudioPort::Open() {
       _("Open of the audio stream for %s failed: %s"),
       m_Name.c_str(),
       getLastError(error));
+  m_StagingBuffer.Resize(m_Channels, m_SamplesPerBuffer);
   m_IsOpen = true;
 }
 
@@ -115,10 +126,27 @@ int GOSoundPortaudioPort::Callback(
   PaStreamCallbackFlags statusFlags,
   void *userData) {
   GOSoundPortaudioPort *port = (GOSoundPortaudioPort *)userData;
-  GOSoundBufferMutable outputBuffer(
-    (float *)output, port->m_Channels, frameCount);
 
-  return port->AudioCallback(outputBuffer) ? paContinue : paAbort;
+  // m_StagingBuffer is sized to m_SamplesPerBuffer in Open(); the copy below
+  // trusts that length, so a driver that ever called back with a different
+  // frameCount would read past the driver-owned output pointers
+  assert(frameCount == port->m_SamplesPerBuffer);
+
+  const bool isToContinue = port->AudioCallback(port->m_StagingBuffer);
+
+  // output is paNonInterleaved: an array of per-channel pointers, not one
+  // contiguous block, so each channel is copied out of the staging buffer
+  float **ppOutput = (float **)output;
+
+  for (unsigned channelI = 0, nChannels = port->m_Channels;
+       channelI < nChannels;
+       channelI++) {
+    GOSoundBufferMutableMono dstChannel(ppOutput[channelI], frameCount);
+
+    dstChannel.CopyFrom(port->m_StagingBuffer.GetChannelBuffer(channelI));
+  }
+
+  return isToContinue ? paContinue : paAbort;
 }
 
 // for compatibility with old settings
@@ -147,7 +175,7 @@ void GOSoundPortaudioPort::terminate() {
 
 GOSoundPort *GOSoundPortaudioPort::create(
   const GOPortsConfig &portsConfig,
-  GOSoundSystem *sound,
+  GOSoundCallbackConnector &callbackConnector,
   GODeviceNamePattern &pattern) {
   GOSoundPort *pPort = nullptr;
 
@@ -165,7 +193,7 @@ GOSoundPort *GOSoundPortaudioPort::create(
 	  || pattern.DoesMatch(get_oldstyle_name(i))
 	  || pattern.DoesMatch(compose_device_name(PORT_NAME_OLD, pInfo)))) {
         pattern.SetPhysicalName(devName);
-        pPort = new GOSoundPortaudioPort(sound, i, devName);
+        pPort = new GOSoundPortaudioPort(callbackConnector, i, devName);
         break;
       }
     }
@@ -188,7 +216,10 @@ static void fill_logical_name_and_regex(GOSoundDevInfo &info) {
       info.SetDefaultNameRegex(GOSoundPortFactory::getFullDeviceName(
         GOSoundPortaudioPort::PORT_NAME,
         apiName,
-        wxString::Format("%s \\(hw:[0-9]+,%s\\)", devName1, devName3)));
+        wxString::Format(
+          "%s \\(hw:[0-9]+,%s\\)",
+          GOPortFactory::escapeRegex(devName1),
+          devName3)));
       info.SetDefaultLogicalName(GOSoundPortFactory::getFullDeviceName(
         GOSoundPortaudioPort::PORT_NAME,
         apiName,
